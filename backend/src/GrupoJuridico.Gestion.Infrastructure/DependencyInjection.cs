@@ -25,7 +25,7 @@ public static class DependencyInjection
         services.AddIdentityCore<Usuario>(o =>
             {
                 // Las contraseñas las define el administrador desde "Usuarios del sistema".
-                o.Password.RequiredLength = 6;
+                o.Password.RequiredLength = 12;
                 o.Password.RequireDigit = false;
                 o.Password.RequireLowercase = false;
                 o.Password.RequireUppercase = false;
@@ -33,8 +33,11 @@ public static class DependencyInjection
                 o.User.RequireUniqueEmail = false;
                 o.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@";
                 o.Lockout.MaxFailedAccessAttempts = 5;
+                o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                o.Lockout.AllowedForNewUsers = true;
             })
             .AddRoles<Rol>()
+            .AddSignInManager()
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
 

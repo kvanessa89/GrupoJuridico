@@ -20,7 +20,7 @@ public class CrearUsuarioValidator : AbstractValidator<GuardarUsuarioRequest>
         RuleFor(x => x.Nombre).NotEmpty().WithMessage("Nombre, usuario y contraseña son requeridos.");
         RuleFor(x => x.Usuario).NotEmpty().WithMessage("Nombre, usuario y contraseña son requeridos.");
         RuleFor(x => x.Contrasena).NotEmpty().WithMessage("Nombre, usuario y contraseña son requeridos.")
-            .MinimumLength(6).WithMessage("La contraseña debe tener al menos 6 caracteres.");
+            .MinimumLength(12).WithMessage("La contraseña debe tener al menos 12 caracteres.");
         RuleFor(x => x.Rol).Must(r => Roles.Todos.Contains(r)).WithMessage("Rol no válido.");
     }
 }
@@ -31,8 +31,8 @@ public class ActualizarUsuarioValidator : AbstractValidator<GuardarUsuarioReques
     {
         RuleFor(x => x.Nombre).NotEmpty().WithMessage("El nombre es requerido.");
         RuleFor(x => x.Usuario).NotEmpty().WithMessage("El usuario es requerido.");
-        RuleFor(x => x.Contrasena).MinimumLength(6).When(x => !string.IsNullOrEmpty(x.Contrasena))
-            .WithMessage("La contraseña debe tener al menos 6 caracteres.");
+        RuleFor(x => x.Contrasena).MinimumLength(12).When(x => !string.IsNullOrEmpty(x.Contrasena))
+            .WithMessage("La contraseña debe tener al menos 12 caracteres.");
         RuleFor(x => x.Rol).Must(r => Roles.Todos.Contains(r)).WithMessage("Rol no válido.");
     }
 }

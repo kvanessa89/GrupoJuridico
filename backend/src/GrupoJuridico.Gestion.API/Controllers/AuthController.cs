@@ -4,6 +4,8 @@ using GrupoJuridico.Gestion.Application.Common.Interfaces;
 using GrupoJuridico.Gestion.Application.Usuarios;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using GrupoJuridico.Gestion.Api.Infrastructure;
 
 namespace GrupoJuridico.Gestion.Api.Controllers;
 
@@ -23,6 +25,7 @@ public class AuthController : ControllerBase
     /// <summary>Inicia sesión y devuelve el JWT con el rol del usuario.</summary>
     [AllowAnonymous]
     [HttpPost("login")]
+    [EnableRateLimiting(LoginRateLimiting.PolicyName)]
     public Task<LoginResponse> Login(LoginRequest request) => _auth.LoginAsync(request);
 
     [Authorize]
