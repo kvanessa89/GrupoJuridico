@@ -1,6 +1,7 @@
 using GrupoJuridico.Gestion.Application.Common;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
+using GrupoJuridico.Gestion.Domain.Constants;
 using GrupoJuridico.Gestion.Domain.Entities;
 using GrupoJuridico.Gestion.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -33,8 +34,9 @@ public class PersonasService
     public static TipoNumero TipoDesde(string? t) =>
         string.Equals(t, "WhatsApp", StringComparison.OrdinalIgnoreCase) ? TipoNumero.WhatsApp : TipoNumero.Telefono;
 
-    private async Task<Persona> CargarAsync(int id, CancellationToken ct) =>
-        await _db.Personas
+    private async Task<Persona> CargarAsync(int id, CancellationToken ct)
+    {
+        var persona = await _db.Personas
             .Include(p => p.Cliente)
             .Include(p => p.Ventas).ThenInclude(v => v.Prima)
             .Include(p => p.Numeros)
@@ -46,9 +48,25 @@ public class PersonasService
             .FirstOrDefaultAsync(p => p.Id == id, ct)
         ?? throw new NoEncontradoException("Persona", id);
 
+        VerificarAcceso(persona);
+        return persona;
+    }
+
+    private void VerificarAcceso(Persona persona)
+    {
+        if (_usuario.Rol == Roles.AsistenteVentas &&
+            persona.Prima?.EstadoPrimaId == EstadoPrima.Pagada)
+            throw new ProhibidoException("No tenés permiso para acceder a esta persona.");
+    }
+
     public async Task<PersonaDetalleDto> ObtenerAsync(int id, CancellationToken ct = default)
     {
         var p = await CargarAsync(id, ct);
+        return await CrearDetalleAsync(p);
+    }
+
+    private async Task<PersonaDetalleDto> CrearDetalleAsync(Persona p)
+    {
         var autores = await _identity.MapaAsync(p.Comentarios.Select(c => c.UsuarioId).Distinct());
         var v = p.Venta;
         var pr = p.Prima;
@@ -114,7 +132,9 @@ public class PersonasService
 
         _db.Personas.Add(persona);
         await _db.SaveChangesAsync(ct);
-        return await ObtenerAsync(persona.Id, ct);
+        // Devuelve el resultado de la creación, incluso si la prima nace pagada.
+        // Las consultas y modificaciones posteriores pasan por CargarAsync.
+        return await CrearDetalleAsync(persona);
     }
 
     public async Task ActualizarDatosAsync(int id, ActualizarDatosRequest r, CancellationToken ct = default)
@@ -270,7 +290,7 @@ public class PersonasService
     public async Task<ComentarioDto> ComentarAsync(int personaId, ComentarioRequest r, CancellationToken ct = default)
     {
         await _comentarioValidator.ValidarAsync(r, ct);
-        if (!await _db.Personas.AnyAsync(p => p.Id == personaId, ct)) throw new NoEncontradoException("Persona", personaId);
+        await CargarAsync(personaId, ct);
         var usuarioId = _usuario.Id ?? throw new ProhibidoException();
         var c = new Comentario { PersonaId = personaId, UsuarioId = usuarioId, Texto = r.Texto.Trim(), Fecha = _fecha.AhoraUtc };
         _db.Comentarios.Add(c);
@@ -284,6 +304,7 @@ public class PersonasService
     {
         var c = await _db.Comentarios.FindAsync(new object[] { comentarioId }, ct) ?? throw new NoEncontradoException("Comentario", comentarioId);
         if (c.UsuarioId != _usuario.Id) throw new ProhibidoException("Solo podés eliminar tus propios comentarios.");
+        await CargarAsync(c.PersonaId, ct);
         _db.Comentarios.Remove(c);
         await _db.SaveChangesAsync(ct);
     }
