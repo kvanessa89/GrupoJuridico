@@ -1,0 +1,7 @@
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Secretos locales (ver CLAUDE.md)
+backend/src/GrupoJuridico.Gestion.API/appsettings.Development.json
