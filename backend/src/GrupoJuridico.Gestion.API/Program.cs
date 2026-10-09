@@ -18,6 +18,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUsuarioActual, UsuarioActual>();
 builder.Services.AddExceptionHandler<ManejadorExcepciones>();
 builder.Services.AddProblemDetails();
+builder.Services.AddLoginRateLimiting(builder.Configuration);
 
 var jwt = builder.Configuration.GetSection(JwtOptions.Seccion).Get<JwtOptions>() ?? new JwtOptions();
 if (string.IsNullOrWhiteSpace(jwt.Key) || jwt.Key.Length < 32)
@@ -80,7 +81,9 @@ if (app.Configuration.GetValue("Swagger:Habilitado", app.Environment.IsDevelopme
 }
 
 if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
+app.UseRouting();
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -4,6 +4,7 @@ using GrupoJuridico.Gestion.Application.Usuarios;
 using GrupoJuridico.Gestion.Domain.Constants;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace GrupoJuridico.Gestion.Infrastructure.Identity;
 
@@ -11,17 +12,28 @@ public class IdentityService : IIdentityService
 {
     private readonly UserManager<Usuario> _users;
     private readonly RoleManager<Rol> _roles;
+    private readonly SignInManager<Usuario> _signIn;
+    private readonly ILogger<IdentityService> _log;
 
-    public IdentityService(UserManager<Usuario> users, RoleManager<Rol> roles)
+    public IdentityService(UserManager<Usuario> users, RoleManager<Rol> roles,
+        SignInManager<Usuario> signIn, ILogger<IdentityService> log)
     {
         _users = users;
         _roles = roles;
+        _signIn = signIn;
+        _log = log;
     }
 
     public async Task<UsuarioDto?> ValidarCredencialesAsync(string usuario, string contrasena)
     {
         var u = await _users.FindByNameAsync(usuario);
-        if (u == null || !await _users.CheckPasswordAsync(u, contrasena)) return null;
+        if (u == null || await _users.IsLockedOutAsync(u)) return null;
+
+        var resultado = await _signIn.CheckPasswordSignInAsync(u, contrasena, lockoutOnFailure: true);
+        if (resultado.IsLockedOut)
+            _log.LogWarning("Cuenta {UsuarioId} bloqueada por intentos fallidos hasta {BloqueadaHasta}",
+                u.Id, u.LockoutEnd);
+        if (!resultado.Succeeded) return null;
         return await MapAsync(u);
     }
 

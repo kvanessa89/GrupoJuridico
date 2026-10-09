@@ -51,9 +51,9 @@ de ejemplo del prototipo y estos usuarios:
 
 | Usuario | Contraseña  | Rol                 |
 |---------|-------------|---------------------|
-| admin   | cartera2026 | Administrador       |
-| ventas  | ventas2026  | Asistente de Ventas |
-| cobros  | cobros2026  | Cobros              |
+| admin   | demo-cartera-2026 | Administrador       |
+| ventas  | demo-ventas-2026  | Asistente de Ventas |
+| cobros  | demo-cobros-2026  | Cobros              |
 
 Configuración por entorno (`appsettings.{Development,Testing,Staging,Production}.json`). En Staging y Production
 definí los secretos por variables de entorno:
@@ -96,3 +96,12 @@ npm run build:staging  # staging (.env.staging)
   el campo aparece con puntos y escribir una nueva la reemplaza.
 - Los estados de prima tienen un significado fijo (pendiente, incompleta, pagada) porque se calculan de los montos;
   en Configuración solo se puede cambiar su nombre.
+
+## Protección del login
+
+- Cinco contraseñas incorrectas bloquean la cuenta durante 15 minutos. Un login correcto reinicia el contador; mientras hay bloqueo tampoco se acepta la contraseña correcta.
+- Las contraseñas nuevas y reemplazadas requieren 12 caracteres. Las existentes siguen funcionando; cambiar las contraseñas demo solo afecta usuarios creados desde ahora, no usuarios ya guardados.
+- POST /api/auth/login permite inicialmente 30 solicitudes por minuto por IP y por instancia, sin cola. El exceso devuelve HTTP 429 con Retry-After. Se puede ajustar con LoginRateLimit__PermitLimit y LoginRateLimit__WindowSeconds (por defecto 30 y 60).
+- La IP proviene de Connection.RemoteIpAddress. No se confía directamente en X-Forwarded-For. En hosting detrás de proxy, configurar forwarded headers únicamente para proxies/redes confiables antes del limitador, o aplicar el límite en el proxy. Sin eso, clientes detrás del proxy pueden compartir el mismo cupo. Varias instancias necesitan coordinación en el gateway para un límite agregado.
+- Los bloqueos se registran con ID interno y fecha; no se registran contraseñas ni JWT. La respuesta de credenciales inválidas y bloqueo es genérica.
+- Este bloqueo protege nuevos logins; no revoca JWT emitidos previamente (H03).

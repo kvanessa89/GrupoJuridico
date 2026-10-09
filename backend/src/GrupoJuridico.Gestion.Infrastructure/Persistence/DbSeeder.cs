@@ -54,9 +54,9 @@ public class DbSeeder
 
         if (_opciones.DatosDemo)
         {
-            await UsuarioAsync("admin", "Natalia Ramírez", "cartera2026", Roles.Administrador);
-            await UsuarioAsync("ventas", "Andrea Vargas", "ventas2026", Roles.AsistenteVentas);
-            await UsuarioAsync("cobros", "Marcela Solís", "cobros2026", Roles.Cobros);
+            await UsuarioAsync("admin", "Natalia Ramírez", "demo-cartera-2026", Roles.Administrador);
+            await UsuarioAsync("ventas", "Andrea Vargas", "demo-ventas-2026", Roles.AsistenteVentas);
+            await UsuarioAsync("cobros", "Marcela Solís", "demo-cobros-2026", Roles.Cobros);
             await CarteraDemoAsync();
         }
     }
