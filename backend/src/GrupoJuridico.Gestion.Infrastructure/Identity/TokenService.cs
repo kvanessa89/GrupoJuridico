@@ -17,7 +17,7 @@ public class JwtOptions
     public string Audience { get; set; } = "GrupoJuridico.Gestion.Web";
     /// <summary>Clave simétrica de al menos 32 caracteres. En Staging/Production se define por variable de entorno.</summary>
     public string Key { get; set; } = string.Empty;
-    public int ExpiraMinutos { get; set; } = 60;
+    public int ExpiraMinutos { get; set; } = 480;
 }
 
 public class TokenService : ITokenService

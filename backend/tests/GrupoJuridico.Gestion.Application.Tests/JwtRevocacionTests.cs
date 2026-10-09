@@ -24,7 +24,7 @@ namespace GrupoJuridico.Gestion.Application.Tests;
 public class JwtRevocacionTests
 {
     [Fact]
-    public async Task Token_vigente_accede_y_dura_una_hora()
+    public async Task Token_vigente_accede_y_dura_ocho_horas()
     {
         using var f = new Fixture();
         var id = await f.CrearUsuarioAsync();
@@ -32,7 +32,7 @@ public class JwtRevocacionTests
         Assert.Equal(HttpStatusCode.OK, await f.ConsultarAsync(token));
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         Assert.Contains(jwt.Claims, c => c.Type == TokenService.SessionStampClaim);
-        Assert.InRange((jwt.ValidTo - DateTime.UtcNow).TotalMinutes, 59.9, 60.1);
+        Assert.InRange((jwt.ValidTo - DateTime.UtcNow).TotalMinutes, 479.9, 480.1);
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public class JwtRevocacionTests
         {
             var jwt = new JwtSecurityToken(Issuer, Audience,
                 claims.Where(c => c.Type is not "exp" and not "iss" and not "aud"),
-                expires: expires ?? DateTime.UtcNow.AddMinutes(60),
+                expires: expires ?? DateTime.UtcNow.AddMinutes(480),
                 signingCredentials: new SigningCredentials(
                     new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)), SecurityAlgorithms.HmacSha256));
             return new JwtSecurityTokenHandler().WriteToken(jwt);

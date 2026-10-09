@@ -49,11 +49,13 @@ dotnet test
 Al iniciar aplica las migraciones y carga los catálogos. En **Development** y **Testing** también carga la cartera
 de ejemplo del prototipo y estos usuarios:
 
-| Usuario | Contraseña  | Rol                 |
-|---------|-------------|---------------------|
-| admin   | demo-cartera-2026 | Administrador       |
-| ventas  | demo-ventas-2026  | Asistente de Ventas |
-| cobros  | demo-cobros-2026  | Cobros              |
+| Usuario | Rol |
+| --- | --- |
+| admin | Administrador |
+| ventas | Asistente de Ventas |
+| cobros | Cobros |
+
+Las contraseñas de demostración se definen en la configuración de datos de prueba; no se publican en esta tabla.
 
 Configuración por entorno (`appsettings.{Development,Testing,Staging,Production}.json`). En Staging y Production
 definí los secretos por variables de entorno:
@@ -114,7 +116,7 @@ Cada token incluye el SecurityStamp de Identity. Después de validar firma, emis
 - Un cambio de rol cambia explícitamente el SecurityStamp antes de quitar/asignar roles.
 - Eliminar una cuenta invalida sus tokens en la siguiente solicitud.
 - Cambiar el nombre de usuario también cambia el SecurityStamp mediante Identity. Editar solo el nombre completo no obliga a iniciar sesión nuevamente.
-- Los access tokens nuevos duran 60 minutos, configurable con Jwt__ExpiraMinutos. No hay refresh tokens: al vencer, el usuario inicia sesión nuevamente. La interfaz ya procesa respuestas 401.
+- Los access tokens nuevos duran 480 minutos (8 horas), configurable con Jwt__ExpiraMinutos. No hay refresh tokens: al vencer, el usuario inicia sesión nuevamente. La interfaz ya procesa respuestas 401.
 - El despliegue rechaza tokens anteriores sin session_stamp: los usuarios deberán iniciar sesión nuevamente una vez.
 - No requiere nuevas columnas ni migraciones: SecurityStamp ya existe en AspNetUsers.
 - El control agrega consultas por petición; medir su costo con PostgreSQL antes de producción. No hay una ventana de caché que mantenga permisos anteriores. Una solicitud que ya fue autorizada antes del cambio puede terminar; esto no cancela operaciones en curso.
