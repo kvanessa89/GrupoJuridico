@@ -23,21 +23,27 @@ builder.Services.AddLoginRateLimiting(builder.Configuration);
 var jwt = builder.Configuration.GetSection(JwtOptions.Seccion).Get<JwtOptions>() ?? new JwtOptions();
 if (string.IsNullOrWhiteSpace(jwt.Key) || jwt.Key.Length < 32)
     throw new InvalidOperationException("Jwt:Key debe tener al menos 32 caracteres (definila con la variable de entorno Jwt__Key).");
+if (jwt.ExpiraMinutos <= 0)
+    throw new InvalidOperationException("Jwt:ExpiraMinutos debe ser mayor que cero.");
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(o => o.TokenValidationParameters = new TokenValidationParameters
+    .AddJwtBearer(o =>
     {
-        ValidateIssuer = true,
-        ValidIssuer = jwt.Issuer,
-        ValidateAudience = true,
-        ValidAudience = jwt.Audience,
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.FromMinutes(1),
-        RoleClaimType = ClaimTypes.Role,
-        NameClaimType = ClaimTypes.Name
+        o.Events = new JwtBearerEvents { OnTokenValidated = JwtSessionValidation.ValidarAsync };
+        o.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwt.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1),
+            RoleClaimType = ClaimTypes.Role,
+            NameClaimType = ClaimTypes.Name
+        };
     });
 builder.Services.AddAuthorization();
 
