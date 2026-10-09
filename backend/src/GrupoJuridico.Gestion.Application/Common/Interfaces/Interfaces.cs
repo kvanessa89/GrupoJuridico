@@ -44,7 +44,7 @@ public interface IFechaActual
 
 public interface ITokenService
 {
-    string Generar(UsuarioDto usuario);
+    Task<string> GenerarAsync(UsuarioDto usuario);
 }
 
 /// <summary>Usuarios del sistema sobre ASP.NET Core Identity.</summary>

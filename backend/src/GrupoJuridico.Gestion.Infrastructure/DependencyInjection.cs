@@ -45,7 +45,7 @@ public static class DependencyInjection
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.Seccion));
 
         services.AddScoped<IIdentityService, IdentityService>();
-        services.AddSingleton<ITokenService, TokenService>();
+        services.AddScoped<ITokenService, TokenService>();
         services.AddSingleton<IFechaActual, FechaActual>();
         services.AddScoped<DbSeeder>();
         return services;

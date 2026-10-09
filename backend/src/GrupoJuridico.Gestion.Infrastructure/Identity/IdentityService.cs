@@ -90,6 +90,8 @@ public class IdentityService : IIdentityService
         var actuales = await _users.GetRolesAsync(u);
         if (!actuales.SequenceEqual(new[] { r.Rol }))
         {
+            // Revoca los tokens previos antes de modificar roles, incluso si luego falla la asignación.
+            Verificar(await _users.UpdateSecurityStampAsync(u));
             if (actuales.Count > 0) Verificar(await _users.RemoveFromRolesAsync(u, actuales));
             Verificar(await _users.AddToRoleAsync(u, r.Rol));
         }

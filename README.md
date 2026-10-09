@@ -104,4 +104,18 @@ npm run build:staging  # staging (.env.staging)
 - POST /api/auth/login permite inicialmente 30 solicitudes por minuto por IP y por instancia, sin cola. El exceso devuelve HTTP 429 con Retry-After. Se puede ajustar con LoginRateLimit__PermitLimit y LoginRateLimit__WindowSeconds (por defecto 30 y 60).
 - La IP proviene de Connection.RemoteIpAddress. No se confía directamente en X-Forwarded-For. En hosting detrás de proxy, configurar forwarded headers únicamente para proxies/redes confiables antes del limitador, o aplicar el límite en el proxy. Sin eso, clientes detrás del proxy pueden compartir el mismo cupo. Varias instancias necesitan coordinación en el gateway para un límite agregado.
 - Los bloqueos se registran con ID interno y fecha; no se registran contraseñas ni JWT. La respuesta de credenciales inválidas y bloqueo es genérica.
-- Este bloqueo protege nuevos logins; no revoca JWT emitidos previamente (H03).
+- El bloqueo por intentos fallidos protege nuevos logins. La revocación de JWT por cambios de cuenta se describe a continuación.
+
+## Revocación de sesiones JWT
+
+Cada token incluye el SecurityStamp de Identity. Después de validar firma, emisor, audiencia y vencimiento, cada petición consulta la cuenta y el rol actuales en PostgreSQL, sin caché de revocación. Si falta la cuenta, el identificador no coincide o el rol ya no pertenece al usuario, se rechaza con HTTP 401.
+
+- ResetPasswordAsync cambia el SecurityStamp al reemplazar la contraseña.
+- Un cambio de rol cambia explícitamente el SecurityStamp antes de quitar/asignar roles.
+- Eliminar una cuenta invalida sus tokens en la siguiente solicitud.
+- Cambiar el nombre de usuario también cambia el SecurityStamp mediante Identity. Editar solo el nombre completo no obliga a iniciar sesión nuevamente.
+- Los access tokens nuevos duran 60 minutos, configurable con Jwt__ExpiraMinutos. No hay refresh tokens: al vencer, el usuario inicia sesión nuevamente. La interfaz ya procesa respuestas 401.
+- El despliegue rechaza tokens anteriores sin session_stamp: los usuarios deberán iniciar sesión nuevamente una vez.
+- No requiere nuevas columnas ni migraciones: SecurityStamp ya existe en AspNetUsers.
+- El control agrega consultas por petición; medir su costo con PostgreSQL antes de producción. No hay una ventana de caché que mantenga permisos anteriores. Una solicitud que ya fue autorizada antes del cambio puede terminar; esto no cancela operaciones en curso.
+- Todas las operaciones administrativas que modifiquen permisos fuera de IdentityService deben rotar SecurityStamp. La validación de pertenencia al rol también rechaza tokens cuyo rol ya fue retirado directamente.
