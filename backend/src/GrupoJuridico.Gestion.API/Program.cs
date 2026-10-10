@@ -48,7 +48,7 @@ builder.Services
 builder.Services.AddAuthorization();
 
 var origenes = builder.Configuration.GetSection("Cors:Origenes").Get<string[]>() ?? Array.Empty<string>();
-builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(origenes).AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(origenes).AllowAnyHeader().AllowAnyMethod().WithExposedHeaders("ETag")));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

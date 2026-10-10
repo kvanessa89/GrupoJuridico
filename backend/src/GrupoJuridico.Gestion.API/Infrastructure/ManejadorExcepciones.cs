@@ -1,5 +1,6 @@
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GrupoJuridico.Gestion.Api.Infrastructure;
@@ -25,6 +26,9 @@ public class ManejadorExcepciones : IExceptionHandler
                 Status = StatusCodes.Status400BadRequest,
                 Title = v.Message
             },
+            VersionRequeridaException => new ProblemDetails { Status = 428, Title = ex.Message },
+            ConflictoVersionException => new ProblemDetails { Status = 409, Title = ex.Message },
+            DbUpdateConcurrencyException => new ProblemDetails { Status = 409, Title = "Otra sesión modificó esta sección. Revise la versión guardada antes de continuar." },
             NoEncontradoException => new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = ex.Message },
             ProhibidoException => new ProblemDetails { Status = StatusCodes.Status403Forbidden, Title = ex.Message },
             _ => new ProblemDetails

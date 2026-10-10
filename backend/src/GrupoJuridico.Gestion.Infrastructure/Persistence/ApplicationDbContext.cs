@@ -28,6 +28,26 @@ public class ApplicationDbContext : IdentityDbContext<Usuario, Rol, int>, IAppli
     public DbSet<EstadoCliente> EstadosCliente => Set<EstadoCliente>();
     public DbSet<ConfiguracionSistema> Configuracion => Set<ConfiguracionSistema>();
 
+    private void InicializarVersiones()
+    {
+        foreach (var entry in ChangeTracker.Entries<Persona>().Where(e => e.State == EntityState.Added).ToList())
+            foreach (var seccion in VersionSeccion.Secciones)
+                if (!entry.Entity.Versiones.Any(v => v.Seccion == seccion))
+                    entry.Entity.Versiones.Add(new VersionSeccion { Seccion = seccion });
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        InicializarVersiones();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        InicializarVersiones();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);

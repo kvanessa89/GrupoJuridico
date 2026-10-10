@@ -26,3 +26,13 @@ public class ValidacionException : Exception
     public ValidacionException(string campo, string mensaje)
         : this(new Dictionary<string, string[]> { [Validacion.CamelCase(campo)] = new[] { mensaje } }) { }
 }
+
+
+public class VersionRequeridaException : Exception
+{
+    public VersionRequeridaException() : base("Debe enviar la versión de la sección en If-Match.") { }
+}
+public class ConflictoVersionException : Exception
+{
+    public ConflictoVersionException() : base("Otra sesión modificó esta sección. Revise la versión guardada antes de continuar.") { }
+}

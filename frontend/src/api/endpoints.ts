@@ -4,6 +4,15 @@ import type {
   LoginResponse, NumeroDto, PersonaDetalle, PrimaDto, TipoCatalogo, Usuario, VentaDto, VentasLista,
 } from './tipos'
 
+import type { AxiosResponse } from 'axios'
+
+function versionado<T>(r: AxiosResponse<T>) {
+  const version = String(r.headers.etag ?? '').replaceAll('"', '')
+  if (!version) throw new Error('La API no devolvió la versión del guardado.')
+  return { data: r.data, version }
+}
+function condicion(version: string) { return { headers: { 'If-Match': `"${version}"` } } }
+
 /** Convierte los filtros de pantalla a query string, sin los vacíos. */
 function params(f: FiltrosLista, porPagina: number) {
   const p: Record<string, string | number | boolean> = { orden: f.orden, asc: f.asc, pagina: f.pagina, porPagina }
@@ -33,16 +42,16 @@ export const api = {
 
   persona: (id: number) => http.get<PersonaDetalle>(`/personas/${id}`).then((r) => r.data),
   crearProspecto: (datos: CrearProspecto) => http.post<PersonaDetalle>('/personas', datos).then((r) => r.data),
-  guardarDatos: (id: number, datos: unknown) => http.put(`/personas/${id}/datos`, datos),
-  guardarVenta: (id: number, venta: Omit<VentaDto, 'id'>) => http.put<VentaDto>(`/personas/${id}/venta`, venta).then((r) => r.data),
-  guardarPrima: (id: number, prima: Pick<PrimaDto, 'monto' | 'montoCancelado' | 'fechaEstimadaPago' | 'fechaPago'>) =>
-    http.put<PrimaDto>(`/personas/${id}/prima`, prima).then((r) => r.data),
-  guardarNumeros: (id: number, numeros: NumeroDto[]) => http.put<NumeroDto[]>(`/personas/${id}/numeros`, numeros).then((r) => r.data),
-  guardarCorreos: (id: number, correos: CorreoDto[]) => http.put<CorreoDto[]>(`/personas/${id}/correos`, correos).then((r) => r.data),
-  guardarFamiliares: (id: number, familiares: FamiliarDto[]) =>
-    http.put<FamiliarDto[]>(`/personas/${id}/familiares`, familiares).then((r) => r.data),
-  convertir: (id: number, datos: { expediente: string | null; origenClienteId: number | null; estadoClienteId: number | null }) =>
-    http.post<PersonaDetalle>(`/personas/${id}/convertir`, datos).then((r) => r.data),
+  guardarDatos: (id: number, datos: unknown, version: string) => http.put(`/personas/${id}/datos`, datos, condicion(version)).then(versionado),
+  guardarVenta: (id: number, venta: Omit<VentaDto, 'id'>, version: string) => http.put<VentaDto>(`/personas/${id}/venta`, venta, condicion(version)).then(versionado),
+  guardarPrima: (id: number, prima: Pick<PrimaDto, 'monto' | 'montoCancelado' | 'fechaEstimadaPago' | 'fechaPago'>, version: string) =>
+    http.put<PrimaDto>(`/personas/${id}/prima`, prima, condicion(version)).then(versionado),
+  guardarNumeros: (id: number, numeros: NumeroDto[], version: string) => http.put<NumeroDto[]>(`/personas/${id}/numeros`, numeros, condicion(version)).then(versionado),
+  guardarCorreos: (id: number, correos: CorreoDto[], version: string) => http.put<CorreoDto[]>(`/personas/${id}/correos`, correos, condicion(version)).then(versionado),
+  guardarFamiliares: (id: number, familiares: FamiliarDto[], version: string) =>
+    http.put<FamiliarDto[]>(`/personas/${id}/familiares`, familiares, condicion(version)).then(versionado),
+  convertir: (id: number, datos: { expediente: string | null; origenClienteId: number | null; estadoClienteId: number | null }, version: string) =>
+    http.post<PersonaDetalle>(`/personas/${id}/convertir`, datos, condicion(version)).then(versionado),
   eliminarPersona: (id: number) => http.delete(`/personas/${id}`),
   comentar: (id: number, texto: string) => http.post<ComentarioDto>(`/personas/${id}/comentarios`, { texto }).then((r) => r.data),
   eliminarComentario: (id: number) => http.delete(`/comentarios/${id}`),
