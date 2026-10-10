@@ -157,6 +157,7 @@ export interface ComentarioDto {
 }
 
 export interface PersonaDetalle {
+  versiones: Record<'datos' | 'venta' | 'prima' | 'familiares', string>
   id: number
   esCliente: boolean
   expediente: string

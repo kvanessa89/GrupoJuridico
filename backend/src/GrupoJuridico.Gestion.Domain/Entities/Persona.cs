@@ -8,6 +8,7 @@ namespace GrupoJuridico.Gestion.Domain.Entities;
 /// </summary>
 public class Persona : BaseEntity
 {
+    public List<VersionSeccion> Versiones { get; set; } = new();
     public int? ClienteId { get; set; }
     public Cliente? Cliente { get; set; }
 
