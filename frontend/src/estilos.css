@@ -100,6 +100,8 @@ input[type='date']::-webkit-calendar-picker-indicator { filter: invert(0.8); cur
 }
 .btn-peligro { padding: 10px 16px; border: none; border-radius: 10px; background: var(--rojo); color: #fff; font-size: 13.5px; font-weight: 700; cursor: pointer; }
 .btn-enlace { background: none; border: none; padding: 0; font-size: 12.5px; font-weight: 700; color: var(--gold); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; white-space: nowrap; }
+/* Dentro de un aviso: mismo color y tamaño que el texto del aviso. */
+.btn-enlace.en-alerta { color: inherit; font-size: inherit; }
 .btn-texto { background: none; border: none; padding: 0; font-size: 12.5px; font-weight: 600; color: var(--gold); cursor: pointer; }
 .btn-icono {
   width: 42px;
@@ -246,9 +248,23 @@ input[type='date']::-webkit-calendar-picker-indicator { filter: invert(0.8); cur
 .tipo-numero { width: 122px; padding: 11px 28px 11px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surf); font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .estrella { width: 42px; height: 42px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; border: 1px solid var(--line); background: var(--surf); color: var(--ink3); }
 .estrella.on { border-color: rgba(232, 193, 88, 0.55); background: rgba(232, 193, 88, 0.14); color: #d4a017; }
+/* Teléfono: prefijo del país + número */
+.telefono { display: flex; gap: 6px; min-width: 0; }
+.telefono > span:first-child { flex: none; }
+.telefono > input { flex: 1; min-width: 0; }
+.telefono-pais { width: 66px; padding: 11px 18px 11px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surf); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; }
+.telefono.error > input, .telefono.error .telefono-pais { border-color: var(--rojo); }
+.fila-contacto .telefono { flex: 1; }
+.btn-llamar { width: 42px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surf); color: var(--ink3); }
+.btn-llamar:hover { color: var(--gold); border-color: rgba(232, 193, 88, 0.55); }
+.enlace-tel { color: inherit; text-decoration: none; }
+.enlace-tel:hover { color: var(--gold); text-decoration: underline; }
 .ayuda { margin: 12px 0 0; font-size: 11.5px; color: var(--ink3); }
-.familiar { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.4fr) 44px; gap: 8px; }
+.familiar { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 0.8fr) minmax(0, 1.7fr) minmax(0, 1.3fr) 44px; gap: 8px; }
 .familiar input { width: 100%; min-width: 0; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surf); font-size: 13.5px; }
+.familiar input.error { border-color: var(--rojo); }
+.familiar-parentesco { width: 100%; padding: 13px 30px 13px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surf); font-size: 13.5px; cursor: pointer; }
+.familiar-parentesco.vacio { color: var(--ink3); }
 .familiar .btn-icono { width: auto; height: auto; }
 .comentario { display: flex; gap: 12px; border: 1px solid var(--line); border-radius: 11px; padding: 12px 14px; }
 .comentario-avatar { width: 32px; height: 32px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; }

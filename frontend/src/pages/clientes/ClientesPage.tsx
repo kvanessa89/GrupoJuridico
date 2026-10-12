@@ -4,7 +4,7 @@ import { api } from '../../api/endpoints'
 import type { FiltrosLista } from '../../api/tipos'
 import { permisos, useSesion } from '../../auth/Sesion'
 import { ChipEstadoCliente, ChipPrima } from '../../components/Chips'
-import { BarraFiltros, Celda, Paginacion, Tabla, type Columna, type FilaDef } from '../../components/Lista'
+import { BarraFiltros, Celda, type Columna, EnlaceTelefono, type FilaDef, Paginacion, Tabla } from '../../components/Lista'
 import { useListado } from '../../hooks/useListado'
 import { useFiltros } from '../../layout/Filtros'
 import { fFecha, origenEtiqueta, vendedorEtiqueta } from '../../utils/formato'
@@ -43,7 +43,7 @@ export function ClientesPage() {
   const filas: FilaDef[] = (datos?.filas ?? []).map((c) => {
     const celdas = [
       <Celda t={c.expediente || 'Sin expediente'} s={c.nombreCompleto || 'Sin nombre'} clase="c-txt" subClase="c-sub-min" />,
-      <Celda t={c.telefono ?? '—'} s={c.correo ?? '—'} clase="c-num-suave" subClase="c-corte" />,
+      <Celda t={c.telefono ? <EnlaceTelefono numero={c.telefono} /> : '—'} s={c.correo ?? '—'} clase="c-num-suave" subClase="c-corte" />,
       <Celda t={c.finca || '—'} clase="c-num-suave" />,
       <Celda t={fFecha(c.fechaIngreso)} clase="c-num-suave" />,
       c.estadoPrima ? <ChipPrima estadoId={c.estadoPrimaId} texto={c.estadoPrima.replace(/^Prima\s+/i, '')} /> : <Celda t="—" />,

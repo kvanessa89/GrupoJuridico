@@ -78,6 +78,30 @@ public class CrearProspectoValidatorTests
     }
 }
 
+public class ActualizarPrimaValidatorTests
+{
+    [Fact]
+    public void Prima_pagada_requiere_fecha_de_pago()
+    {
+        var r = new ActualizarPrimaValidator().Validate(new ActualizarPrimaRequest(225000, 225000, new DateOnly(2026, 10, 15), null));
+        Assert.Contains(r.Errors, e => e.PropertyName == "FechaPago");
+    }
+
+    [Fact]
+    public void Prima_pagada_con_fecha_de_pago_es_valida()
+    {
+        var r = new ActualizarPrimaValidator().Validate(new ActualizarPrimaRequest(225000, 225000, null, new DateOnly(2026, 10, 12)));
+        Assert.True(r.IsValid);
+    }
+
+    [Fact]
+    public void Prima_incompleta_no_requiere_fecha_de_pago()
+    {
+        var r = new ActualizarPrimaValidator().Validate(new ActualizarPrimaRequest(225000, 100000, null, null));
+        Assert.True(r.IsValid);
+    }
+}
+
 public class RolesTests
 {
     [Theory]

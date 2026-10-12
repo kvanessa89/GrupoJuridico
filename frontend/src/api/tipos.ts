@@ -28,11 +28,14 @@ export interface Catalogos {
   estadosPrima: CatalogoItem[]
   origenes: CatalogoItem[]
   estadosCliente: CatalogoItem[]
+  /** Países de los teléfonos: `codigo` es el prefijo ("+506"). */
+  paises: CatalogoItem[]
+  parentescos: CatalogoItem[]
   roles: { id: number; nombre: Rol }[]
   interesMora: number
 }
 
-export type TipoCatalogo = 'vendedores' | 'procedencias' | 'metodos' | 'estados-prima' | 'origenes' | 'estados-cliente'
+export type TipoCatalogo = 'vendedores' | 'procedencias' | 'metodos' | 'estados-prima' | 'origenes' | 'estados-cliente' | 'paises' | 'parentescos'
 
 export interface FiltrosLista {
   q: string
@@ -129,6 +132,8 @@ export interface NumeroDto {
   numero: string
   tipo: TipoNumero
   principal: boolean
+  /** Nulo solo en filas nuevas que todavía no eligieron país (la API toma el primero). */
+  paisId: number | null
 }
 
 export interface CorreoDto {
@@ -140,10 +145,13 @@ export interface CorreoDto {
 export interface FamiliarDto {
   id: number
   nombreCompleto: string
-  parentesco: string
+  /** Id del catálogo de parentescos; nulo si no se eligió. */
+  parentescoId: number | null
   telefono: string
   correoElectronico: string
   whatsapp: string
+  telefonoPaisId: number | null
+  whatsappPaisId: number | null
 }
 
 export interface ComentarioDto {
@@ -169,6 +177,8 @@ export interface PersonaDetalle {
   vendedorId: number | null
   telefonoPrincipal: string
   whatsappPrincipal: string
+  telefonoPrincipalPaisId: number | null
+  whatsappPrincipalPaisId: number | null
   correoPrincipal: string
   venta: VentaDto | null
   prima: PrimaDto | null
@@ -189,6 +199,8 @@ export interface CrearProspecto {
   vendedorId: number | null
   telefonoPrincipal: string
   whatsappPrincipal: string
+  telefonoPrincipalPaisId: number | null
+  whatsappPrincipalPaisId: number | null
   correoPrincipal: string
   procedenciaVentaId: number | null
   metodoVentaId: number | null

@@ -54,6 +54,16 @@ internal class OrigenClienteConfig : IEntityTypeConfiguration<OrigenCliente>
     }
 }
 
+internal class PaisConfig : IEntityTypeConfiguration<Pais>
+{
+    public void Configure(EntityTypeBuilder<Pais> b) => CatalogoConfig.Configurar(b, "Paises");
+}
+
+internal class ParentescoConfig : IEntityTypeConfiguration<Parentesco>
+{
+    public void Configure(EntityTypeBuilder<Parentesco> b) => CatalogoConfig.Configurar(b, "Parentescos");
+}
+
 internal class EstadoClienteConfig : IEntityTypeConfiguration<EstadoCliente>
 {
     public void Configure(EntityTypeBuilder<EstadoCliente> b) => CatalogoConfig.Configurar(b, "EstadosCliente");
@@ -147,6 +157,8 @@ internal class NumeroConfig : IEntityTypeConfiguration<Numero>
         b.ToTable("Numeros");
         b.Property(x => x.Valor).HasColumnName("Numero").HasMaxLength(40);
         b.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+        // Un país con teléfonos no se puede borrar (CatalogosService lo valida antes).
+        b.HasOne(x => x.Pais).WithMany().HasForeignKey(x => x.PaisId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -175,10 +187,12 @@ internal class FamiliarConfig : IEntityTypeConfiguration<PersonaFamiliar>
     {
         b.ToTable("PersonaFamiliares");
         b.Property(x => x.NombreCompleto).HasMaxLength(200);
-        b.Property(x => x.Parentesco).HasMaxLength(60);
+        b.HasOne(x => x.Parentesco).WithMany().HasForeignKey(x => x.ParentescoId).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.Telefono).HasMaxLength(40);
         b.Property(x => x.Whatsapp).HasMaxLength(40);
         b.Property(x => x.CorreoElectronico).HasMaxLength(200);
+        b.HasOne(x => x.TelefonoPais).WithMany().HasForeignKey(x => x.TelefonoPaisId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.WhatsappPais).WithMany().HasForeignKey(x => x.WhatsappPaisId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

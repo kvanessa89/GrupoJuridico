@@ -127,6 +127,17 @@ public class DbSeeder
             var estados = new[] { "Al Día", "Moroso", "Estrella", "Terminado", "Abandonado", "Sin Expediente" };
             _db.EstadosCliente.AddRange(estados.Select((n, i) => new EstadoCliente { Codigo = "EC-" + (i + 1), Nombre = n }));
         }
+        if (!await _db.Paises.AnyAsync())
+        {
+            _db.Paises.AddRange(
+                new Pais { Codigo = "+506", Nombre = "Costa Rica" },
+                new Pais { Codigo = "+1", Nombre = "Estados Unidos" });
+        }
+        if (!await _db.Parentescos.AnyAsync())
+        {
+            var parentescos = new[] { "Cónyuge", "Hijo/a", "Madre", "Padre", "Hermano/a" };
+            _db.Parentescos.AddRange(parentescos.Select((n, i) => new Parentesco { Codigo = "PA-" + (i + 1), Nombre = n }));
+        }
         if (!await _db.Configuracion.AnyAsync(c => c.Clave == ConfiguracionSistema.InteresMora))
             _db.Configuracion.Add(new ConfiguracionSistema { Clave = ConfiguracionSistema.InteresMora, Valor = "2.5" });
         await _db.SaveChangesAsync();
@@ -158,8 +169,7 @@ public class DbSeeder
         new("Paola", "Mena Salas", "3-0519-0962", "2026-09-02", 4, null, 2, 6, 640000, 0, "2026-09-30", null, "Llegó desde la página de Facebook.")
     };
 
-    private static readonly string[] Telefonos = { "8812-4477", "7065-3391", "6043-8812", "8390-5527", "8744-1206", "7218-9043", "6155-7734", "8471-2298" };
-    private static readonly string[] Parentescos = { "Cónyuge", "Hijo", "Hija", "Hermano", "Hermana", "Madre", "Padre" };
+    private static readonly string[] Telefonos = { "88124477", "70653391", "60438812", "83905527", "87441206", "72189043", "61557734", "84712298" };
     private static readonly string[] TextosComentario =
     {
         "Se le llamó para confirmar la fecha de pago de la prima.",
@@ -177,6 +187,8 @@ public class DbSeeder
         if (await _db.Personas.AnyAsync()) return;
 
         var vendedores = await _db.Vendedores.OrderBy(v => v.Id).Select(v => v.Id).ToListAsync();
+        var cr = await _db.Paises.Where(x => x.Codigo == "+506").Select(x => x.Id).FirstAsync();
+        var parentescos = await _db.Parentescos.OrderBy(x => x.Id).Select(x => x.Id).ToListAsync();
         var usuarios = await _users.Users.OrderBy(u => u.Id).Select(u => new { u.Id, u.UserName }).ToListAsync();
         int UsuarioId(string nombre) => usuarios.FirstOrDefault(u => u.UserName == nombre)?.Id ?? usuarios.First().Id;
         var autores = new[] { UsuarioId("ventas"), UsuarioId("cobros"), UsuarioId("admin"), UsuarioId("admin") };
@@ -194,7 +206,7 @@ public class DbSeeder
             {
                 Nombres = s.Nombres,
                 Apellidos = s.Apellidos,
-                Cedula = s.Cedula,
+                Cedula = s.Cedula.Replace("-", ""),
                 Expediente = s.Expediente ?? "",
                 FechaIngreso = Mover(s.Ingreso),
                 VendedorId = vendedores.ElementAtOrDefault(s.Vendedor - 1),
@@ -217,9 +229,9 @@ public class DbSeeder
             prima.Recalcular();
             persona.Ventas.Add(new Venta { ProcedenciaVentaId = s.Procedencia, MetodoVentaId = s.Metodo, Monto = s.Monto, Notas = s.Notas, Prima = prima });
 
-            persona.Numeros.Add(new Numero { Valor = Telefonos[i % Telefonos.Length], Tipo = TipoNumero.Telefono, Principal = true });
-            if (i % 3 == 0) persona.Numeros.Add(new Numero { Valor = Telefonos[(i + 3) % Telefonos.Length], Tipo = TipoNumero.Telefono, Principal = false });
-            persona.Numeros.Add(new Numero { Valor = Telefonos[(i + 1) % Telefonos.Length], Tipo = TipoNumero.WhatsApp, Principal = true });
+            persona.Numeros.Add(new Numero { PaisId = cr, Valor = Telefonos[i % Telefonos.Length], Tipo = TipoNumero.Telefono, Principal = true });
+            if (i % 3 == 0) persona.Numeros.Add(new Numero { PaisId = cr, Valor = Telefonos[(i + 3) % Telefonos.Length], Tipo = TipoNumero.Telefono, Principal = false });
+            persona.Numeros.Add(new Numero { PaisId = cr, Valor = Telefonos[(i + 1) % Telefonos.Length], Tipo = TipoNumero.WhatsApp, Principal = true });
 
             var baseCorreo = SinTildes((s.Nombres.Split(' ')[0] + "." + s.Apellidos.Split(' ')[0]).ToLowerInvariant());
             persona.Correos.Add(new CorreoElectronico { Correo = baseCorreo + "@correo.cr", Principal = true });
@@ -230,8 +242,10 @@ public class DbSeeder
                 persona.Familiares.Add(new PersonaFamiliar
                 {
                     NombreCompleto = s.Nombres.Split(' ')[0] + " " + s.Apellidos.Split(' ').ElementAtOrDefault(1),
-                    Parentesco = Parentescos[i % Parentescos.Length],
+                    ParentescoId = parentescos[i % parentescos.Count],
+                    WhatsappPaisId = cr,
                     Whatsapp = Telefonos[(i + 2) % Telefonos.Length],
+                    TelefonoPaisId = cr,
                     Telefono = Telefonos[(i + 4) % Telefonos.Length],
                     CorreoElectronico = baseCorreo + ".fam@correo.cr"
                 });

@@ -62,13 +62,13 @@ public class UsuariosService
     {
         await _actualizar.ValidarAsync(request);
         if (id == _actual.Id && request.Rol != Roles.Administrador)
-            throw new ValidacionException(nameof(request.Rol), "No podés quitarte el rol de Administrador.");
+            throw new ValidacionException(nameof(request.Rol), "No puede quitarse el rol de Administrador.");
         return await _identity.ActualizarAsync(id, request with { Nombre = request.Nombre.Trim(), Usuario = request.Usuario.Trim() });
     }
 
     public async Task EliminarAsync(int id)
     {
-        if (id == _actual.Id) throw new ValidacionException("id", "No podés eliminar tu propio usuario.");
+        if (id == _actual.Id) throw new ValidacionException("id", "No puede eliminar su propio usuario.");
         await _identity.EliminarAsync(id);
     }
 }

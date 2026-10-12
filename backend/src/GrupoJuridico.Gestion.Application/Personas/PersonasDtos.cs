@@ -69,11 +69,12 @@ public record PrimaDto(int Id, decimal Monto, decimal MontoCancelado, decimal Sa
 
 public record ClienteDto(int Id, int OrigenClienteId, int EstadoClienteId, string Notas);
 
-public record NumeroDto(int Id, string Numero, string Tipo, bool Principal);
+public record NumeroDto(int Id, string Numero, string Tipo, bool Principal, int PaisId);
 
 public record CorreoDto(int Id, string Correo, bool Principal);
 
-public record FamiliarDto(int Id, string NombreCompleto, string Parentesco, string Telefono, string CorreoElectronico, string Whatsapp);
+public record FamiliarDto(int Id, string NombreCompleto, int? ParentescoId, string Telefono, string CorreoElectronico, string Whatsapp,
+    int? TelefonoPaisId, int? WhatsappPaisId);
 
 public record ComentarioDto(int Id, int UsuarioId, string Autor, string? Rol, string Texto, DateTime Fecha, bool PuedeEliminar);
 
@@ -97,7 +98,9 @@ public record PersonaDetalleDto(
     IReadOnlyList<CorreoDto> Correos,
     IReadOnlyList<FamiliarDto> Familiares,
     IReadOnlyList<ComentarioDto> Comentarios,
-    IReadOnlyDictionary<string, Guid> Versiones);
+    IReadOnlyDictionary<string, Guid> Versiones,
+    int? TelefonoPrincipalPaisId,
+    int? WhatsappPrincipalPaisId);
 
 // ---------- Comandos ----------
 
@@ -117,17 +120,21 @@ public record ActualizarDatosRequest(
     string? WhatsappPrincipal,
     string? CorreoPrincipal,
     int? EstadoClienteId,
-    int? OrigenClienteId);
+    int? OrigenClienteId,
+    int? TelefonoPrincipalPaisId = null,
+    int? WhatsappPrincipalPaisId = null);
 
 public record ActualizarVentaRequest(int? ProcedenciaVentaId, int? MetodoVentaId, decimal Monto, string? Notas);
 
 public record ActualizarPrimaRequest(decimal Monto, decimal MontoCancelado, DateOnly? FechaEstimadaPago, DateOnly? FechaPago);
 
-public record NumeroItem(int Id, string Numero, string Tipo, bool Principal);
+/// <summary>PaisId nulo toma el país por defecto (el primero del catálogo).</summary>
+public record NumeroItem(int Id, string Numero, string Tipo, bool Principal, int? PaisId = null);
 
 public record CorreoItem(int Id, string Correo, bool Principal);
 
-public record FamiliarItem(int Id, string? NombreCompleto, string? Parentesco, string? Telefono, string? CorreoElectronico, string? Whatsapp);
+public record FamiliarItem(int Id, string? NombreCompleto, int? ParentescoId, string? Telefono, string? CorreoElectronico, string? Whatsapp,
+    int? TelefonoPaisId = null, int? WhatsappPaisId = null);
 
 public record ConvertirClienteRequest(string? Expediente, int? OrigenClienteId, int? EstadoClienteId);
 
@@ -153,4 +160,6 @@ public record CrearProspectoRequest(
     decimal MontoCancelado,
     DateOnly? FechaEstimadaPago,
     DateOnly? FechaPago,
-    IReadOnlyList<FamiliarItem>? Familiares);
+    IReadOnlyList<FamiliarItem>? Familiares,
+    int? TelefonoPrincipalPaisId = null,
+    int? WhatsappPrincipalPaisId = null);

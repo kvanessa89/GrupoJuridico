@@ -8,6 +8,13 @@ namespace GrupoJuridico.Gestion.Domain.Entities;
 /// </summary>
 public class Persona : BaseEntity
 {
+    /// <summary>Largo máximo de Nombres y de Apellidos (regla de negocio; la columna admite más).</summary>
+    public const int MaxNombre = 20;
+    /// <summary>Largo máximo de la cédula (solo dígitos).</summary>
+    public const int MaxCedula = 15;
+    /// <summary>Largo máximo de un correo electrónico (principal, lista de correos y familiares).</summary>
+    public const int MaxCorreo = 100;
+
     public List<VersionSeccion> Versiones { get; set; } = new();
     public int? ClienteId { get; set; }
     public Cliente? Cliente { get; set; }
@@ -109,6 +116,8 @@ public class Prima : BaseEntity
 public class Numero : BaseEntity
 {
     public int PersonaId { get; set; }
+    public int PaisId { get; set; }
+    public Pais? Pais { get; set; }
     public string Valor { get; set; } = string.Empty;
     public TipoNumero Tipo { get; set; }
     public bool Principal { get; set; }
@@ -129,10 +138,18 @@ public class Finca : BaseEntity
 
 public class PersonaFamiliar : BaseEntity
 {
+    /// <summary>Largo máximo del nombre completo (nombre y apellidos) del familiar.</summary>
+    public const int MaxNombreCompleto = 60;
+
     public int PersonaId { get; set; }
     public string NombreCompleto { get; set; } = string.Empty;
-    public string Parentesco { get; set; } = string.Empty;
+    public int? ParentescoId { get; set; }
+    public Parentesco? Parentesco { get; set; }
+    public int? WhatsappPaisId { get; set; }
+    public Pais? WhatsappPais { get; set; }
     public string Whatsapp { get; set; } = string.Empty;
+    public int? TelefonoPaisId { get; set; }
+    public Pais? TelefonoPais { get; set; }
     public string Telefono { get; set; } = string.Empty;
     public string CorreoElectronico { get; set; } = string.Empty;
 }

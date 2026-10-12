@@ -1,6 +1,38 @@
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic']
 const MESES_LARGOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
+/** País por defecto de un teléfono nuevo: el primero del catálogo (Costa Rica). */
+export function paisPorDefecto(paises: { id: number }[] | undefined): number | null {
+  return paises?.[0]?.id ?? null
+}
+
+/** Los teléfonos solo aceptan dígitos; el prefijo va en el país. */
+export function soloDigitos(v: string): string {
+  return v.replace(/\D/g, '')
+}
+
+/**
+ * Texto de un campo de monto → valor crudo: solo dígitos y un punto, hasta 2 decimales.
+ * "1,250,000.509" → "1250000.50"; "007" → "7".
+ */
+export function limpiarMonto(texto: string): string {
+  const [entero = '', ...resto] = texto.replace(/[^\d.]/g, '').split('.')
+  const enteroLimpio = entero.replace(/^0+(?=\d)/, '')
+  return resto.length ? (enteroLimpio || '0') + '.' + resto.join('').slice(0, 2) : enteroLimpio
+}
+
+/** Valor crudo → texto del campo: miles con coma y decimales con punto. "1250000.5" → "1,250,000.5" */
+export function formatearMonto(crudo: string): string {
+  const [entero, decimales] = crudo.split('.')
+  const conMiles = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return decimales === undefined ? conMiles : conMiles + '.' + decimales
+}
+
+/** "+506 88124477" → "tel:+50688124477" */
+export function enlaceTel(numeroCompleto: string): string {
+  return 'tel:' + numeroCompleto.replace(/[^\d+]/g, '')
+}
+
 /** 2026-04-12 → "12 abr 2026" */
 export function fFecha(iso?: string | null): string {
   if (!iso) return '—'
@@ -22,8 +54,16 @@ export function fMes(m: string): string {
   return MESES_LARGOS[Number(m.slice(5, 7)) - 1] + ' ' + m.slice(0, 4)
 }
 
+/** 1250000.5 → "1,250,000.50": miles con coma y punto decimal; sin decimales si el monto es entero. */
+export function fNumero(n?: number | null): string {
+  const valor = Number(n || 0)
+  const decimales = Number.isInteger(valor) ? 0 : 2
+  return valor.toLocaleString('en-US', { minimumFractionDigits: decimales, maximumFractionDigits: 2 })
+}
+
+/** Igual que fNumero, con el símbolo de colones (tablas y totales). */
 export function fMonto(n?: number | null): string {
-  return '₡' + Number(n || 0).toLocaleString('es-CR')
+  return '₡' + fNumero(n)
 }
 
 /** Convierte lo escrito en un campo de monto a número (ignora separadores y símbolos). */

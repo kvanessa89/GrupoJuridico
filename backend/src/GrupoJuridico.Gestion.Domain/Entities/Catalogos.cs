@@ -44,6 +44,17 @@ public class EstadoCliente : Catalogo
     public const int SinExpediente = 6;
 }
 
+/// <summary>País de un teléfono. Codigo es el prefijo internacional ("+506").</summary>
+public class Pais : Catalogo
+{
+    /// <summary>Número completo para mostrar: "+506 8812-4477".</summary>
+    public static string Formatear(Pais? pais, string numero) =>
+        string.IsNullOrWhiteSpace(numero) ? numero : ((pais?.Codigo ?? "") + " " + numero).Trim();
+}
+
+/// <summary>Parentesco de un familiar: Cónyuge, Hijo/a, Madre, Padre, Hermano/a…</summary>
+public class Parentesco : Catalogo { }
+
 /// <summary>Valores sueltos de configuración (por ejemplo el interés de morosidad).</summary>
 public class ConfiguracionSistema : IAuditable
 {

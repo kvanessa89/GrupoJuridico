@@ -3,7 +3,7 @@ export type ResultadoVersion<T> = { data: T; version: string }
 
 /** La sección tiene un conflicto pendiente de recargar; no se envía nada. */
 export class SeccionBloqueadaError extends Error {
-  constructor() { super('Recargá la sección antes de volver a guardarla.') }
+  constructor() { super('Recargue la sección antes de volver a guardarla.') }
 }
 
 /** Serializa escrituras locales del mismo grupo y conserva su última versión confirmada. */

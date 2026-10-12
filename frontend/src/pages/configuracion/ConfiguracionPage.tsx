@@ -7,7 +7,7 @@ import { BasureroFino, Chevron, Mas } from '../../components/Iconos'
 
 interface DefCatalogo {
   tipo: TipoCatalogo | 'roles'
-  clave: 'vendedores' | 'procedencias' | 'metodos' | 'estadosPrima' | 'origenes' | 'estadosCliente' | 'roles'
+  clave: 'vendedores' | 'procedencias' | 'metodos' | 'estadosPrima' | 'origenes' | 'estadosCliente' | 'paises' | 'parentescos' | 'roles'
   titulo: string
   sing: string
   plur: string
@@ -17,6 +17,8 @@ interface DefCatalogo {
   soloNombre?: boolean
   soloLectura?: boolean
   verCodigo?: boolean
+  /** Texto de ayuda del campo código (por ejemplo el prefijo del país). */
+  codigoAyuda?: string
 }
 
 const GRUPOS: { titulo: string; interes?: boolean; catalogos: DefCatalogo[] }[] = [
@@ -35,6 +37,18 @@ const GRUPOS: { titulo: string; interes?: boolean; catalogos: DefCatalogo[] }[] 
     catalogos: [
       { tipo: 'origenes', clave: 'origenes', titulo: 'Origen del cliente', sing: 'origen', plur: 'orígenes', agregar: 'Agregar origen', verCodigo: true },
       { tipo: 'estados-cliente', clave: 'estadosCliente', titulo: 'Estado del cliente', sing: 'estado', plur: 'estados', agregar: 'Agregar estado' },
+    ],
+  },
+  {
+    titulo: 'Familiares',
+    catalogos: [
+      { tipo: 'parentescos', clave: 'parentescos', titulo: 'Parentescos', sing: 'parentesco', plur: 'parentescos', agregar: 'Agregar parentesco' },
+    ],
+  },
+  {
+    titulo: 'Teléfonos',
+    catalogos: [
+      { tipo: 'paises', clave: 'paises', titulo: 'Países', sing: 'país', plur: 'países', agregar: 'Agregar país', verCodigo: true, codigoAyuda: '+506' },
     ],
   },
   {
@@ -85,6 +99,8 @@ function Catalogo({ def, abierto, onToggle }: { def: DefCatalogo; abierto: boole
           setFilas((fs) => fs.map((x) => (x.clave === fila.clave ? { ...x, id: creado.id, codigo: x.codigo || creado.codigo } : x)))
         }
         setError('')
+        // Los catálogos de la sesión alimentan los selects de la ficha y esta lista al volver a la pantalla.
+        recargarCatalogos().catch(() => undefined)
       } catch (e) {
         setError(mensajeDe(e))
       }
@@ -105,6 +121,7 @@ function Catalogo({ def, abierto, onToggle }: { def: DefCatalogo; abierto: boole
       if (id) await api.eliminarCatalogo(def.tipo as TipoCatalogo, id)
       setFilas((fs) => fs.filter((x) => x.clave !== fila.clave))
       setError('')
+      if (id) recargarCatalogos().catch(() => undefined)
     } catch (e) {
       setError(mensajeDe(e))
     }
@@ -113,6 +130,7 @@ function Catalogo({ def, abierto, onToggle }: { def: DefCatalogo; abierto: boole
   const agregar = () => {
     let codigo = ''
     if (def.tipo === 'vendedores') codigo = String(Math.max(29, ...filas.map((x) => Number(x.codigo) || 0)) + 1)
+    if (def.tipo === 'paises') codigo = '+'
     if (def.tipo === 'origenes') codigo = 'P' + (Math.max(0, ...filas.map((x) => Number(String(x.codigo).replace(/\D/g, '')) || 0)) + 1)
     setFilas((fs) => [...fs, { id: 0, codigo, nombre: '', apellidos: '', clave: 'n' + ++sec.current }])
   }
@@ -136,7 +154,7 @@ function Catalogo({ def, abierto, onToggle }: { def: DefCatalogo; abierto: boole
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {filas.map((it) => (
               <div key={it.clave} className="item-config">
-                {def.verCodigo && <input className="codigo" value={it.codigo} aria-label="Código" onChange={(e) => editar(it.clave, { codigo: e.target.value })} />}
+                {def.verCodigo && <input className="codigo" value={it.codigo} placeholder={def.codigoAyuda} aria-label="Código" onChange={(e) => editar(it.clave, { codigo: e.target.value })} />}
                 <input
                   value={it.nombre}
                   placeholder="Nombre"
@@ -169,7 +187,7 @@ function Catalogo({ def, abierto, onToggle }: { def: DefCatalogo; abierto: boole
 }
 
 function InteresMora() {
-  const { catalogos } = useSesion()
+  const { catalogos, recargarCatalogos } = useSesion()
   const [valor, setValor] = useState(() => String(catalogos?.interesMora ?? 2.5))
   const [error, setError] = useState('')
   const timer = useRef<number | undefined>(undefined)
@@ -178,7 +196,13 @@ function InteresMora() {
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => {
       if (v === '' || Number.isNaN(Number(v))) return
-      api.guardarInteresMora(Number(v)).then(() => setError('')).catch((e) => setError(mensajeDe(e)))
+      api.guardarInteresMora(Number(v))
+        .then(() => {
+          setError('')
+          // El porcentaje vive en los catálogos de la sesión: se recarga para verlo al volver a la pantalla.
+          recargarCatalogos().catch(() => undefined)
+        })
+        .catch((e) => setError(mensajeDe(e)))
     }, 500)
   }
   return (

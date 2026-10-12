@@ -26,6 +26,8 @@ public class ApplicationDbContext : IdentityDbContext<Usuario, Rol, int>, IAppli
     public DbSet<EstadoPrima> EstadosPrima => Set<EstadoPrima>();
     public DbSet<OrigenCliente> OrigenesCliente => Set<OrigenCliente>();
     public DbSet<EstadoCliente> EstadosCliente => Set<EstadoCliente>();
+    public DbSet<Pais> Paises => Set<Pais>();
+    public DbSet<Parentesco> Parentescos => Set<Parentesco>();
     public DbSet<ConfiguracionSistema> Configuracion => Set<ConfiguracionSistema>();
 
     private void InicializarVersiones()

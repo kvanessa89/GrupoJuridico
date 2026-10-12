@@ -5,13 +5,14 @@ import { api } from '../../api/endpoints'
 import type { ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
 import { useSesion } from '../../auth/Sesion'
 import { EtiquetaEstadoGrande, EtiquetaPrimaGrande } from '../../components/Chips'
-import { CampoNotas, CampoSelect, CampoTexto, Select, TarjetaSeccion, type Opcion } from '../../components/Controles'
+import { CampoMonto, CampoNotas, CampoSelect, CampoTelefono, CampoTexto, Select, TarjetaSeccion, type Opcion } from '../../components/Controles'
 import { Atras, Check } from '../../components/Iconos'
 import { EditorSecciones, SeccionBloqueadaError, type SeccionVersion } from '../../hooks/EditorSecciones'
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
-import { fFecha, fMonto, iniciales, num, origenEtiqueta, vendedorEtiqueta } from '../../utils/formato'
+import { fFecha, fNumero, iniciales, num, origenEtiqueta, soloDigitos, vendedorEtiqueta } from '../../utils/formato'
 import {
-  faltantesNuevo, formDesde, formVacio, idONull, payloadCrear, payloadDatos, primaCalculada, type FormPersona,
+  correoValido, correosValidos, faltaFechaPago, faltaNombreFamiliar, faltantesNuevo, familiarVacio, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
+  payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
 import { Comentarios, Contactos, Familiares } from './Secciones'
 
@@ -130,14 +131,36 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     (r, _hayMas, enviado) => confirmarIds('correos', enviado, r), fallo('datos'),
   )
   const gFamiliares = useGuardadoDiferido(
-    (fs: FamiliarDto[]) => enviar('familiares', v => api.guardarFamiliares(personaId, traducirIds('familiares', fs), v)),
+    // Las filas nuevas sin datos no se envían (el backend también las ignora).
+    (fs: FamiliarDto[]) => enviar('familiares', v => api.guardarFamiliares(personaId,
+      traducirIds('familiares', fs.filter(x => !(x.id <= 0 && familiarVacio(x)))), v)),
     (r, _hayMas, enviado) => confirmarIds('familiares', enviado, r), fallo('familiares'),
   )
   const todos = [gDatos, gVenta, gPrima, gNumeros, gCorreos, gFamiliares]
   useEffect(() => { guardadoresRef.current = todos })
   const grupo = (seccion: SeccionVersion) => seccion === 'datos' ? [gDatos, gNumeros, gCorreos] :
     seccion === 'venta' ? [gVenta] : seccion === 'prima' ? [gPrima] : [gFamiliares]
-  const hayCambios = () => guardadoresRef.current.some(g => g.hayPendientes())
+  /**
+   * Campos requeridos que impiden salir de la ficha, con la pestaña donde están. Mientras falten,
+   * esa parte no se autoguarda: cuentan como cambios pendientes para no perderlos al salir.
+   */
+  const pendientesDe = (f: FormPersona): { campo: string; pestana: Pestana }[] => {
+    if (nuevo) return []
+    const lista: { campo: string; pestana: Pestana }[] = []
+    if (faltaFechaPago(f)) lista.push({ campo: 'Fecha de pago', pestana: 'ventas' })
+    if (f.familiares.some(faltaNombreFamiliar)) lista.push({ campo: 'Nombre familiar', pestana: 'familiares' })
+    return lista
+  }
+  const pendientesRef = useRef<{ campo: string; pestana: Pestana }[]>([])
+  useEffect(() => { pendientesRef.current = pendientesDe(form) })
+  /** Muestra el aviso y lleva a la pestaña del primer campo pendiente. Devuelve si había alguno. */
+  const avisarPendientes = (lista: { pestana: Pestana }[]) => {
+    if (!lista.length) return false
+    setVolverIntento(true)
+    setPestana(lista[0].pestana)
+    return true
+  }
+  const hayCambios = () => pendientesRef.current.length > 0 || guardadoresRef.current.some(g => g.hayPendientes())
   const blocker = useBlocker(() => !nuevo && hayCambios())
   useEffect(() => {
     const prevenir = (e: BeforeUnloadEvent) => {
@@ -147,9 +170,11 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     return () => window.removeEventListener('beforeunload', prevenir)
   }, [])
   const guardarPendientes = async () => {
+    if (avisarPendientes(pendientesRef.current)) return false
     const resultados = await Promise.all(todos.map(g => g.flush()))
     const exito = resultados.every(Boolean) && !hayCambios()
-    if (!exito) setErrorGuardar('Hay cambios pendientes o un conflicto. Revisá el aviso antes de salir.')
+    // Conserva un error más específico (ej. el del servidor) en lugar de taparlo con el genérico.
+    if (!exito) setErrorGuardar(prev => prev || 'Hay cambios pendientes o un conflicto. Revise el aviso antes de salir.')
     return exito
   }
   // Descarta el borrador de la sección y trae lo que guardó el otro usuario.
@@ -165,7 +190,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       if (seccion === 'datos') setPersona(p => p ? { ...p, esCliente: actual.esCliente, cliente: actual.cliente } : p)
       setConflictos(cs => cs.filter(c => c.seccion !== seccion))
     } catch (e) {
-      setErrorGuardar(mensajeDe(e, 'No se pudo recargar la sección. Intentá de nuevo.'))
+      setErrorGuardar(mensajeDe(e, 'No se pudo recargar la sección. Intente de nuevo.'))
     } finally { setRecargando(false) }
   }
   const nombreSeccion = (s: SeccionVersion) =>
@@ -174,7 +199,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     const seccionTxt = <strong>{nombreSeccion(c.seccion)}</strong>
     const cuando = c.modificadoEn ? ' ' + momento(c.modificadoEn) : ''
     if (c.modificadoPorId != null && c.modificadoPorId === usuario?.id)
-      return <>Modificaste la sección {seccionTxt} desde otra pestaña o sesión{cuando}.</>
+      return <>Usted modificó la sección {seccionTxt} desde otra pestaña o sesión{cuando}.</>
     if (c.modificadoPor) return <><strong>{c.modificadoPor}</strong> modificó la sección {seccionTxt}{cuando}.</>
     return <>Otro usuario modificó la sección {seccionTxt}{cuando}.</>
   }
@@ -184,14 +209,20 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     setGuardado(false)
     setForm(nuevoForm)
     if (nuevo) return
+    // Con un correo inválido no se envía: el campo muestra el error hasta que se corrija.
+    if (parte === 'datos' && !esCliente && !correosValidos.datos(nuevoForm)) return
     if (parte === 'datos') gDatos.programar(nuevoForm)
     else if (parte === 'venta') gVenta.programar(nuevoForm)
-    else gPrima.programar(nuevoForm)
+    // Pagada sin fecha de pago: espera a que se complete la fecha (el campo ya muestra el error).
+    else if (!faltaFechaPago(nuevoForm)) gPrima.programar(nuevoForm)
   }
   const cambiarLista = <K extends 'numeros' | 'correos' | 'familiares'>(lista: K, valor: FormPersona[K]) => {
     setGuardado(false)
     setForm((f) => ({ ...f, [lista]: valor }))
     if (nuevo) return
+    const conLista = { ...form, [lista]: valor }
+    if (lista === 'correos' && !correosValidos.correos(conLista)) return
+    if (lista === 'familiares' && !correosValidos.familiares(conLista)) return
     if (lista === 'numeros') gNumeros.programar(valor as NumeroDto[])
     else if (lista === 'correos') gCorreos.programar(valor as CorreoDto[])
     else gFamiliares.programar(valor as FamiliarDto[])
@@ -199,16 +230,13 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
 
   const prima = primaCalculada(form)
   const fechaReq = !nuevo && prima.estado === 3
-  const fechaFalta = fechaReq && !form.prima.fechaPago.trim()
+  const fechaFalta = !nuevo && faltaFechaPago(form)
   const errores = nuevo ? { ...faltantesNuevo(form), ...(crearIntento ? erroresServidor : {}) } : {}
   const err = (k: string) => (nuevo && crearIntento ? errores[k] : undefined)
   const req = nuevo
 
   const volver = async () => {
-    if (fechaFalta) {
-      setVolverIntento(true)
-      return
-    }
+    if (avisarPendientes(pendientesDe(form))) return
     if (!nuevo && !await guardarPendientes()) return
     navegar(seccion === 'clientes' ? '/gestion/clientes' : '/gestion/ventas')
   }
@@ -244,7 +272,10 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       }, v))
       navegar(`/gestion/clientes/${personaId}`)
     } catch (e) {
-      fallo('datos')(e)
+      // Un conflicto de versión va al aviso general ("Recargar sección"); el resto queda en el panel,
+      // donde se reintenta con "Confirmar" (el "Reintentar guardado" de arriba no repite la conversión).
+      const status = (e as { response?: { status?: number } }).response?.status
+      if (e instanceof SeccionBloqueadaError || status === 409 || status === 428) fallo('datos')(e)
       setConv({ ...conv, error: mensajeDe(e) })
     }
   }
@@ -273,9 +304,9 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const bloqueDatos = (
     <TarjetaSeccion titulo="Datos de la persona">
       <div className="grilla-campos">
-        <CampoTexto label="Nombres" valor={d.nombres} onChange={(v) => cambiar('datos', 'nombres', v)} requerido={req} error={err('nombres')} />
-        <CampoTexto label="Apellidos" valor={d.apellidos} onChange={(v) => cambiar('datos', 'apellidos', v)} requerido={req} error={err('apellidos')} />
-        <CampoTexto label="Cédula" valor={d.cedula} onChange={(v) => cambiar('datos', 'cedula', v)} requerido={req} error={err('cedula')} />
+        <CampoTexto label="Nombres" valor={d.nombres} onChange={(v) => cambiar('datos', 'nombres', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('nombres')} />
+        <CampoTexto label="Apellidos" valor={d.apellidos} onChange={(v) => cambiar('datos', 'apellidos', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('apellidos')} />
+        <CampoTexto label="Cédula" valor={d.cedula} onChange={(v) => cambiar('datos', 'cedula', soloDigitos(v))} inputMode="numeric" maxLength={MAX_CEDULA} requerido={req} error={err('cedula')} />
         <CampoTexto label="Número de finca" valor={d.finca} onChange={(v) => cambiar('datos', 'finca', v)} requerido={req} error={err('finca')} />
         <CampoTexto label="Número de expediente" valor={d.expediente} onChange={(v) => cambiar('datos', 'expediente', v)} />
         <CampoTexto label="Fecha de ingreso" tipo="date" valor={d.fechaIngreso} onChange={(v) => cambiar('datos', 'fechaIngreso', v)} requerido={req} error={err('fechaIngreso')} />
@@ -297,9 +328,21 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         )}
         {!esCliente && (
           <>
-            <CampoTexto label="Teléfono principal" valor={d.telefonoPrincipal} onChange={(v) => cambiar('datos', 'telefonoPrincipal', v)} requerido={req} error={err('telefonoPrincipal')} />
-            <CampoTexto label="WhatsApp principal" valor={d.whatsappPrincipal} onChange={(v) => cambiar('datos', 'whatsappPrincipal', v)} requerido={req} error={err('whatsappPrincipal')} />
-            <CampoTexto label="Correo electrónico principal" valor={d.correoPrincipal} onChange={(v) => cambiar('datos', 'correoPrincipal', v)} />
+            <CampoTelefono
+              label="Teléfono principal" paisId={idONull(d.telefonoPrincipalPaisId)} numero={d.telefonoPrincipal}
+              onPais={(v) => cambiar('datos', 'telefonoPrincipalPaisId', String(v))} onNumero={(v) => cambiar('datos', 'telefonoPrincipal', v)}
+              requerido={req} error={err('telefonoPrincipal')}
+            />
+            <CampoTelefono
+              label="WhatsApp principal" paisId={idONull(d.whatsappPrincipalPaisId)} numero={d.whatsappPrincipal}
+              onPais={(v) => cambiar('datos', 'whatsappPrincipalPaisId', String(v))} onNumero={(v) => cambiar('datos', 'whatsappPrincipal', v)}
+              requerido={req} error={err('whatsappPrincipal')}
+            />
+            <CampoTexto
+              label="Correo electrónico principal" tipo="email" valor={d.correoPrincipal} maxLength={MAX_CORREO}
+              onChange={(v) => cambiar('datos', 'correoPrincipal', v)}
+              error={correoValido(d.correoPrincipal) ? err('correoPrincipal') : MSG_CORREO}
+            />
           </>
         )}
       </div>
@@ -319,7 +362,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
           requerido={req} error={err('metodoVentaId')}
           opciones={sel('Seleccione…', (cats?.metodos ?? []).map((x) => ({ v: String(x.id), l: x.nombre })))}
         />
-        <CampoTexto label="Monto de la venta" inputMode="numeric" valor={form.venta.monto} onChange={(v) => cambiar('venta', 'monto', v)} requerido={req} error={err('montoVenta')} />
+        <CampoMonto label="Monto de la venta" valor={form.venta.monto} onChange={(v) => cambiar('venta', 'monto', v)} requerido={req} error={err('montoVenta')} />
       </div>
       <CampoNotas label="Notas de la venta" valor={form.venta.notas} onChange={(v) => cambiar('venta', 'notas', v)} />
     </TarjetaSeccion>
@@ -328,9 +371,9 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const bloquePrima = (
     <TarjetaSeccion titulo="Prima">
       <div className="grilla-campos">
-        <CampoTexto label="Monto de prima" inputMode="numeric" valor={form.prima.monto} onChange={(v) => cambiar('prima', 'monto', v)} requerido={req} error={err('montoPrima')} />
-        <CampoTexto label="Monto cancelado" inputMode="numeric" valor={form.prima.montoCancelado} onChange={(v) => cambiar('prima', 'montoCancelado', v)} />
-        <CampoTexto label="Saldo pendiente" valor={fMonto(prima.saldo)} soloLectura />
+        <CampoMonto label="Monto de prima" valor={form.prima.monto} onChange={(v) => cambiar('prima', 'monto', v)} requerido={req} error={err('montoPrima')} />
+        <CampoMonto label="Monto cancelado" valor={form.prima.montoCancelado} onChange={(v) => cambiar('prima', 'montoCancelado', v)} />
+        <CampoTexto label="Saldo pendiente" valor={fNumero(prima.saldo)} soloLectura />
         <CampoTexto label="Fecha estimada de pago" tipo="date" valor={form.prima.fechaEstimadaPago} onChange={(v) => cambiar('prima', 'fechaEstimadaPago', v)} />
         <CampoTexto
           label="Fecha de pago" tipo="date" valor={form.prima.fechaPago} onChange={(v) => cambiar('prima', 'fechaPago', v)}
@@ -354,11 +397,11 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         <Atras />
         <span>{nuevo ? 'Descartar y volver' : seccion === 'clientes' ? 'Volver a clientes' : 'Volver a la tabla de ventas'}</span>
       </button>
-      {volverIntento && fechaFalta && (
-        <div role="alert" className="alerta">
-          No podés volver a la tabla porque falta un campo requerido: Fecha de pago.
+      {volverIntento && pendientesDe(form).map(({ campo }) => (
+        <div key={campo} role="alert" className="alerta">
+          Campo requerido pendiente: {campo}
         </div>
-      )}
+      ))}
 
       <div className="ficha-cabecera">
         <div className="ficha-identidad">
@@ -395,18 +438,21 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         </div>
       </div>
 
-      {errorGuardar && <div role="alert" className="alerta">{errorGuardar}</div>}
+      {errorGuardar && <div role="alert" className="alerta">
+        {errorGuardar}
+        {/* Con un conflicto abierto se resuelve con "Recargar sección", no reintentando. */}
+        {!conflictos.length && <>{' '}<button className="btn-enlace en-alerta" onClick={async () => {
+          todos.forEach(g => g.reanudar())
+          if (await guardarPendientes()) { setErrorGuardar(''); setGuardado(true) }
+        }}>Reintentar guardado</button></>}
+      </div>}
 
       {conflictos.map(c => <div key={c.seccion} role="alert" className="alerta">
-        <p>{avisoConflicto(c)} Tus cambios en esta sección no se guardaron.</p>
+        <p>{avisoConflicto(c)} Sus cambios en esta sección no se guardaron.</p>
         <button className="btn-secundario" disabled={recargando} onClick={() => void recargar(c.seccion)}>Recargar sección</button>
       </div>)}
-      {errorGuardar && !conflictos.length && <button className="btn-secundario" onClick={async () => {
-        todos.forEach(g => g.reanudar())
-        if (await guardarPendientes()) { setErrorGuardar(''); setGuardado(true) }
-      }}>Reintentar guardado</button>}
       {blocker.state === 'blocked' && <div role="alert" className="alerta">
-        <p>Hay cambios sin guardar. Permanecé en la ficha para guardarlos o resolver el conflicto.</p>
+        <p>Hay cambios sin guardar. Permanezca en la ficha para guardarlos o resolver el conflicto.</p>
         <button className="btn-primario" onClick={() => blocker.reset()}>Seguir editando</button>{' '}
         <button className="btn-secundario" onClick={async () => { if (await guardarPendientes()) blocker.proceed() }}>Guardar y salir</button>
       </div>}
@@ -485,7 +531,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
               Guardar prospecto
             </button>
             {crearIntento && Object.keys(errores).length > 0 && (
-              <span role="alert" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--rojo)' }}>Completá los campos requeridos antes de guardar.</span>
+              <span role="alert" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--rojo)' }}>Complete los campos requeridos antes de guardar.</span>
             )}
           </>
         )}

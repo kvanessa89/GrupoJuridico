@@ -277,6 +277,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.Property<int?>("ModificadoPorId")
                         .HasColumnType("integer");
 
+                    b.Property<int>("PaisId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("PersonaId")
                         .HasColumnType("integer");
 
@@ -295,6 +298,8 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .HasColumnName("Numero");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PaisId");
 
                     b.HasIndex("PersonaId");
 
@@ -328,6 +333,64 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("OrigenesCliente", (string)null);
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Pais", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Paises", (string)null);
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Parentesco", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Parentescos", (string)null);
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Persona", b =>
@@ -414,10 +477,8 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<string>("Parentesco")
-                        .IsRequired()
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
+                    b.Property<int?>("ParentescoId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("PersonaId")
                         .HasColumnType("integer");
@@ -427,14 +488,26 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<int?>("TelefonoPaisId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Whatsapp")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<int?>("WhatsappPaisId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("ParentescoId");
+
                     b.HasIndex("PersonaId");
+
+                    b.HasIndex("TelefonoPaisId");
+
+                    b.HasIndex("WhatsappPaisId");
 
                     b.ToTable("PersonaFamiliares", (string)null);
                 });
@@ -876,11 +949,19 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Numero", b =>
                 {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Pais", "Pais")
+                        .WithMany()
+                        .HasForeignKey("PaisId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Persona", null)
                         .WithMany("Numeros")
                         .HasForeignKey("PersonaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Pais");
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Persona", b =>
@@ -902,11 +983,32 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.PersonaFamiliar", b =>
                 {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Parentesco", "Parentesco")
+                        .WithMany()
+                        .HasForeignKey("ParentescoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Persona", null)
                         .WithMany("Familiares")
                         .HasForeignKey("PersonaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Pais", "TelefonoPais")
+                        .WithMany()
+                        .HasForeignKey("TelefonoPaisId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Pais", "WhatsappPais")
+                        .WithMany()
+                        .HasForeignKey("WhatsappPaisId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Parentesco");
+
+                    b.Navigation("TelefonoPais");
+
+                    b.Navigation("WhatsappPais");
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Prima", b =>

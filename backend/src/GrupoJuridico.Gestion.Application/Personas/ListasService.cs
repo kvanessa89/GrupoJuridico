@@ -1,3 +1,4 @@
+using GrupoJuridico.Gestion.Application.Common;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
 using GrupoJuridico.Gestion.Application.Common.Models;
@@ -30,10 +31,12 @@ public class ListasService
         .Include(p => p.Ventas).ThenInclude(v => v.Prima).ThenInclude(pr => pr!.EstadoPrima)
         .Include(p => p.Ventas).ThenInclude(v => v.ProcedenciaVenta)
         .Include(p => p.Ventas).ThenInclude(v => v.MetodoVenta)
-        .Include(p => p.Numeros)
+        .Include(p => p.Numeros).ThenInclude(n => n.Pais)
         .Include(p => p.Correos)
         .Include(p => p.Fincas)
         .AsSplitQuery();
+
+    private static string? Completo(Numero? n) => n == null ? null : Pais.Formatear(n.Pais, n.Valor);
 
     private static bool Coincide(Persona p, string? q, bool conExpediente)
     {
@@ -41,11 +44,15 @@ public class ListasService
         var blob = string.Join(" ", new[]
         {
             p.NombreCompleto, p.Cedula, conExpediente ? p.Expediente : "",
-            string.Join(" ", p.Numeros.Select(n => n.Valor)),
+            string.Join(" ", p.Numeros.Select(n => Pais.Formatear(n.Pais, n.Valor))),
             p.CorreoPrincipal?.Correo ?? "",
             string.Join(" ", p.Fincas.Select(f => f.Numero))
         }).ToLowerInvariant();
-        return blob.Contains(q.Trim().ToLowerInvariant());
+        if (blob.Contains(q.Trim().ToLowerInvariant())) return true;
+        // Cédulas y teléfonos se guardan sin guiones: "1-1088-0714" también encuentra "110880714".
+        var digitos = Validacion.SoloDigitos(q);
+        return digitos.Length > 0 && q.Trim().All(c => char.IsAsciiDigit(c) || c is '-' or ' ' or '+')
+            && (p.Cedula.Contains(digitos) || p.Numeros.Any(n => n.Valor.Contains(digitos)));
     }
 
     public async Task<VentasListaDto> VentasAsync(ListaQuery f, CancellationToken ct = default)
@@ -87,8 +94,8 @@ public class ListasService
             var pr = p.Prima!;
             return new VentaFilaDto(
                 p.Id, p.Expediente, p.NombreCompleto,
-                p.NumeroPrincipal(TipoNumero.Telefono)?.Valor,
-                p.NumeroPrincipal(TipoNumero.WhatsApp)?.Valor,
+                Completo(p.NumeroPrincipal(TipoNumero.Telefono)),
+                Completo(p.NumeroPrincipal(TipoNumero.WhatsApp)),
                 p.Venta?.ProcedenciaVenta?.Nombre,
                 p.Venta?.MetodoVenta?.Nombre,
                 p.Vendedor?.Etiqueta,
@@ -138,7 +145,7 @@ public class ListasService
 
         var filas = ordenadas.Select(p => new ClienteFilaDto(
             p.Id, p.Expediente, p.NombreCompleto,
-            p.NumeroPrincipal(TipoNumero.Telefono)?.Valor,
+            Completo(p.NumeroPrincipal(TipoNumero.Telefono)),
             p.CorreoPrincipal?.Correo,
             p.Finca?.Numero,
             p.FechaIngreso,

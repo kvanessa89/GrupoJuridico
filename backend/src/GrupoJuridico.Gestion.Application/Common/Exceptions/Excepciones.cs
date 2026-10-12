@@ -9,7 +9,7 @@ public class NoEncontradoException : Exception
 
 public class ProhibidoException : Exception
 {
-    public ProhibidoException(string mensaje = "No tenés permiso para esta acción.") : base(mensaje) { }
+    public ProhibidoException(string mensaje = "No tiene permiso para esta acción.") : base(mensaje) { }
 }
 
 /// <summary>Errores de validación por campo; la API los devuelve como ValidationProblemDetails (400).</summary>

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { FiltrosLista } from '../api/tipos'
 import { Adelante, Atras, Basurero, Chevron, Lupa } from './Iconos'
 import type { Opcion } from './Controles'
+import { enlaceTel } from '../utils/formato'
 
 export interface Columna {
   label: string
@@ -153,6 +154,15 @@ export function Paginacion({
 }
 
 /** Celda de dos líneas (texto principal y secundario). */
+/** Teléfono con prefijo ("+506 88124477") como enlace tel:. No abre la fila al hacer clic. */
+export function EnlaceTelefono({ numero }: { numero: string }) {
+  return (
+    <a className="enlace-tel" href={enlaceTel(numero)} title={'Llamar al ' + numero} onClick={(e) => e.stopPropagation()}>
+      {numero}
+    </a>
+  )
+}
+
 export function Celda({ t, s, clase = 'c-suave', subClase = 'c-sub' }: { t: ReactNode; s?: ReactNode; clase?: string; subClase?: string }) {
   return (
     <span style={{ display: 'block' }}>

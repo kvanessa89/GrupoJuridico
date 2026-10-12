@@ -35,7 +35,7 @@ public class AuthService
     {
         await _validator.ValidarAsync(request);
         var usuario = await _identity.ValidarCredencialesAsync(request.Usuario.Trim(), request.Contrasena)
-            ?? throw new ValidacionException("credenciales", "No se pudo iniciar sesión. Revisá tus credenciales o intentá más tarde.");
+            ?? throw new ValidacionException("credenciales", "No se pudo iniciar sesión. Revise sus credenciales o intente más tarde.");
         return new LoginResponse(await _tokens.GenerarAsync(usuario), usuario);
     }
 

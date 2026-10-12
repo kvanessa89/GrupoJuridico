@@ -18,6 +18,24 @@ public static class Validacion
 
     public static bool Vacio(string? s) => string.IsNullOrWhiteSpace(s);
 
+    /// <summary>Los teléfonos se guardan solo con dígitos; el prefijo va en el país.</summary>
+    public static string SoloDigitos(string? s) => new((s ?? "").Where(char.IsAsciiDigit).ToArray());
+
+    /// <summary>Correo con forma usuario@dominio.ext, sin espacios. Vacío se considera válido (es opcional).</summary>
+    public static bool CorreoValido(string? s) =>
+        Vacio(s) || System.Text.RegularExpressions.Regex.IsMatch(s!.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$");
+
+    /// <summary>Limpia y valida un correo opcional: formato y largo máximo.</summary>
+    public static string Correo(string? s, string campo, int maximo)
+    {
+        var limpio = s?.Trim() ?? "";
+        if (limpio.Length > maximo)
+            throw new ValidacionException(campo, $"El correo admite como máximo {maximo} caracteres.");
+        if (!CorreoValido(limpio))
+            throw new ValidacionException(campo, "Correo electrónico no válido.");
+        return limpio;
+    }
+
     /// <summary>Las claves de error siguen el nombre JSON del campo (camelCase).</summary>
     public static string CamelCase(string nombre) =>
         string.IsNullOrEmpty(nombre) ? nombre : char.ToLowerInvariant(nombre[0]) + nombre[1..];

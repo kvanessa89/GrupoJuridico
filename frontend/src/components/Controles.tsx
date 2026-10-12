@@ -1,5 +1,7 @@
-import { useState, type ReactNode } from 'react'
-import { Chevron, Ojo } from './Iconos'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useSesion } from '../auth/Sesion'
+import { enlaceTel, formatearMonto, limpiarMonto, paisPorDefecto, soloDigitos } from '../utils/formato'
+import { Chevron, Llamar, Ojo } from './Iconos'
 
 export interface Opcion {
   v: string
@@ -23,7 +25,7 @@ function Etiqueta({ label, requerido }: { label: string; requerido?: boolean }) 
 }
 
 export function CampoTexto({
-  label, valor, onChange, tipo = 'text', requerido, error, soloLectura, span, placeholder, inputMode,
+  label, valor, onChange, tipo = 'text', requerido, error, soloLectura, span, placeholder, inputMode, maxLength,
 }: CampoBase & {
   valor: string | number | null | undefined
   onChange?: (v: string) => void
@@ -31,6 +33,7 @@ export function CampoTexto({
   soloLectura?: boolean
   placeholder?: string
   inputMode?: 'numeric' | 'decimal' | 'text'
+  maxLength?: number
 }) {
   return (
     <label style={{ display: 'block', minWidth: 0, gridColumn: span ? `span ${span}` : undefined }}>
@@ -42,8 +45,51 @@ export function CampoTexto({
         readOnly={soloLectura}
         placeholder={placeholder}
         inputMode={inputMode}
+        maxLength={maxLength}
         onChange={(e) => onChange?.(e.target.value)}
         onClick={tipo === 'date' ? (e) => (e.currentTarget as HTMLInputElement).showPicker?.() : undefined}
+      />
+      {error && <span className="msg-error">{error}</span>}
+    </label>
+  )
+}
+
+/**
+ * Monto con miles separados por coma y decimales con punto ("1,250,000.50").
+ * Solo admite dígitos y un punto; `valor` y `onChange` usan el número crudo ("1250000.50").
+ */
+export function CampoMonto({
+  label, valor, onChange, requerido, error, span,
+}: CampoBase & { valor: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null)
+  // Dígitos y punto que quedan a la izquierda del cursor; al reformatear se vuelve a esa posición.
+  const antesDelCursor = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || antesDelCursor.current == null) return
+    let quedan = antesDelCursor.current
+    let pos = 0
+    while (pos < el.value.length && quedan > 0) {
+      if (el.value[pos] !== ',') quedan--
+      pos++
+    }
+    el.setSelectionRange(pos, pos)
+    antesDelCursor.current = null
+  })
+  return (
+    <label style={{ display: 'block', minWidth: 0, gridColumn: span ? `span ${span}` : undefined }}>
+      <Etiqueta label={label} requerido={requerido} />
+      <input
+        ref={ref}
+        className={'campo' + (error ? ' error' : '')}
+        value={formatearMonto(valor)}
+        inputMode="decimal"
+        onChange={(e) => {
+          const crudo = limpiarMonto(e.target.value)
+          const izquierda = e.target.value.slice(0, e.target.selectionStart ?? e.target.value.length)
+          antesDelCursor.current = Math.min(izquierda.replace(/[^\d.]/g, '').length, crudo.length)
+          onChange(crudo)
+        }}
       />
       {error && <span className="msg-error">{error}</span>}
     </label>
@@ -80,6 +126,64 @@ export function CampoSelect({
     <label style={{ display: 'block', minWidth: 0, gridColumn: span ? `span ${span}` : undefined }}>
       <Etiqueta label={label} requerido={requerido} />
       <Select valor={valor} onChange={onChange} opciones={opciones} className={'campo campo-select' + (error ? ' error' : '')} />
+      {error && <span className="msg-error">{error}</span>}
+    </label>
+  )
+}
+
+/** Número de teléfono con su país: prefijo del catálogo de países + número. */
+export function Telefono({
+  paisId, numero, onPais, onNumero, error, placeholder = 'Número', ariaLabel,
+}: {
+  paisId: number | null
+  numero: string
+  onPais: (id: number) => void
+  onNumero: (v: string) => void
+  error?: boolean
+  placeholder?: string
+  ariaLabel?: string
+}) {
+  const { catalogos } = useSesion()
+  const paises = catalogos?.paises ?? []
+  const actual = paisId ?? paisPorDefecto(paises)
+  const prefijo = paises.find((p) => p.id === actual)?.codigo ?? ''
+  return (
+    <span className={'telefono' + (error ? ' error' : '')}>
+      <span title={paises.find((p) => p.id === actual)?.nombre}>
+        <Select
+          valor={actual == null ? '' : String(actual)}
+          onChange={(v) => onPais(Number(v))}
+          opciones={paises.map((p) => ({ v: String(p.id), l: p.codigo }))}
+          className="telefono-pais"
+          ariaLabel="País"
+          chevronTamano={10}
+          chevronDerecha={6}
+        />
+      </span>
+      <input
+        className="campo"
+        value={numero}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        inputMode="numeric"
+        onChange={(e) => onNumero(soloDigitos(e.target.value))}
+      />
+      {numero && (
+        <a className="btn-llamar" href={enlaceTel(prefijo + numero)} title={`Llamar al ${prefijo} ${numero}`} aria-label={`Llamar al ${prefijo} ${numero}`}>
+          <Llamar />
+        </a>
+      )}
+    </span>
+  )
+}
+
+export function CampoTelefono({
+  label, paisId, numero, onPais, onNumero, requerido, error, span,
+}: CampoBase & { paisId: number | null; numero: string; onPais: (id: number) => void; onNumero: (v: string) => void }) {
+  return (
+    <label style={{ display: 'block', minWidth: 0, gridColumn: span ? `span ${span}` : undefined }}>
+      <Etiqueta label={label} requerido={requerido} />
+      <Telefono paisId={paisId} numero={numero} onPais={onPais} onNumero={onNumero} error={!!error} ariaLabel={label} />
       {error && <span className="msg-error">{error}</span>}
     </label>
   )

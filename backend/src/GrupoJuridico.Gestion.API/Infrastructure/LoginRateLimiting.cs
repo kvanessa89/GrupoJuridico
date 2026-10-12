@@ -39,7 +39,7 @@ public static class LoginRateLimiting
                 context.HttpContext.Response.Headers["Retry-After"] = retry.ToString(CultureInfo.InvariantCulture);
                 await Results.Problem(
                     statusCode: StatusCodes.Status429TooManyRequests,
-                    title: "Demasiados intentos. Intentá nuevamente más tarde.")
+                    title: "Demasiados intentos. Intente nuevamente más tarde.")
                     .ExecuteAsync(context.HttpContext);
             };
         });

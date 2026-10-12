@@ -19,6 +19,8 @@ public record CatalogosDto(
     IReadOnlyList<CatalogoItemDto> EstadosPrima,
     IReadOnlyList<CatalogoItemDto> Origenes,
     IReadOnlyList<CatalogoItemDto> EstadosCliente,
+    IReadOnlyList<CatalogoItemDto> Paises,
+    IReadOnlyList<CatalogoItemDto> Parentescos,
     IReadOnlyList<RolDto> Roles,
     decimal InteresMora);
 
@@ -40,7 +42,7 @@ public class GuardarCatalogoItemValidator : AbstractValidator<GuardarCatalogoIte
 public class CatalogosService
 {
     /// <summary>Tipos de catálogo expuestos por la API (segmento de la ruta).</summary>
-    public static readonly string[] Tipos = { "vendedores", "procedencias", "metodos", "estados-prima", "origenes", "estados-cliente" };
+    public static readonly string[] Tipos = { "vendedores", "procedencias", "metodos", "estados-prima", "origenes", "estados-cliente", "paises", "parentescos" };
 
     private readonly IApplicationDbContext _db;
     private readonly IIdentityService _identity;
@@ -65,6 +67,8 @@ public class CatalogosService
             (await _db.EstadosPrima.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             (await _db.OrigenesCliente.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             (await _db.EstadosCliente.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
+            (await _db.Paises.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
+            (await _db.Parentescos.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             _identity.Roles(),
             interes != null && decimal.TryParse(interes.Valor, NumberStyles.Number, CultureInfo.InvariantCulture, out var pct) ? pct : 2.5m);
     }
@@ -102,6 +106,10 @@ public class CatalogosService
                 return await AgregarAsync(_db.MetodosVenta, new MetodoVenta { Nombre = nombre }, ct, "MV-");
             case "estados-cliente":
                 return await AgregarAsync(_db.EstadosCliente, new EstadoCliente { Nombre = nombre }, ct, "EC-");
+            case "parentescos":
+                return await AgregarAsync(_db.Parentescos, new Parentesco { Nombre = nombre }, ct, "PA-");
+            case "paises":
+                return await AgregarAsync(_db.Paises, new Pais { Codigo = Prefijo(request.Codigo), Nombre = nombre }, ct);
             case "estados-prima":
                 throw new ValidacionException("tipo", "Los estados de prima son fijos: solo se puede cambiar su nombre.");
             default:
@@ -120,11 +128,14 @@ public class CatalogosService
             "estados-prima" => await _db.EstadosPrima.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Estado de prima", id),
             "origenes" => await _db.OrigenesCliente.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Origen", id),
             "estados-cliente" => await _db.EstadosCliente.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Estado del cliente", id),
+            "paises" => await _db.Paises.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("País", id),
+            "parentescos" => await _db.Parentescos.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Parentesco", id),
             _ => throw new NoEncontradoException("Catálogo", tipo)
         };
         item.Nombre = request.Nombre.Trim();
         // Solo vendedores y orígenes muestran el código al usuario; en los demás es interno.
         if ((tipo == "vendedores" || tipo == "origenes") && request.Codigo != null) item.Codigo = request.Codigo.Trim();
+        if (tipo == "paises" && request.Codigo != null) item.Codigo = Prefijo(request.Codigo);
         if (item is Vendedor v && request.Apellidos != null) v.Apellidos = request.Apellidos.Trim();
         await _db.SaveChangesAsync(ct);
         return new CatalogoItemDto(item.Id, item.Codigo, item.Nombre, (item as Vendedor)?.Apellidos);
@@ -174,6 +185,23 @@ public class CatalogosService
                 _db.EstadosCliente.Remove(x);
                 break;
             }
+            case "parentescos":
+            {
+                var x = await _db.Parentescos.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Parentesco", id);
+                var enUso = await _db.Familiares.CountAsync(f => f.ParentescoId == id, ct);
+                if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} familiar(es) tienen este parentesco.");
+                _db.Parentescos.Remove(x);
+                break;
+            }
+            case "paises":
+            {
+                var x = await _db.Paises.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("País", id);
+                var enUso = await _db.Numeros.CountAsync(n => n.PaisId == id, ct)
+                    + await _db.Familiares.CountAsync(f => f.TelefonoPaisId == id || f.WhatsappPaisId == id, ct);
+                if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} teléfono(s) usan este país.");
+                _db.Paises.Remove(x);
+                break;
+            }
             case "estados-prima":
                 throw new ValidacionException("tipo", "Los estados de prima son fijos y no se pueden eliminar.");
             default:
@@ -195,6 +223,16 @@ public class CatalogosService
         fila.Valor = request.Porcentaje.ToString(CultureInfo.InvariantCulture);
         await _db.SaveChangesAsync(ct);
         return request.Porcentaje;
+    }
+
+    /// <summary>Prefijo internacional: "+" y de 1 a 4 dígitos ("+506", "+1").</summary>
+    private static string Prefijo(string? codigo)
+    {
+        var limpio = (codigo ?? "").Trim().Replace(" ", "");
+        if (limpio.Length > 0 && limpio[0] != '+') limpio = "+" + limpio;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(limpio, @"^\+\d{1,4}$"))
+            throw new ValidacionException("codigo", "El código del país debe ser + y de 1 a 4 dígitos, por ejemplo +506.");
+        return limpio;
     }
 
     private async Task<CatalogoItemDto> AgregarAsync<T>(DbSet<T> set, T item, CancellationToken ct, string? prefijo = null) where T : Catalogo

@@ -1,4 +1,4 @@
-using GrupoJuridico.Gestion.Application.Common.Exceptions;
+﻿using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
 using GrupoJuridico.Gestion.Application.Personas;
 using GrupoJuridico.Gestion.Application.Usuarios;
@@ -106,10 +106,16 @@ public class PersonasAccesoTests
     public async Task Crear_con_prima_pagada_devuelve_exito_sin_permitir_consultas_posteriores()
     {
         using var db = CrearDb();
+        db.Paises.Add(new Pais { Codigo = "+506", Nombre = "Costa Rica" });
+        var vendedor = new Vendedor { Codigo = "30", Nombre = "Marta" };
+        var procedencia = new ProcedenciaVenta { Nombre = "Feria" };
+        var metodo = new MetodoVenta { Nombre = "Llamada" };
+        db.AddRange(vendedor, procedencia, metodo);
+        await db.SaveChangesAsync();
         var servicio = CrearServicio(db, Roles.AsistenteVentas);
         var dto = await servicio.CrearProspectoAsync(new CrearProspectoRequest(
-            "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), 1,
-            "88888888", "", "", 1, 1, 1000m, "", 100m, 100m,
+            "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), vendedor.Id,
+            "88888888", "", "", procedencia.Id, metodo.Id, 1000m, "", 100m, 100m,
             null, new DateOnly(2026, 10, 9), null));
 
         Assert.True(dto.Id > 0);
@@ -127,6 +133,171 @@ public class PersonasAccesoTests
         await db.SaveChangesAsync();
         await Assert.ThrowsAsync<ProhibidoException>(() =>
             CrearServicio(db, Roles.Administrador).EliminarComentarioAsync(c.Id));
+    }
+
+    [Fact]
+    public async Task Nombres_y_apellidos_admiten_veinte_caracteres()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        ActualizarDatosRequest Datos(string nombres, string apellidos) => new(
+            nombres, apellidos, "123", "Finca", "", new DateOnly(2026, 10, 9), null, null, null, null, null, null);
+
+        var veinte = new string('a', 20);
+        await servicio.ActualizarDatosAsync(id, Datos(veinte, veinte), version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        var version = (await servicio.ObtenerAsync(id)).Versiones["datos"];
+        var guardados = db.Guardados;
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarDatosAsync(id, Datos(veinte + "b", "Vargas"), version: version));
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarDatosAsync(id, Datos("Ana", veinte + "b"), version: version));
+        Assert.Equal(guardados, db.Guardados);
+
+        var largo = new CrearProspectoValidator().Validate(
+            new CrearProspectoRequest(veinte + "b", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), 1,
+                "88888888", "", "", 1, 1, 1000m, "", 100m, 0m, null, null, null));
+        Assert.Contains(largo.Errors, e => e.PropertyName == nameof(CrearProspectoRequest.Nombres));
+    }
+
+    [Fact]
+    public async Task Cedula_admite_quince_digitos_y_los_correos_deben_ser_validos()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        ActualizarDatosRequest Datos(string cedula, string? correo) => new(
+            "Ana", "Vargas", cedula, "Finca", "", new DateOnly(2026, 10, 9), null, null, null, correo, null, null);
+        var ficha = await servicio.ObtenerAsync(id);
+        var guardados = db.Guardados;
+
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarDatosAsync(id, Datos(new string('1', 16), null), version: ficha.Versiones["datos"]));
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarDatosAsync(id, Datos("1", "ana@correo"), version: ficha.Versiones["datos"]));
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarDatosAsync(id,
+            Datos("1", new string('a', 92) + "@mail.com"), version: ficha.Versiones["datos"])); // 101 caracteres
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarCorreosAsync(id,
+            new[] { new CorreoItem(0, "sin arroba", true) }, version: ficha.Versiones["datos"]));
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarFamiliaresAsync(id,
+            new[] { new FamiliarItem(0, "Luis", null, "", "luis@", "") }, version: ficha.Versiones["familiares"]));
+        Assert.Equal(guardados, db.Guardados);
+
+        await servicio.ActualizarDatosAsync(id, Datos(new string('1', 15), " ana@correo.cr "), version: ficha.Versiones["datos"]);
+        var actual = await servicio.ObtenerAsync(id);
+        Assert.Equal(new string('1', 15), actual.Cedula);
+        Assert.Equal("ana@correo.cr", actual.CorreoPrincipal);
+    }
+
+    [Fact]
+    public async Task Familiares_usan_parentescos_del_catalogo_y_no_se_eliminan_en_uso()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var catalogos = new Catalogos.CatalogosService(db, new IdentityPrueba());
+        var hermano = await catalogos.CrearAsync("parentescos", new Catalogos.GuardarCatalogoItemRequest("Hermano/a", null, null));
+        Assert.StartsWith("PA-", hermano.Codigo);
+        var version = (await servicio.ObtenerAsync(id)).Versiones["familiares"];
+
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarFamiliaresAsync(id,
+            new[] { new FamiliarItem(0, "Luis", 999, "", "", "") }, version: version));
+        var familiares = await servicio.ReemplazarFamiliaresAsync(id,
+            new[] { new FamiliarItem(0, "Luis", hermano.Id, "", "", "") }, version: version);
+        Assert.Equal(hermano.Id, familiares[0].ParentescoId);
+
+        await Assert.ThrowsAsync<ValidacionException>(() => catalogos.EliminarAsync("parentescos", hermano.Id));
+
+        // El nombre es requerido; una fila nueva totalmente vacía se ignora.
+        var conNombre = (await servicio.ObtenerAsync(id)).Versiones["familiares"];
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarFamiliaresAsync(id,
+            new[] { new FamiliarItem(0, "  ", hermano.Id, "88887777", "", "") }, version: conNombre));
+        var soloVacia = await servicio.ReemplazarFamiliaresAsync(id, new[]
+        {
+            new FamiliarItem(familiares[0].Id, "Luis", hermano.Id, "", "", ""),
+            new FamiliarItem(-1, "", null, "", "", ""),
+        }, version: conNombre);
+        Assert.Single(soloVacia);
+
+        // Nombre completo del familiar: hasta 60 caracteres.
+        var nueva = (await servicio.ObtenerAsync(id)).Versiones["familiares"];
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarFamiliaresAsync(id,
+            new[] { new FamiliarItem(0, new string('a', 61), hermano.Id, "", "", "") }, version: nueva));
+        await servicio.ReemplazarFamiliaresAsync(id,
+            new[] { new FamiliarItem(0, new string('a', 60), hermano.Id, "", "", "") }, version: nueva);
+        Assert.NotNull(await db.Parentescos.FindAsync(hermano.Id));
+    }
+
+    [Fact]
+    public async Task Prima_pagada_no_se_guarda_sin_fecha_de_pago()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Incompleta);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var version = (await servicio.ObtenerAsync(id)).Versiones["prima"];
+        var guardados = db.Guardados;
+
+        await Assert.ThrowsAsync<ValidacionException>(() =>
+            servicio.ActualizarPrimaAsync(id, new ActualizarPrimaRequest(100m, 100m, null, null), version: version));
+        Assert.Equal(guardados, db.Guardados);
+        Assert.Equal(EstadoPrima.Incompleta, (await db.Primas.SingleAsync()).EstadoPrimaId);
+
+        var pagada = await servicio.ActualizarPrimaAsync(id,
+            new ActualizarPrimaRequest(100m, 100m, null, new DateOnly(2026, 10, 9)), version: version);
+        Assert.Equal(EstadoPrima.Pagada, pagada.EstadoPrimaId);
+    }
+
+    [Fact]
+    public async Task Permiso_se_revisa_antes_que_los_catalogos()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pagada);
+        var servicio = CrearServicio(db, Roles.AsistenteVentas);
+
+        // Ids que no existen en ningún catálogo: aun así, el error es de permiso.
+        await Assert.ThrowsAsync<ProhibidoException>(() => servicio.ActualizarDatosAsync(id, new ActualizarDatosRequest(
+            "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), 999, null, null, null, null, null)));
+        await Assert.ThrowsAsync<ProhibidoException>(() => servicio.ActualizarVentaAsync(id,
+            new ActualizarVentaRequest(999, 999, 1000m, "")));
+        await Assert.ThrowsAsync<ProhibidoException>(() => servicio.ConvertirEnClienteAsync(id,
+            new ConvertirClienteRequest("", 999, 999)));
+    }
+
+    [Fact]
+    public async Task Catalogo_eliminado_con_la_ficha_abierta_da_error_de_validacion()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var vendedor = new Vendedor { Codigo = "30", Nombre = "Marta" };
+        var procedencia = new ProcedenciaVenta { Nombre = "Feria" };
+        var metodo = new MetodoVenta { Nombre = "Llamada" };
+        var origen = new OrigenCliente { Codigo = "P1", Nombre = "Referido" };
+        var origenEliminado = new OrigenCliente { Codigo = "P2", Nombre = "Feria" };
+        var estado = new EstadoCliente { Nombre = "Moroso" };
+        db.AddRange(vendedor, procedencia, metodo, origen, origenEliminado, estado);
+        await db.SaveChangesAsync();
+        var ficha = await servicio.ObtenerAsync(id);
+
+        // Otra sesión elimina los catálogos mientras la ficha sigue mostrando esas opciones.
+        db.RemoveRange(vendedor, procedencia, metodo, origenEliminado, estado);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        var guardados = db.Guardados;
+
+        var datos = await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarDatosAsync(id, new ActualizarDatosRequest(
+            "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), vendedor.Id, null, null, null, null, null),
+            version: ficha.Versiones["datos"]));
+        Assert.Contains("vendedorId", datos.Errores.Keys);
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarVentaAsync(id,
+            new ActualizarVentaRequest(procedencia.Id, null, 1000m, ""), version: ficha.Versiones["venta"]));
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarVentaAsync(id,
+            new ActualizarVentaRequest(null, metodo.Id, 1000m, ""), version: ficha.Versiones["venta"]));
+
+        // Convertir en cliente: un origen o un estado eliminado se rechaza (el estado ya no cae en "Al día").
+        var sinOrigen = await Assert.ThrowsAsync<ValidacionException>(() => servicio.ConvertirEnClienteAsync(id,
+            new ConvertirClienteRequest("", origenEliminado.Id, null), version: ficha.Versiones["datos"]));
+        Assert.Contains("ya no existe", sinOrigen.Errores["origenClienteId"][0]);
+        var sinEstado = await Assert.ThrowsAsync<ValidacionException>(() => servicio.ConvertirEnClienteAsync(id,
+            new ConvertirClienteRequest("", origen.Id, estado.Id), version: ficha.Versiones["datos"]));
+        Assert.Contains("estadoClienteId", sinEstado.Errores.Keys);
+        Assert.Equal(guardados, db.Guardados);
     }
 
     [Fact]
@@ -153,6 +324,60 @@ public class PersonasAccesoTests
         await Assert.ThrowsAsync<ConflictoVersionException>(() =>
             servicio.ReemplazarNumerosAsync(id, Array.Empty<NumeroItem>(), version: version));
         Assert.Single(await db.Numeros.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Telefonos_guardan_pais_y_sin_pais_toman_el_primero()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var eeuu = new Pais { Codigo = "+1", Nombre = "Estados Unidos" };
+        db.Paises.Add(eeuu);
+        await db.SaveChangesAsync();
+        var cr = await db.Paises.Where(p => p.Codigo == "+506").Select(p => p.Id).SingleAsync();
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var ficha = await servicio.ObtenerAsync(id);
+
+        var numeros = await servicio.ReemplazarNumerosAsync(id, new[]
+        {
+            new NumeroItem(0, "3055550100", "WhatsApp", true, eeuu.Id),
+            new NumeroItem(0, "8888-88 88", "Teléfono", true),
+        }, version: ficha.Versiones["datos"]);
+        Assert.Equal(new[] { eeuu.Id, cr }, numeros.Select(n => n.PaisId));
+        Assert.Equal("88888888", numeros[1].Numero); // solo dígitos
+
+        var familiares = await servicio.ReemplazarFamiliaresAsync(id, new[]
+        {
+            new FamiliarItem(0, "Luis", null, "70001111", "", "", null, eeuu.Id),
+        }, version: ficha.Versiones["familiares"]);
+        Assert.Equal(cr, familiares[0].TelefonoPaisId);
+        Assert.Null(familiares[0].WhatsappPaisId); // sin número no se guarda país
+
+        var detalle = await servicio.ObtenerAsync(id);
+        Assert.Equal(eeuu.Id, detalle.WhatsappPrincipalPaisId);
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarNumerosAsync(id,
+            new[] { new NumeroItem(0, "1", "Teléfono", true, 999) }, version: detalle.Versiones["datos"]));
+    }
+
+    [Fact]
+    public async Task Pais_valida_el_prefijo_y_no_se_elimina_si_tiene_telefonos()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        await servicio.ReemplazarNumerosAsync(id, new[] { new NumeroItem(0, "88888888", "Teléfono", true) },
+            version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        var catalogos = new Catalogos.CatalogosService(db, new IdentityPrueba());
+
+        var nuevo = await catalogos.CrearAsync("paises", new Catalogos.GuardarCatalogoItemRequest("Panamá", "507", null));
+        Assert.Equal("+507", nuevo.Codigo);
+        await Assert.ThrowsAsync<ValidacionException>(() =>
+            catalogos.CrearAsync("paises", new Catalogos.GuardarCatalogoItemRequest("Error", "+50a", null)));
+
+        var cr = await db.Paises.Where(p => p.Codigo == "+506").Select(p => p.Id).SingleAsync();
+        await Assert.ThrowsAsync<ValidacionException>(() => catalogos.EliminarAsync("paises", cr));
+        await catalogos.EliminarAsync("paises", nuevo.Id);
+        Assert.Null(await db.Paises.FindAsync(nuevo.Id));
     }
 
     [Fact]
@@ -277,6 +502,7 @@ public class PersonasAccesoTests
         var persona = new Persona { Nombres = "Ana", Apellidos = "Vargas" };
         persona.Ventas.Add(new Venta { Monto = 1000m, Prima = prima });
         persona.Comentarios.Add(new Comentario { UsuarioId = 1, Texto = "Existente", Fecha = DateTime.UtcNow });
+        if (!db.Paises.Any()) db.Paises.Add(new Pais { Codigo = "+506", Nombre = "Costa Rica" });
         db.Personas.Add(persona);
         await db.SaveChangesAsync();
         var id = persona.Id;
@@ -331,6 +557,8 @@ public class PersonasAccesoTests
         public DbSet<EstadoPrima> EstadosPrima => Set<EstadoPrima>();
         public DbSet<OrigenCliente> OrigenesCliente => Set<OrigenCliente>();
         public DbSet<EstadoCliente> EstadosCliente => Set<EstadoCliente>();
+        public DbSet<Pais> Paises => Set<Pais>();
+        public DbSet<Parentesco> Parentescos => Set<Parentesco>();
         public DbSet<ConfiguracionSistema> Configuracion => Set<ConfiguracionSistema>();
         public int Guardados { get; private set; }
 

@@ -7,7 +7,7 @@ import { permisos, useSesion } from '../../auth/Sesion'
 import { ChipPrima, ChipTipo } from '../../components/Chips'
 import { Modal } from '../../components/Controles'
 import { Mas } from '../../components/Iconos'
-import { BarraFiltros, Celda, Paginacion, Tabla, Totales, type Columna, type FilaDef } from '../../components/Lista'
+import { BarraFiltros, Celda, type Columna, EnlaceTelefono, type FilaDef, Paginacion, Tabla, Totales } from '../../components/Lista'
 import { useListado } from '../../hooks/useListado'
 import { useFiltros } from '../../layout/Filtros'
 import { fCorta, fMes, fMonto, mesActual, vendedorEtiqueta } from '../../utils/formato'
@@ -48,7 +48,12 @@ export function VentasPage() {
     id: v.id,
     celdas: [
       <Celda t={v.expediente || 'Sin expediente'} s={v.nombreCompleto || 'Sin nombre'} clase="c-txt" subClase="c-sub-min" />,
-      <Celda t={v.telefono ?? '—'} s={v.whatsapp ? 'WA ' + v.whatsapp : ''} clase="c-num-suave" subClase="c-sub-min" />,
+      <Celda
+        t={v.telefono ? <EnlaceTelefono numero={v.telefono} /> : '—'}
+        s={v.whatsapp ? <>WA <EnlaceTelefono numero={v.whatsapp} /></> : ''}
+        clase="c-num-suave"
+        subClase="c-sub-min"
+      />,
       <Celda t={v.procedencia ?? '—'} s={v.metodo ?? ''} />,
       <Celda t={v.vendedor ?? '—'} />,
       <Celda t={fMonto(v.montoPrima)} clase="c-num" />,

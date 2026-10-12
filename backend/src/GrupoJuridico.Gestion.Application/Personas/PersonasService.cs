@@ -1,6 +1,7 @@
 using GrupoJuridico.Gestion.Application.Common;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
+using GrupoJuridico.Gestion.Domain.Common;
 using GrupoJuridico.Gestion.Domain.Constants;
 using GrupoJuridico.Gestion.Domain.Entities;
 using GrupoJuridico.Gestion.Domain.Enums;
@@ -49,6 +50,45 @@ public class PersonasService
         VersionGuardada = version.Version;
     }
 
+    /// <summary>
+    /// Resuelve el país de un teléfono: valida el id recibido o, si viene nulo,
+    /// toma el país por defecto (el primero del catálogo).
+    /// </summary>
+    private async Task<Func<int?, string, int>> PaisesAsync(CancellationToken ct)
+    {
+        var ids = await _db.Paises.OrderBy(x => x.Id).Select(x => x.Id).ToListAsync(ct);
+        return (id, campo) =>
+        {
+            if (id is > 0) return ids.Contains(id.Value) ? id.Value : throw new ValidacionException(campo, "El país seleccionado ya no existe. Recargue la página y elija otro.");
+            return ids.Count > 0 ? ids[0] : throw new ValidacionException(campo, "No hay países configurados.");
+        };
+    }
+
+    /// <summary>Cada familiar con parentesco debe usar uno del catálogo.</summary>
+    private async Task ValidarParentescosAsync(IEnumerable<FamiliarItem> items, CancellationToken ct)
+    {
+        var usados = items.Where(i => i.ParentescoId is > 0).Select(i => i.ParentescoId!.Value).Distinct().ToList();
+        if (usados.Count == 0) return;
+        var existentes = await _db.Parentescos.CountAsync(x => usados.Contains(x.Id), ct);
+        if (existentes != usados.Count) throw new ValidacionException(nameof(FamiliarItem.ParentescoId), "El parentesco seleccionado ya no existe. Recargue la página y elija otro.");
+    }
+
+    /// <summary>
+    /// El id elegido sigue en el catálogo. Un vendedor, procedencia o método puede eliminarse
+    /// mientras otra sesión tiene la ficha abierta: sin esto, el guardado violaría la FK (500).
+    /// </summary>
+    private async Task ValidarCatalogoAsync<T>(IQueryable<T> catalogo, int? id, string campo, string mensaje, CancellationToken ct)
+        where T : Catalogo
+    {
+        if (id is > 0 && !await catalogo.AnyAsync(x => x.Id == id, ct))
+            throw new ValidacionException(campo, mensaje);
+    }
+
+    private static NumeroDto NumeroDe(Numero n) => new(n.Id, n.Valor, TipoTexto(n.Tipo), n.Principal, n.PaisId);
+
+    private static FamiliarDto FamiliarDe(PersonaFamiliar f) =>
+        new(f.Id, f.NombreCompleto, f.ParentescoId, f.Telefono, f.CorreoElectronico, f.Whatsapp, f.TelefonoPaisId, f.WhatsappPaisId);
+
     public static string TipoTexto(TipoNumero t) => t == TipoNumero.WhatsApp ? "WhatsApp" : "Teléfono";
     public static TipoNumero TipoDesde(string? t) =>
         string.Equals(t, "WhatsApp", StringComparison.OrdinalIgnoreCase) ? TipoNumero.WhatsApp : TipoNumero.Telefono;
@@ -76,7 +116,7 @@ public class PersonasService
     {
         if (_usuario.Rol == Roles.AsistenteVentas &&
             persona.Prima?.EstadoPrimaId == EstadoPrima.Pagada)
-            throw new ProhibidoException("No tenés permiso para acceder a esta persona.");
+            throw new ProhibidoException("No tiene permiso para acceder a esta persona.");
     }
 
     public async Task<PersonaDetalleDto> ObtenerAsync(int id, CancellationToken ct = default)
@@ -99,39 +139,48 @@ public class PersonasService
             v == null ? null : new VentaDto(v.Id, v.ProcedenciaVentaId, v.MetodoVentaId, v.Monto, v.Notas),
             pr == null ? null : new PrimaDto(pr.Id, pr.Monto, pr.MontoCancelado, pr.SaldoPendiente, pr.FechaEstimadaPago, pr.FechaPago, pr.EstadoPrimaId),
             p.Cliente == null ? null : new ClienteDto(p.Cliente.Id, p.Cliente.OrigenClienteId, p.Cliente.EstadoClienteId, p.Cliente.Notas),
-            p.Numeros.OrderBy(n => n.Id).Select(n => new NumeroDto(n.Id, n.Valor, TipoTexto(n.Tipo), n.Principal)).ToList(),
+            p.Numeros.OrderBy(n => n.Id).Select(NumeroDe).ToList(),
             p.Correos.OrderBy(c => c.Id).Select(c => new CorreoDto(c.Id, c.Correo, c.Principal)).ToList(),
-            p.Familiares.OrderBy(f => f.Id).Select(f => new FamiliarDto(f.Id, f.NombreCompleto, f.Parentesco, f.Telefono, f.CorreoElectronico, f.Whatsapp)).ToList(),
+            p.Familiares.OrderBy(f => f.Id).Select(FamiliarDe).ToList(),
             p.Comentarios.OrderByDescending(c => c.Fecha).ThenByDescending(c => c.Id).Select(c =>
             {
                 autores.TryGetValue(c.UsuarioId, out var u);
                 return new ComentarioDto(c.Id, c.UsuarioId, u?.Nombre ?? "Usuario eliminado", u?.Rol, c.Texto,
                     DateTime.SpecifyKind(c.Fecha, DateTimeKind.Utc), c.UsuarioId == _usuario.Id);
-            }).ToList(), p.Versiones.ToDictionary(x => x.Seccion, x => x.Version));
+            }).ToList(), p.Versiones.ToDictionary(x => x.Seccion, x => x.Version),
+            p.NumeroPrincipal(TipoNumero.Telefono)?.PaisId,
+            p.NumeroPrincipal(TipoNumero.WhatsApp)?.PaisId);
     }
 
     public async Task<PersonaDetalleDto> CrearProspectoAsync(CrearProspectoRequest r, CancellationToken ct = default)
     {
         await _crearValidator.ValidarAsync(r, ct);
+        await ValidarParentescosAsync(r.Familiares ?? Array.Empty<FamiliarItem>(), ct);
+        await ValidarCatalogoAsync(_db.Vendedores, r.VendedorId, nameof(r.VendedorId), "El vendedor seleccionado ya no existe. Recargue la página y elija otro.", ct);
+        await ValidarCatalogoAsync(_db.ProcedenciasVenta, r.ProcedenciaVentaId, nameof(r.ProcedenciaVentaId), "La procedencia seleccionada ya no existe. Recargue la página y elija otra.", ct);
+        await ValidarCatalogoAsync(_db.MetodosVenta, r.MetodoVentaId, nameof(r.MetodoVentaId), "El método seleccionado ya no existe. Recargue la página y elija otro.", ct);
+        var pais = await PaisesAsync(ct);
         var persona = new Persona
         {
             Nombres = r.Nombres!.Trim(),
             Apellidos = r.Apellidos!.Trim(),
-            Cedula = r.Cedula!.Trim(),
+            Cedula = Validacion.SoloDigitos(r.Cedula),
             Expediente = r.Expediente?.Trim() ?? "",
             FechaIngreso = r.FechaIngreso!.Value,
             VendedorId = r.VendedorId,
             FechaCreacion = _fecha.AhoraUtc
         };
         persona.Fincas.Add(new Finca { Numero = r.Finca!.Trim() });
-        if (!Validacion.Vacio(r.TelefonoPrincipal))
-            persona.Numeros.Add(new Numero { Valor = r.TelefonoPrincipal!.Trim(), Tipo = TipoNumero.Telefono, Principal = true });
-        if (!Validacion.Vacio(r.WhatsappPrincipal))
-            persona.Numeros.Add(new Numero { Valor = r.WhatsappPrincipal!.Trim(), Tipo = TipoNumero.WhatsApp, Principal = true });
+        var telefono = Validacion.SoloDigitos(r.TelefonoPrincipal);
+        var whatsapp = Validacion.SoloDigitos(r.WhatsappPrincipal);
+        if (telefono.Length > 0)
+            persona.Numeros.Add(new Numero { PaisId = pais(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId)), Valor = telefono, Tipo = TipoNumero.Telefono, Principal = true });
+        if (whatsapp.Length > 0)
+            persona.Numeros.Add(new Numero { PaisId = pais(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId)), Valor = whatsapp, Tipo = TipoNumero.WhatsApp, Principal = true });
         if (!Validacion.Vacio(r.CorreoPrincipal))
             persona.Correos.Add(new CorreoElectronico { Correo = r.CorreoPrincipal!.Trim(), Principal = true });
         foreach (var f in (r.Familiares ?? Array.Empty<FamiliarItem>()).Where(f => !FamiliarVacio(f)))
-            persona.Familiares.Add(NuevoFamiliar(f));
+            persona.Familiares.Add(NuevoFamiliar(f, pais));
 
         var prima = new Prima
         {
@@ -159,11 +208,23 @@ public class PersonasService
 
     public async Task ActualizarDatosAsync(int id, ActualizarDatosRequest r, CancellationToken ct = default, Guid? version = null)
     {
+        var nombres = r.Nombres?.Trim() ?? "";
+        var apellidos = r.Apellidos?.Trim() ?? "";
+        if (nombres.Length > Persona.MaxNombre)
+            throw new ValidacionException(nameof(r.Nombres), $"El nombre admite como máximo {Persona.MaxNombre} caracteres.");
+        if (apellidos.Length > Persona.MaxNombre)
+            throw new ValidacionException(nameof(r.Apellidos), $"Los apellidos admiten como máximo {Persona.MaxNombre} caracteres.");
+        var cedula = Validacion.SoloDigitos(r.Cedula);
+        if (cedula.Length > Persona.MaxCedula)
+            throw new ValidacionException(nameof(r.Cedula), $"La cédula admite como máximo {Persona.MaxCedula} dígitos.");
+        var correo = r.CorreoPrincipal == null ? null : Validacion.Correo(r.CorreoPrincipal, nameof(r.CorreoPrincipal), Persona.MaxCorreo);
         var p = await CargarAsync(id, ct);
+        // Después del control de acceso y antes de tomar la versión.
+        await ValidarCatalogoAsync(_db.Vendedores, r.VendedorId, nameof(r.VendedorId), "El vendedor seleccionado ya no existe. Recargue la página y elija otro.", ct);
         await PrepararVersionAsync(p, "datos", version);
-        p.Nombres = r.Nombres?.Trim() ?? "";
-        p.Apellidos = r.Apellidos?.Trim() ?? "";
-        p.Cedula = r.Cedula?.Trim() ?? "";
+        p.Nombres = nombres;
+        p.Apellidos = apellidos;
+        p.Cedula = cedula;
         p.Expediente = r.Expediente?.Trim() ?? "";
         p.FechaIngreso = r.FechaIngreso;
         p.VendedorId = r.VendedorId is > 0 ? r.VendedorId : null;
@@ -173,22 +234,28 @@ public class PersonasService
         if (finca == null) p.Fincas.Add(new Finca { Numero = r.Finca?.Trim() ?? "" });
         else finca.Numero = r.Finca?.Trim() ?? "";
 
-        if (r.TelefonoPrincipal != null) FijarNumeroPrincipal(p, TipoNumero.Telefono, r.TelefonoPrincipal);
-        if (r.WhatsappPrincipal != null) FijarNumeroPrincipal(p, TipoNumero.WhatsApp, r.WhatsappPrincipal);
-        if (r.CorreoPrincipal != null) FijarCorreoPrincipal(p, r.CorreoPrincipal);
+        if (r.TelefonoPrincipal != null || r.WhatsappPrincipal != null)
+        {
+            var pais = await PaisesAsync(ct);
+            if (r.TelefonoPrincipal != null)
+                FijarNumeroPrincipal(p, TipoNumero.Telefono, r.TelefonoPrincipal, pais(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId)));
+            if (r.WhatsappPrincipal != null)
+                FijarNumeroPrincipal(p, TipoNumero.WhatsApp, r.WhatsappPrincipal, pais(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId)));
+        }
+        if (correo != null) FijarCorreoPrincipal(p, correo);
 
         if (p.Cliente != null)
         {
             if (r.EstadoClienteId is > 0)
             {
                 if (!await _db.EstadosCliente.AnyAsync(e => e.Id == r.EstadoClienteId, ct))
-                    throw new ValidacionException(nameof(r.EstadoClienteId), "Estado del cliente no válido.");
+                    throw new ValidacionException(nameof(r.EstadoClienteId), "El estado seleccionado ya no existe. Recargue la página y elija otro.");
                 p.Cliente.EstadoClienteId = r.EstadoClienteId.Value;
             }
             if (r.OrigenClienteId is > 0)
             {
                 if (!await _db.OrigenesCliente.AnyAsync(o => o.Id == r.OrigenClienteId, ct))
-                    throw new ValidacionException(nameof(r.OrigenClienteId), "Origen del cliente no válido.");
+                    throw new ValidacionException(nameof(r.OrigenClienteId), "El origen seleccionado ya no existe. Recargue la página y elija otro.");
                 p.Cliente.OrigenClienteId = r.OrigenClienteId.Value;
             }
         }
@@ -199,6 +266,9 @@ public class PersonasService
     {
         await _ventaValidator.ValidarAsync(r, ct);
         var p = await CargarAsync(id, ct);
+        // Después del control de acceso y antes de tomar la versión.
+        await ValidarCatalogoAsync(_db.ProcedenciasVenta, r.ProcedenciaVentaId, nameof(r.ProcedenciaVentaId), "La procedencia seleccionada ya no existe. Recargue la página y elija otra.", ct);
+        await ValidarCatalogoAsync(_db.MetodosVenta, r.MetodoVentaId, nameof(r.MetodoVentaId), "El método seleccionado ya no existe. Recargue la página y elija otro.", ct);
         await PrepararVersionAsync(p, "venta", version);
         var v = p.Venta ?? throw new NoEncontradoException("Venta de la persona", id);
         v.ProcedenciaVentaId = r.ProcedenciaVentaId is > 0 ? r.ProcedenciaVentaId : null;
@@ -229,6 +299,7 @@ public class PersonasService
     {
         var p = await CargarAsync(id, ct);
         await PrepararVersionAsync(p, "datos", version);
+        var pais = await PaisesAsync(ct);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Numeros.RemoveRange(p.Numeros.Where(n => !conservar.Contains(n.Id)));
         var resultado = new List<Numero>();
@@ -236,7 +307,8 @@ public class PersonasService
         {
             var n = i.Id > 0 ? p.Numeros.FirstOrDefault(x => x.Id == i.Id) : null;
             if (n == null) { n = new Numero { PersonaId = p.Id }; _db.Numeros.Add(n); }
-            n.Valor = i.Numero?.Trim() ?? "";
+            n.PaisId = pais(i.PaisId, nameof(i.PaisId));
+            n.Valor = Validacion.SoloDigitos(i.Numero);
             n.Tipo = TipoDesde(i.Tipo);
             n.Principal = i.Principal;
             resultado.Add(n);
@@ -244,11 +316,12 @@ public class PersonasService
         foreach (var grupo in resultado.GroupBy(n => n.Tipo))
             NormalizarPrincipal(grupo.ToList(), n => n.Principal, (n, v) => n.Principal = v);
         await _db.SaveChangesAsync(ct);
-        return resultado.Select(n => new NumeroDto(n.Id, n.Valor, TipoTexto(n.Tipo), n.Principal)).ToList();
+        return resultado.Select(NumeroDe).ToList();
     }
 
     public async Task<IReadOnlyList<CorreoDto>> ReemplazarCorreosAsync(int id, IReadOnlyList<CorreoItem> items, CancellationToken ct = default, Guid? version = null)
     {
+        foreach (var i in items) Validacion.Correo(i.Correo, nameof(i.Correo), Persona.MaxCorreo);
         var p = await CargarAsync(id, ct);
         await PrepararVersionAsync(p, "datos", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
@@ -269,8 +342,21 @@ public class PersonasService
 
     public async Task<IReadOnlyList<FamiliarDto>> ReemplazarFamiliaresAsync(int id, IReadOnlyList<FamiliarItem> items, CancellationToken ct = default, Guid? version = null)
     {
+        // Una fila nueva sin ningún dato se ignora; cualquier otra necesita al menos el nombre.
+        items = items.Where(i => !(i.Id <= 0 && FamiliarVacio(i))).ToList();
+        foreach (var i in items)
+        {
+            if (Validacion.Vacio(i.NombreCompleto))
+                throw new ValidacionException(nameof(i.NombreCompleto), "El nombre del familiar es requerido.");
+            if ((i.NombreCompleto?.Trim().Length ?? 0) > PersonaFamiliar.MaxNombreCompleto)
+                throw new ValidacionException(nameof(i.NombreCompleto),
+                    $"El nombre del familiar admite como máximo {PersonaFamiliar.MaxNombreCompleto} caracteres.");
+            Validacion.Correo(i.CorreoElectronico, nameof(i.CorreoElectronico), Persona.MaxCorreo);
+        }
+        await ValidarParentescosAsync(items, ct);
         var p = await CargarAsync(id, ct);
         await PrepararVersionAsync(p, "familiares", version);
+        var pais = await PaisesAsync(ct);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Familiares.RemoveRange(p.Familiares.Where(f => !conservar.Contains(f.Id)));
         var resultado = new List<PersonaFamiliar>();
@@ -278,24 +364,25 @@ public class PersonasService
         {
             var f = i.Id > 0 ? p.Familiares.FirstOrDefault(x => x.Id == i.Id) : null;
             if (f == null) { f = new PersonaFamiliar { PersonaId = p.Id }; _db.Familiares.Add(f); }
-            CopiarFamiliar(i, f);
+            CopiarFamiliar(i, f, pais);
             resultado.Add(f);
         }
         await _db.SaveChangesAsync(ct);
-        return resultado.Select(f => new FamiliarDto(f.Id, f.NombreCompleto, f.Parentesco, f.Telefono, f.CorreoElectronico, f.Whatsapp)).ToList();
+        return resultado.Select(FamiliarDe).ToList();
     }
 
     public async Task<PersonaDetalleDto> ConvertirEnClienteAsync(int id, ConvertirClienteRequest r, CancellationToken ct = default, Guid? version = null)
     {
         await _convertirValidator.ValidarAsync(r, ct);
         var p = await CargarAsync(id, ct);
+        // Después del control de acceso y antes de tomar la versión. El validador ya exige el origen;
+        // aquí se comprueba que siga en el catálogo.
+        await ValidarCatalogoAsync(_db.OrigenesCliente, r.OrigenClienteId, nameof(r.OrigenClienteId), "El origen seleccionado ya no existe. Recargue la página y elija otro.", ct);
+        await ValidarCatalogoAsync(_db.EstadosCliente, r.EstadoClienteId, nameof(r.EstadoClienteId), "El estado seleccionado ya no existe. Recargue la página y elija otro.", ct);
         await PrepararVersionAsync(p, "datos", version);
         if (p.EsCliente) throw new ValidacionException("id", "La persona ya es cliente oficial.");
-        if (!await _db.OrigenesCliente.AnyAsync(o => o.Id == r.OrigenClienteId, ct))
-            throw new ValidacionException(nameof(r.OrigenClienteId), "El origen del cliente es requerido.");
-        var estado = r.EstadoClienteId is > 0 && await _db.EstadosCliente.AnyAsync(e => e.Id == r.EstadoClienteId, ct)
-            ? r.EstadoClienteId.Value
-            : EstadoCliente.AlDia;
+        // Sin estado elegido, el cliente nace al día.
+        var estado = r.EstadoClienteId is > 0 ? r.EstadoClienteId.Value : EstadoCliente.AlDia;
 
         p.Cliente = new Cliente { OrigenClienteId = r.OrigenClienteId!.Value, EstadoClienteId = estado };
         if (r.Expediente != null) p.Expediente = r.Expediente.Trim();
@@ -330,19 +417,19 @@ public class PersonasService
     public async Task EliminarComentarioAsync(int comentarioId, CancellationToken ct = default)
     {
         var c = await _db.Comentarios.FindAsync(new object[] { comentarioId }, ct) ?? throw new NoEncontradoException("Comentario", comentarioId);
-        if (c.UsuarioId != _usuario.Id) throw new ProhibidoException("Solo podés eliminar tus propios comentarios.");
+        if (c.UsuarioId != _usuario.Id) throw new ProhibidoException("Solo puede eliminar sus propios comentarios.");
         await CargarAsync(c.PersonaId, ct);
         _db.Comentarios.Remove(c);
         await _db.SaveChangesAsync(ct);
     }
 
-    private void FijarNumeroPrincipal(Persona p, TipoNumero tipo, string valor)
+    private void FijarNumeroPrincipal(Persona p, TipoNumero tipo, string valor, int paisId)
     {
         var actual = p.NumeroPrincipal(tipo);
-        var limpio = valor.Trim();
+        var limpio = Validacion.SoloDigitos(valor);
         if (actual != null && limpio.Length == 0) { _db.Numeros.Remove(actual); return; }
-        if (actual != null) { actual.Valor = limpio; actual.Principal = true; return; }
-        if (limpio.Length > 0) p.Numeros.Add(new Numero { Valor = limpio, Tipo = tipo, Principal = true });
+        if (actual != null) { actual.PaisId = paisId; actual.Valor = limpio; actual.Principal = true; return; }
+        if (limpio.Length > 0) p.Numeros.Add(new Numero { PaisId = paisId, Valor = limpio, Tipo = tipo, Principal = true });
     }
 
     private void FijarCorreoPrincipal(Persona p, string valor)
@@ -361,22 +448,27 @@ public class PersonasService
         foreach (var i in items) fijar(i, ReferenceEquals(i, primero));
     }
 
-    private static bool FamiliarVacio(FamiliarItem f) =>
-        Validacion.Vacio(f.NombreCompleto) && Validacion.Vacio(f.Parentesco) && Validacion.Vacio(f.Telefono) && Validacion.Vacio(f.CorreoElectronico);
+    /// <summary>Fila sin ningún dato (se ignora al guardar).</summary>
+    public static bool FamiliarVacio(FamiliarItem f) =>
+        Validacion.Vacio(f.NombreCompleto) && f.ParentescoId is not > 0 && Validacion.Vacio(f.Telefono)
+        && Validacion.Vacio(f.CorreoElectronico) && Validacion.Vacio(f.Whatsapp);
 
-    private static PersonaFamiliar NuevoFamiliar(FamiliarItem i)
+    private static PersonaFamiliar NuevoFamiliar(FamiliarItem i, Func<int?, string, int> pais)
     {
         var f = new PersonaFamiliar();
-        CopiarFamiliar(i, f);
+        CopiarFamiliar(i, f, pais);
         return f;
     }
 
-    private static void CopiarFamiliar(FamiliarItem i, PersonaFamiliar f)
+    /// <summary>El país solo se guarda si hay número.</summary>
+    private static void CopiarFamiliar(FamiliarItem i, PersonaFamiliar f, Func<int?, string, int> pais)
     {
         f.NombreCompleto = i.NombreCompleto?.Trim() ?? "";
-        f.Parentesco = i.Parentesco?.Trim() ?? "";
-        f.Telefono = i.Telefono?.Trim() ?? "";
+        f.ParentescoId = i.ParentescoId is > 0 ? i.ParentescoId : null;
+        f.Telefono = Validacion.SoloDigitos(i.Telefono);
+        f.TelefonoPaisId = f.Telefono.Length > 0 ? pais(i.TelefonoPaisId, nameof(i.TelefonoPaisId)) : null;
         f.CorreoElectronico = i.CorreoElectronico?.Trim() ?? "";
-        f.Whatsapp = i.Whatsapp?.Trim() ?? "";
+        f.Whatsapp = Validacion.SoloDigitos(i.Whatsapp);
+        f.WhatsappPaisId = f.Whatsapp.Length > 0 ? pais(i.WhatsappPaisId, nameof(i.WhatsappPaisId)) : null;
     }
 }

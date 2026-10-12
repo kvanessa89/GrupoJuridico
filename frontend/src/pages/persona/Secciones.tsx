@@ -1,10 +1,12 @@
 let siguienteIdLocal = -1
 import { useState } from 'react'
 import type { ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, TipoNumero } from '../../api/tipos'
-import { Select, TarjetaSeccion } from '../../components/Controles'
+import { Select, TarjetaSeccion, Telefono } from '../../components/Controles'
 import { BasureroLleno, Estrella } from '../../components/Iconos'
+import { useSesion } from '../../auth/Sesion'
 import { colorAutor } from '../../utils/colores'
 import { fFecha, iniciales } from '../../utils/formato'
+import { correoValido, faltaNombreFamiliar, MAX_CORREO, MAX_NOMBRE_FAMILIAR, MSG_CORREO, MSG_NOMBRE_FAMILIAR } from './formulario'
 
 function BotonEliminar({ onClick, titulo = 'Eliminar' }: { onClick: () => void; titulo?: string }) {
   return (
@@ -49,7 +51,7 @@ export function Contactos({
         accion={
           <button
             className="btn-enlace"
-            onClick={() => onNumeros([...numeros, { id: siguienteIdLocal--, numero: '', tipo: 'Teléfono', principal: !numeros.some((x) => x.tipo === 'Teléfono' && x.principal) }])}
+            onClick={() => onNumeros([...numeros, { id: siguienteIdLocal--, numero: '', tipo: 'Teléfono', principal: !numeros.some((x) => x.tipo === 'Teléfono' && x.principal), paisId: null }])}
           >
             + Agregar
           </button>
@@ -60,7 +62,12 @@ export function Contactos({
             const titulo = n.principal ? n.tipo + ' principal' : 'Marcar como ' + n.tipo.toLowerCase() + ' principal'
             return (
               <div key={i} className="fila-contacto">
-                <input className="campo" value={n.numero} placeholder="Número" onChange={(e) => onNumeros(numeros.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)))} />
+                <Telefono
+                  paisId={n.paisId}
+                  numero={n.numero}
+                  onPais={(paisId) => onNumeros(numeros.map((x, j) => (j === i ? { ...x, paisId } : x)))}
+                  onNumero={(numero) => onNumeros(numeros.map((x, j) => (j === i ? { ...x, numero } : x)))}
+                />
                 <span style={{ flex: 'none' }}>
                   <Select
                     valor={n.tipo}
@@ -97,7 +104,15 @@ export function Contactos({
             const titulo = c.principal ? 'Correo principal' : 'Marcar como correo principal'
             return (
               <div key={i} className="fila-contacto">
-                <input className="campo" value={c.correo} placeholder="correo@dominio.com" onChange={(e) => onCorreos(correos.map((x, j) => (j === i ? { ...x, correo: e.target.value } : x)))} />
+                <input
+                  className={'campo' + (correoValido(c.correo) ? '' : ' error')}
+                  type="email"
+                  value={c.correo}
+                  maxLength={MAX_CORREO}
+                  placeholder="correo@dominio.com"
+                  title={correoValido(c.correo) ? undefined : MSG_CORREO}
+                  onChange={(e) => onCorreos(correos.map((x, j) => (j === i ? { ...x, correo: e.target.value } : x)))}
+                />
                 <button className={'estrella' + (c.principal ? ' on' : '')} title={titulo} aria-label={titulo} onClick={() => onCorreos(correos.map((x, j) => ({ ...x, principal: j === i })))}>
                   <Estrella llena={c.principal} />
                 </button>
@@ -106,45 +121,76 @@ export function Contactos({
             )
           })}
           {correos.length === 0 && <span className="vacio">Sin correos registrados.</span>}
+          {!correos.every((c) => correoValido(c.correo)) && <span className="msg-error">{MSG_CORREO}</span>}
         </div>
       </TarjetaSeccion>
     </div>
   )
 }
 
-const CAMPOS_FAMILIAR: [string, keyof FamiliarDto][] = [
-  ['Nombre completo', 'nombreCompleto'], ['Parentesco', 'parentesco'], ['Teléfono', 'telefono'], ['Correo', 'correoElectronico'],
-]
+type CampoFamiliar = 'nombreCompleto' | 'correoElectronico'
 
 export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[]; onCambiar: (f: FamiliarDto[]) => void }) {
+  const { catalogos } = useSesion()
+  const parentescos = [{ v: '', l: 'Parentesco' }, ...(catalogos?.parentescos ?? []).map((p) => ({ v: String(p.id), l: p.nombre }))]
   return (
     <TarjetaSeccion
       titulo="Familiares"
       accion={
         <button
           className="btn-enlace"
-          onClick={() => onCambiar([...familiares, { id: siguienteIdLocal--, nombreCompleto: '', parentesco: '', telefono: '', correoElectronico: '', whatsapp: '' }])}
+          onClick={() => onCambiar([...familiares, {
+            id: siguienteIdLocal--, nombreCompleto: '', parentescoId: null, telefono: '', correoElectronico: '', whatsapp: '',
+            telefonoPaisId: null, whatsappPaisId: null,
+          }])}
         >
           + Agregar familiar
         </button>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {familiares.map((f, i) => (
+        {familiares.map((f, i) => {
+          const cambiar = (cambios: Partial<FamiliarDto>) => onCambiar(familiares.map((x, j) => (j === i ? { ...x, ...cambios } : x)))
+          const campo = (label: string, c: CampoFamiliar) => (
+            <input
+              value={f[c]}
+              placeholder={label}
+              aria-label={label}
+              className={(c === 'correoElectronico' ? !correoValido(f[c]) : faltaNombreFamiliar(f)) ? 'error' : undefined}
+              title={c === 'correoElectronico' ? (correoValido(f[c]) ? undefined : MSG_CORREO) : (faltaNombreFamiliar(f) ? MSG_NOMBRE_FAMILIAR : undefined)}
+              type={c === 'correoElectronico' ? 'email' : undefined}
+              maxLength={c === 'correoElectronico' ? MAX_CORREO : MAX_NOMBRE_FAMILIAR}
+              onChange={(e) => cambiar({ [c]: e.target.value })}
+            />
+          )
+          return (
           <div key={i} className="familiar">
-            {CAMPOS_FAMILIAR.map(([label, campo]) => (
-              <input
-                key={campo}
-                value={String(f[campo] ?? '')}
-                placeholder={label}
-                aria-label={label}
-                onChange={(e) => onCambiar(familiares.map((x, j) => (j === i ? { ...x, [campo]: e.target.value } : x)))}
-              />
-            ))}
+            {campo('Nombre completo', 'nombreCompleto')}
+            <Select
+              valor={f.parentescoId == null ? '' : String(f.parentescoId)}
+              onChange={(v) => cambiar({ parentescoId: v ? Number(v) : null })}
+              opciones={parentescos}
+              className={'familiar-parentesco' + (f.parentescoId == null ? ' vacio' : '')}
+              ariaLabel="Parentesco"
+              chevronTamano={12}
+              chevronDerecha={12}
+            />
+            <Telefono
+              paisId={f.telefonoPaisId}
+              numero={f.telefono}
+              placeholder="Teléfono"
+              ariaLabel="Teléfono"
+              onPais={(telefonoPaisId) => cambiar({ telefonoPaisId })}
+              onNumero={(telefono) => cambiar({ telefono })}
+            />
+            {campo('Correo', 'correoElectronico')}
             <BotonEliminar titulo="Quitar familiar" onClick={() => onCambiar(familiares.filter((_, j) => j !== i))} />
           </div>
-        ))}
+          )
+        })}
         {familiares.length === 0 && <span className="vacio">Sin familiares registrados.</span>}
+        {familiares.some(faltaNombreFamiliar) && <span className="msg-error">{MSG_NOMBRE_FAMILIAR}</span>}
+        {!familiares.every((f) => correoValido(f.correoElectronico)) && <span className="msg-error">{MSG_CORREO}</span>}
       </div>
     </TarjetaSeccion>
   )
@@ -171,7 +217,7 @@ export function Comentarios({
       accion={<span style={{ fontSize: 11.5, color: 'var(--ink3)' }}>{comentarios.length === 1 ? '1 comentario' : comentarios.length + ' comentarios'}</span>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <textarea className="nota" rows={3} placeholder="Escribí un comentario…" value={texto} onChange={(e) => setTexto(e.target.value)} />
+        <textarea className="nota" rows={3} placeholder="Escriba un comentario…" value={texto} onChange={(e) => setTexto(e.target.value)} />
         <button className="btn-primario" style={{ alignSelf: 'flex-end', padding: '10px 18px' }} disabled={enviando} onClick={comentar}>Comentar</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>

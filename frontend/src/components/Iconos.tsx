@@ -88,6 +88,15 @@ export function BasureroFino() {
   )
 }
 
+/** Auricular: enlace tel: para llamar al número. */
+export function Llamar({ tamano = 14 }: { tamano?: number }) {
+  return (
+    <svg width={tamano} height={tamano} viewBox="0 0 24 24" {...trazo} strokeWidth="2">
+      <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" />
+    </svg>
+  )
+}
+
 export function Estrella({ llena }: { llena: boolean }) {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill={llena ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
