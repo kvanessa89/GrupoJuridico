@@ -2,6 +2,7 @@ using GrupoJuridico.Gestion.Infrastructure;
 using GrupoJuridico.Gestion.Infrastructure.Identity;
 using GrupoJuridico.Gestion.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -98,6 +99,7 @@ public class DbSeederEntornoTests
         {
             var services = new ServiceCollection();
             services.AddLogging();
+            services.AddDataProtection().UseEphemeralDataProtectionProvider();
             services.AddSingleton<IHostEnvironment>(new EntornoPrueba { EnvironmentName = entorno });
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
