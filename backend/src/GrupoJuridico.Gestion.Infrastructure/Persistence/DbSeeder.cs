@@ -7,6 +7,7 @@ using GrupoJuridico.Gestion.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace GrupoJuridico.Gestion.Infrastructure.Persistence;
@@ -33,18 +34,25 @@ public class DbSeeder
     private readonly RoleManager<Rol> _roles;
     private readonly SeedOptions _opciones;
     private readonly ILogger<DbSeeder> _log;
+    private readonly IHostEnvironment _entorno;
 
-    public DbSeeder(ApplicationDbContext db, UserManager<Usuario> users, RoleManager<Rol> roles, IOptions<SeedOptions> opciones, ILogger<DbSeeder> log)
+    public DbSeeder(ApplicationDbContext db, UserManager<Usuario> users, RoleManager<Rol> roles, IOptions<SeedOptions> opciones, ILogger<DbSeeder> log, IHostEnvironment entorno)
     {
         _db = db;
         _users = users;
         _roles = roles;
         _opciones = opciones.Value;
         _log = log;
+        _entorno = entorno;
     }
 
     public async Task EjecutarAsync()
     {
+        // Validar antes de migraciones o cualquier escritura, incluso si se invoca fuera del arranque de la API.
+        if (_opciones.DatosDemo && !_entorno.IsDevelopment() && !_entorno.IsEnvironment("Testing"))
+            throw new InvalidOperationException(
+                $"Seed:DatosDemo solo está permitido en Development o Testing. Entorno actual: '{_entorno.EnvironmentName}'. Desactive Seed:DatosDemo para iniciar.");
+
         if (_opciones.AplicarMigraciones && _db.Database.IsRelational())
             await _db.Database.MigrateAsync();
 
