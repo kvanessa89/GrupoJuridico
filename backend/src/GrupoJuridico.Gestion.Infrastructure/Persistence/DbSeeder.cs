@@ -18,7 +18,7 @@ public class SeedOptions
 
     /// <summary>Aplica las migraciones pendientes al iniciar.</summary>
     public bool AplicarMigraciones { get; set; } = true;
-    /// <summary>Carga los usuarios y la cartera de demostración del prototipo (solo Development/Testing).</summary>
+    /// <summary>Carga los usuarios y la cartera de demostración del prototipo (solo Development).</summary>
     public bool DatosDemo { get; set; }
     public string AdminUsuario { get; set; } = "admin";
     public string AdminNombre { get; set; } = "Administrador";
@@ -49,9 +49,9 @@ public class DbSeeder
     public async Task EjecutarAsync()
     {
         // Validar antes de migraciones o cualquier escritura, incluso si se invoca fuera del arranque de la API.
-        if (_opciones.DatosDemo && !_entorno.IsDevelopment() && !_entorno.IsEnvironment("Testing"))
+        if (_opciones.DatosDemo && !_entorno.IsDevelopment())
             throw new InvalidOperationException(
-                $"Seed:DatosDemo solo está permitido en Development o Testing. Entorno actual: '{_entorno.EnvironmentName}'. Desactive Seed:DatosDemo para iniciar.");
+                $"Seed:DatosDemo solo está permitido en Development. Entorno actual: '{_entorno.EnvironmentName}'. Desactive Seed:DatosDemo para iniciar.");
 
         if (_opciones.AplicarMigraciones && _db.Database.IsRelational())
             await _db.Database.MigrateAsync();

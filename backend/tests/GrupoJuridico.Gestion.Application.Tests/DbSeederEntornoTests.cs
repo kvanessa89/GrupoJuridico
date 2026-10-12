@@ -16,6 +16,8 @@ public class DbSeederEntornoTests
     [Theory]
     [InlineData("Production")]
     [InlineData("Staging")]
+    [InlineData("Testing")]
+    [InlineData("testing")]
     [InlineData("Personalizado")]
     [InlineData("")]
     public async Task Demo_en_entorno_no_autorizado_falla_sin_escribir(string entorno)
@@ -25,7 +27,7 @@ public class DbSeederEntornoTests
             () => fixture.Seeder.EjecutarAsync());
 
         Assert.Contains("Seed:DatosDemo", error.Message);
-        Assert.Contains("Development o Testing", error.Message);
+        Assert.Contains("Development", error.Message);
         Assert.DoesNotContain(Fixture.ClaveInicialPrueba, error.Message);
         Assert.Empty(await fixture.Db.Users.ToListAsync());
         Assert.Empty(await fixture.Db.Roles.ToListAsync());
@@ -49,8 +51,7 @@ public class DbSeederEntornoTests
 
     [Theory]
     [InlineData("Development")]
-    [InlineData("Testing")]
-    [InlineData("testing")]
+    [InlineData("development")]
     public async Task Entorno_autorizado_sigue_cargando_demo_y_es_idempotente(string entorno)
     {
         using var fixture = new Fixture(entorno, datosDemo: true);
@@ -71,6 +72,7 @@ public class DbSeederEntornoTests
     [InlineData("Production")]
     [InlineData("Staging")]
     [InlineData("Personalizado")]
+    [InlineData("Testing")]
     public async Task Demo_desactivado_permite_catalogos_roles_y_admin_sin_datos_ficticios(string entorno)
     {
         using var fixture = new Fixture(entorno, datosDemo: false);
