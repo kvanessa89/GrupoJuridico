@@ -15,6 +15,7 @@ using System.Net;
 using System.Net.Http.Json;
 using GrupoJuridico.Gestion.Api.Controllers;
 using GrupoJuridico.Gestion.Api.Infrastructure;
+using GrupoJuridico.Gestion.Infrastructure.Persistence;
 
 namespace GrupoJuridico.Gestion.Application.Tests;
 
@@ -211,7 +212,8 @@ public class PersonasAccesoTests
     {
         using var conexion = new SqliteConnection("Data Source=:memory:;Foreign Keys=False");
         await conexion.OpenAsync();
-        var options = new DbContextOptionsBuilder<TestDb>().UseSqlite(conexion).Options;
+        var options = new DbContextOptionsBuilder<TestDb>().UseSqlite(conexion)
+            .AddInterceptors(new AuditoriaInterceptor(new UsuarioPrueba(Roles.Administrador), new FechaPrueba())).Options;
         int id;
         using (var seed = new TestDb(options))
         {
@@ -246,7 +248,13 @@ public class PersonasAccesoTests
         Assert.Equal(HttpStatusCode.OK, primera.StatusCode);
         Assert.NotNull(primera.Headers.ETag);
         Assert.NotEqual(original, primera.Headers.ETag!.Tag);
-        Assert.Equal(HttpStatusCode.Conflict, (await http.PutAsJsonAsync(ruta, Array.Empty<NumeroItem>())).StatusCode);
+        var conflicto = await http.PutAsJsonAsync(ruta, Array.Empty<NumeroItem>());
+        Assert.Equal(HttpStatusCode.Conflict, conflicto.StatusCode);
+        // El aviso informa quién guardó la sección y cuándo.
+        var problema = await conflicto.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(1, problema.GetProperty("modificadoPorId").GetInt32());
+        Assert.Equal("Carlos Pérez", problema.GetProperty("modificadoPor").GetString());
+        Assert.Equal(new DateTime(2026, 10, 9, 12, 0, 0, DateTimeKind.Utc), problema.GetProperty("modificadoEn").GetDateTime());
         var actual = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
         Assert.Equal("88888888", Assert.Single(actual!.Numeros).Numero);
         http.DefaultRequestHeaders.Remove("If-Match");
@@ -296,7 +304,8 @@ public class PersonasAccesoTests
     {
         public Task<IReadOnlyDictionary<int, UsuarioDto>> MapaAsync(IEnumerable<int> ids) =>
             Task.FromResult<IReadOnlyDictionary<int, UsuarioDto>>(new Dictionary<int, UsuarioDto>());
-        public Task<UsuarioDto?> ObtenerAsync(int id) => Task.FromResult<UsuarioDto?>(null);
+        public Task<UsuarioDto?> ObtenerAsync(int id) =>
+            Task.FromResult(id == 1 ? new UsuarioDto(1, "Carlos Pérez", "carlos", Domain.Constants.Roles.Administrador) : null);
         public Task<UsuarioDto?> ValidarCredencialesAsync(string usuario, string contrasena) => throw new NotSupportedException();
         public Task<IReadOnlyList<UsuarioDto>> ListarAsync() => throw new NotSupportedException();
         public Task<UsuarioDto> CrearAsync(GuardarUsuarioRequest request) => throw new NotSupportedException();

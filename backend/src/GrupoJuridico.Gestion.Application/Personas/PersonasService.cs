@@ -32,11 +32,17 @@ public class PersonasService
 
     public Guid VersionGuardada { get; private set; }
 
-    private void PrepararVersion(Persona persona, string seccion, Guid? esperada)
+    private async Task PrepararVersionAsync(Persona persona, string seccion, Guid? esperada)
     {
         if (esperada == null) throw new VersionRequeridaException();
         var version = persona.Versiones.SingleOrDefault(v => v.Seccion == seccion);
-        if (version == null || version.Version != esperada.Value) throw new ConflictoVersionException();
+        if (version == null) throw new ConflictoVersionException();
+        if (version.Version != esperada.Value)
+        {
+            // Quién hizo el último cambio de la sección, para el aviso del frontend.
+            var autor = version.ModificadoPorId is int autorId ? await _identity.ObtenerAsync(autorId) : null;
+            throw new ConflictoVersionException(version.ModificadoPorId, autor?.Nombre, version.ModificadoEn);
+        }
         // EF conserva la versión original para el WHERE del UPDATE. El cambio de versión
         // y los datos se guardan en la misma transacción; un conflicto revierte todo.
         version.Version = Guid.NewGuid();
@@ -154,7 +160,7 @@ public class PersonasService
     public async Task ActualizarDatosAsync(int id, ActualizarDatosRequest r, CancellationToken ct = default, Guid? version = null)
     {
         var p = await CargarAsync(id, ct);
-        PrepararVersion(p, "datos", version);
+        await PrepararVersionAsync(p, "datos", version);
         p.Nombres = r.Nombres?.Trim() ?? "";
         p.Apellidos = r.Apellidos?.Trim() ?? "";
         p.Cedula = r.Cedula?.Trim() ?? "";
@@ -193,7 +199,7 @@ public class PersonasService
     {
         await _ventaValidator.ValidarAsync(r, ct);
         var p = await CargarAsync(id, ct);
-        PrepararVersion(p, "venta", version);
+        await PrepararVersionAsync(p, "venta", version);
         var v = p.Venta ?? throw new NoEncontradoException("Venta de la persona", id);
         v.ProcedenciaVentaId = r.ProcedenciaVentaId is > 0 ? r.ProcedenciaVentaId : null;
         v.MetodoVentaId = r.MetodoVentaId is > 0 ? r.MetodoVentaId : null;
@@ -207,7 +213,7 @@ public class PersonasService
     {
         await _primaValidator.ValidarAsync(r, ct);
         var p = await CargarAsync(id, ct);
-        PrepararVersion(p, "prima", version);
+        await PrepararVersionAsync(p, "prima", version);
         var pr = p.Prima ?? throw new NoEncontradoException("Prima de la persona", id);
         pr.Monto = r.Monto;
         pr.MontoCancelado = r.MontoCancelado;
@@ -222,7 +228,7 @@ public class PersonasService
     public async Task<IReadOnlyList<NumeroDto>> ReemplazarNumerosAsync(int id, IReadOnlyList<NumeroItem> items, CancellationToken ct = default, Guid? version = null)
     {
         var p = await CargarAsync(id, ct);
-        PrepararVersion(p, "datos", version);
+        await PrepararVersionAsync(p, "datos", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Numeros.RemoveRange(p.Numeros.Where(n => !conservar.Contains(n.Id)));
         var resultado = new List<Numero>();
@@ -244,7 +250,7 @@ public class PersonasService
     public async Task<IReadOnlyList<CorreoDto>> ReemplazarCorreosAsync(int id, IReadOnlyList<CorreoItem> items, CancellationToken ct = default, Guid? version = null)
     {
         var p = await CargarAsync(id, ct);
-        PrepararVersion(p, "datos", version);
+        await PrepararVersionAsync(p, "datos", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Correos.RemoveRange(p.Correos.Where(c => !conservar.Contains(c.Id)));
         var resultado = new List<CorreoElectronico>();
@@ -264,7 +270,7 @@ public class PersonasService
     public async Task<IReadOnlyList<FamiliarDto>> ReemplazarFamiliaresAsync(int id, IReadOnlyList<FamiliarItem> items, CancellationToken ct = default, Guid? version = null)
     {
         var p = await CargarAsync(id, ct);
-        PrepararVersion(p, "familiares", version);
+        await PrepararVersionAsync(p, "familiares", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Familiares.RemoveRange(p.Familiares.Where(f => !conservar.Contains(f.Id)));
         var resultado = new List<PersonaFamiliar>();
@@ -283,7 +289,7 @@ public class PersonasService
     {
         await _convertirValidator.ValidarAsync(r, ct);
         var p = await CargarAsync(id, ct);
-        PrepararVersion(p, "datos", version);
+        await PrepararVersionAsync(p, "datos", version);
         if (p.EsCliente) throw new ValidacionException("id", "La persona ya es cliente oficial.");
         if (!await _db.OrigenesCliente.AnyAsync(o => o.Id == r.OrigenClienteId, ct))
             throw new ValidacionException(nameof(r.OrigenClienteId), "El origen del cliente es requerido.");

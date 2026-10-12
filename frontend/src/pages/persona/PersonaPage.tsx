@@ -7,7 +7,7 @@ import { useSesion } from '../../auth/Sesion'
 import { EtiquetaEstadoGrande, EtiquetaPrimaGrande } from '../../components/Chips'
 import { CampoNotas, CampoSelect, CampoTexto, Select, TarjetaSeccion, type Opcion } from '../../components/Controles'
 import { Atras, Check } from '../../components/Iconos'
-import { EditorSecciones, type SeccionVersion } from '../../hooks/EditorSecciones'
+import { EditorSecciones, SeccionBloqueadaError, type SeccionVersion } from '../../hooks/EditorSecciones'
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
 import { fFecha, fMonto, iniciales, num, origenEtiqueta, vendedorEtiqueta } from '../../utils/formato'
 import {
@@ -17,6 +17,17 @@ import { Comentarios, Contactos, Familiares } from './Secciones'
 
 type Pestana = 'general' | 'ventas' | 'familiares' | 'actividad'
 
+/** Sección rechazada por la API (409) y quién la había guardado, según la respuesta. */
+type Conflicto = { seccion: SeccionVersion; modificadoPorId: number | null; modificadoPor: string | null; modificadoEn: string | null }
+
+/** "a las 10:42" si fue hoy; si no, "el 12 oct 2026 a las 10:42". */
+function momento(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const hora = d.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })
+  return d.toDateString() === new Date().toDateString() ? `a las ${hora}` : `el ${fFecha(d.toLocaleDateString('sv'))} a las ${hora}`
+}
+
 /**
  * Ficha de la persona. `seccion` indica desde qué tabla se entró: cambia el texto de "Volver"
  * y la etiqueta de estado del cliente (solo se muestra al entrar desde Clientes).
@@ -25,16 +36,14 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const { id } = useParams()
   const personaId = Number(id)
   const navegar = useNavigate()
-  const { catalogos } = useSesion()
+  const { catalogos, usuario } = useSesion()
 
   const editor = useRef(new EditorSecciones())
   const idsNuevos = useRef({ numeros: new Map<number, number>(), correos: new Map<number, number>(), familiares: new Map<number, number>() })
-  const [resolviendo, setResolviendo] = useState(false)
-  const [conflictos, setConflictos] = useState<Partial<Record<SeccionVersion, PersonaDetalle | null>>>({})
+  const [recargando, setRecargando] = useState(false)
+  const [conflictos, setConflictos] = useState<Conflicto[]>([])
   const [persona, setPersona] = useState<PersonaDetalle | null>(null)
   const [form, setForm] = useState<FormPersona>(formVacio)
-  const formRef = useRef(form)
-  useEffect(() => { formRef.current = form })
   const [comentarios, setComentarios] = useState<ComentarioDto[]>([])
   const [cargaError, setCargaError] = useState('')
   const [guardado, setGuardado] = useState(false)
@@ -74,17 +83,14 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   }, [])
   const fallo = (seccion: SeccionVersion) => (e: unknown) => {
     setGuardado(false)
-    setErrorGuardar(mensajeDe(e, e instanceof Error ? e.message : 'No se pudieron guardar los cambios.'))
-    if ([409, 428].includes((e as { response?: { status?: number } }).response?.status ?? 0)) {
-      setConflictos(cs => ({ ...cs, [seccion]: null }))
-      void revisar(seccion)
+    const respuesta = (e as { response?: { status?: number; data?: Partial<Conflicto> } }).response
+    if (e instanceof SeccionBloqueadaError || [409, 428].includes(respuesta?.status ?? 0)) {
+      const d = respuesta?.data
+      setConflictos(cs => cs.some(c => c.seccion === seccion) ? cs
+        : [...cs, { seccion, modificadoPorId: d?.modificadoPorId ?? null, modificadoPor: d?.modificadoPor ?? null, modificadoEn: d?.modificadoEn ?? null }])
+      return
     }
-  }
-  const revisar = async (seccion: SeccionVersion) => {
-    try {
-      const actual = await api.persona(personaId)
-      setConflictos(cs => ({ ...cs, [seccion]: actual }))
-    } catch (e) { setErrorGuardar(mensajeDe(e, 'No se pudo obtener la versión guardada. Tu borrador sigue en pantalla.')) }
+    setErrorGuardar(mensajeDe(e, e instanceof Error ? e.message : 'No se pudieron guardar los cambios.'))
   }
   const enviar = <T,>(seccion: SeccionVersion, fn: (version: string) => Promise<{ data: T; version: string }>) => editor.current.guardar(seccion, fn)
   const traducirIds = <T extends { id: number }>(lista: 'numeros' | 'correos' | 'familiares', items: T[]) =>
@@ -146,50 +152,31 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     if (!exito) setErrorGuardar('Hay cambios pendientes o un conflicto. Revisá el aviso antes de salir.')
     return exito
   }
-  const resolver = async (seccion: SeccionVersion, conservar: boolean) => {
-    const actual = conflictos[seccion]
-    if (!actual) return
-    setResolviendo(true)
-    await Promise.all(grupo(seccion).map(g => g.flush()))
-    grupo(seccion).forEach(g => g.cancelar())
-    const borrador = formRef.current
-    editor.current.resolver(seccion, actual.versiones[seccion])
-    const remoto = formDesde(actual)
-    if (!conservar) {
+  // Descarta el borrador de la sección y trae lo que guardó el otro usuario.
+  const recargar = async (seccion: SeccionVersion) => {
+    setRecargando(true)
+    try {
+      await Promise.all(grupo(seccion).map(g => g.flush()))
+      const actual = await api.persona(personaId)
+      grupo(seccion).forEach(g => g.cancelar())
+      editor.current.resolver(seccion, actual.versiones[seccion])
+      const remoto = formDesde(actual)
       setForm(f => seccion === 'datos' ? { ...f, datos: remoto.datos, numeros: remoto.numeros, correos: remoto.correos } : { ...f, [seccion]: remoto[seccion] })
-    } else if (seccion === 'datos') {
-      gDatos.programar(borrador)
-      if (actual.esCliente) { gNumeros.programar(borrador.numeros); gCorreos.programar(borrador.correos) }
-    } else if (seccion === 'venta') gVenta.programar(borrador)
-    else if (seccion === 'prima') gPrima.programar(borrador)
-    else gFamiliares.programar(borrador.familiares)
-    if (seccion === 'datos') setPersona(p => p ? { ...p, esCliente: actual.esCliente, cliente: actual.cliente } : p)
-    setConflictos(cs => { const copia = { ...cs }; delete copia[seccion]; return copia })
-    setErrorGuardar('')
-    setGuardado(false)
-    setResolviendo(false)
+      if (seccion === 'datos') setPersona(p => p ? { ...p, esCliente: actual.esCliente, cliente: actual.cliente } : p)
+      setConflictos(cs => cs.filter(c => c.seccion !== seccion))
+    } catch (e) {
+      setErrorGuardar(mensajeDe(e, 'No se pudo recargar la sección. Intentá de nuevo.'))
+    } finally { setRecargando(false) }
   }
-  const vistaGrupo = (f: FormPersona, seccion: SeccionVersion): Record<string, string> => {
-    if (seccion === 'familiares') return { Familiares: f.familiares.map(x =>
-      [x.nombreCompleto, x.parentesco, x.telefono, x.correoElectronico, x.whatsapp].filter(Boolean).join(' · ')).join('\n') }
-    const etiquetas: Record<string, string> = {
-      nombres: 'Nombres', apellidos: 'Apellidos', cedula: 'Cédula', finca: 'Finca', expediente: 'Expediente',
-      fechaIngreso: 'Fecha de ingreso', vendedorId: 'Vendedor', telefonoPrincipal: 'Teléfono principal',
-      whatsappPrincipal: 'WhatsApp principal', correoPrincipal: 'Correo principal', estadoClienteId: 'Estado del cliente',
-      origenClienteId: 'Origen', procedenciaVentaId: 'Procedencia', metodoVentaId: 'Método de venta', monto: 'Monto',
-      notas: 'Notas', montoCancelado: 'Monto cancelado', fechaEstimadaPago: 'Fecha estimada de pago', fechaPago: 'Fecha de pago',
-    }
-    const opciones: Record<string, { id: number; nombre: string }[] | undefined> = {
-      vendedorId: catalogos?.vendedores, estadoClienteId: catalogos?.estadosCliente, origenClienteId: catalogos?.origenes,
-      procedenciaVentaId: catalogos?.procedencias, metodoVentaId: catalogos?.metodos,
-    }
-    const filas = Object.fromEntries(Object.entries(f[seccion]).map(([k, v]) =>
-      [etiquetas[k] ?? k, opciones[k]?.find(x => String(x.id) === v)?.nombre ?? v]))
-    if (seccion === 'datos') {
-      filas['Números de contacto'] = f.numeros.map(x => `${x.tipo}: ${x.numero}${x.principal ? ' (principal)' : ''}`).join('\n')
-      filas['Correos de contacto'] = f.correos.map(x => `${x.correo}${x.principal ? ' (principal)' : ''}`).join('\n')
-    }
-    return filas
+  const nombreSeccion = (s: SeccionVersion) =>
+    s === 'datos' ? (esCliente ? 'Datos y contactos' : 'Datos de la persona') : s === 'venta' ? 'Venta' : s === 'prima' ? 'Prima' : 'Familiares'
+  const avisoConflicto = (c: Conflicto) => {
+    const seccionTxt = <strong>{nombreSeccion(c.seccion)}</strong>
+    const cuando = c.modificadoEn ? ' ' + momento(c.modificadoEn) : ''
+    if (c.modificadoPorId != null && c.modificadoPorId === usuario?.id)
+      return <>Modificaste la sección {seccionTxt} desde otra pestaña o sesión{cuando}.</>
+    if (c.modificadoPor) return <><strong>{c.modificadoPor}</strong> modificó la sección {seccionTxt}{cuando}.</>
+    return <>Otro usuario modificó la sección {seccionTxt}{cuando}.</>
   }
 
   const cambiar = (parte: 'datos' | 'venta' | 'prima', campo: string, valor: string) => {
@@ -410,27 +397,11 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
 
       {errorGuardar && <div role="alert" className="alerta">{errorGuardar}</div>}
 
-      {Object.entries(conflictos).map(([nombreSeccion, actual]) => {
-        const seccion = nombreSeccion as SeccionVersion
-        return <div key={seccion} role="alert" className="alerta">
-          <strong>Conflicto en {seccion === 'datos' ? 'Datos y contactos' : seccion}.</strong>
-          <p>Otra sesión guardó cambios. Tu borrador sigue en pantalla y el autoguardado de esta sección está pausado.</p>
-          {actual ? <>
-            <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', textAlign: 'left' }}>
-              <thead><tr><th>Campo</th><th>Mi borrador</th><th>Versión guardada</th></tr></thead>
-              <tbody>{Object.entries(vistaGrupo(form, seccion)).map(([campo, valor]) => <tr key={campo}>
-                <th>{campo}</th><td style={{ whiteSpace: 'pre-wrap' }}>{valor || '—'}</td>
-                <td style={{ whiteSpace: 'pre-wrap' }}>{vistaGrupo(formDesde(actual), seccion)[campo] || '—'}</td>
-              </tr>)}</tbody>
-            </table></div>
-            <p>Guardar tu borrador reemplaza los datos de esta sección, incluidas sus listas. Revisá ambas versiones antes de elegir.</p>
-            <button className="btn-secundario" disabled={resolviendo} onClick={() => void resolver(seccion, false)}>Usar versión guardada</button>{' '}
-            <button className="btn-primario" disabled={resolviendo} onClick={() => void resolver(seccion, true)}>Guardar mi borrador revisado</button>
-          </> : <p>Obteniendo la versión guardada…</p>}
-          <button className="btn-enlace" onClick={() => void revisar(seccion)}>Actualizar comparación</button>
-        </div>
-      })}
-      {errorGuardar && !Object.keys(conflictos).length && <button className="btn-secundario" onClick={async () => {
+      {conflictos.map(c => <div key={c.seccion} role="alert" className="alerta">
+        <p>{avisoConflicto(c)} Tus cambios en esta sección no se guardaron.</p>
+        <button className="btn-secundario" disabled={recargando} onClick={() => void recargar(c.seccion)}>Recargar sección</button>
+      </div>)}
+      {errorGuardar && !conflictos.length && <button className="btn-secundario" onClick={async () => {
         todos.forEach(g => g.reanudar())
         if (await guardarPendientes()) { setErrorGuardar(''); setGuardado(true) }
       }}>Reintentar guardado</button>}

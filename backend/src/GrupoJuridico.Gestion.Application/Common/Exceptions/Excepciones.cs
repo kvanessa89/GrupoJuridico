@@ -34,5 +34,16 @@ public class VersionRequeridaException : Exception
 }
 public class ConflictoVersionException : Exception
 {
-    public ConflictoVersionException() : base("Otra sesión modificó esta sección. Revise la versión guardada antes de continuar.") { }
+    public ConflictoVersionException(int? modificadoPorId = null, string? modificadoPor = null, DateTime? modificadoEn = null)
+        : base("Otra sesión modificó esta sección. Revise la versión guardada antes de continuar.")
+    {
+        ModificadoPorId = modificadoPorId;
+        ModificadoPor = modificadoPor;
+        ModificadoEn = modificadoEn;
+    }
+
+    /// <summary>Último usuario que guardó la sección; nulo si no se conoce.</summary>
+    public int? ModificadoPorId { get; }
+    public string? ModificadoPor { get; }
+    public DateTime? ModificadoEn { get; }
 }
