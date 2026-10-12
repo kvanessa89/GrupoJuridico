@@ -11,7 +11,7 @@ Cada escritura de una sección existente debe enviar `If-Match: "<uuid>"`, usand
 
 La tabla VersionesSeccion usa clave compuesta (PersonaId, Seccion) y Version como token de concurrencia de EF. Datos y cambio de versión se escriben en una sola transacción. La lectura de la ficha usa una consulta SQL única para obtener datos y versiones de una misma instantánea.
 
-El frontend conserva el último borrador ante errores, pausa esa cola y evita reintentos automáticos. Ante 409 muestra una comparación por campos. “Usar versión guardada” descarta el borrador del grupo; “Guardar mi borrador revisado” reemplaza explícitamente ese grupo, incluidas sus listas, con la versión que el usuario revisó. Si otra sesión cambia de nuevo, vuelve a producirse un conflicto. Las otras secciones pueden seguir guardándose. La navegación y el cierre de pestaña avisan si quedan cambios sin confirmar; la ficha no envía borradores pendientes al desmontarse.
+El frontend conserva el último borrador ante errores, pausa esa cola y evita reintentos automáticos. Ante 409 muestra el aviso “<usuario> modificó la sección <nombre> a las <hora>” y pausa el autoguardado de ese grupo. La respuesta 409 incluye `modificadoPorId`, `modificadoPor` y `modificadoEn`, tomados de la auditoría de VersionesSeccion; si el autor es el mismo usuario, el aviso indica que fue desde otra pestaña o sesión. En una carrera detectada durante SaveChanges esos campos no vienen y el aviso dice “Otro usuario”. “Recargar sección” descarta el borrador del grupo y carga la versión guardada; a partir de ahí el usuario puede volver a editar. Las otras secciones pueden seguir guardándose. La navegación y el cierre de pestaña avisan si quedan cambios sin confirmar; la ficha no envía borradores pendientes al desmontarse.
 
 ## Despliegue
 
@@ -24,8 +24,8 @@ El frontend conserva el último borrador ante errores, pausa esa cola y evita re
 1. Abrir la misma persona en A y B, con usuarios que tengan acceso.
 2. En A cambiar un dato y esperar “Cambios guardados”.
 3. En B modificar otro campo del mismo grupo. Debe aparecer el conflicto conservando el borrador de B; el dato de A sigue guardado.
-4. Comparar ambas versiones. Elegir la guardada y verificar que B adopta los datos de A.
-5. Repetir el conflicto y elegir guardar el borrador revisado. Debe guardarse esa elección; si A vuelve a editar entre la comparación y el envío, B debe recibir otro conflicto.
+4. B debe ver el aviso con el nombre de la sección. Presionar “Recargar sección” y verificar que B muestra los datos de A y puede volver a editar y guardar.
+5. Repetir el conflicto en Datos y, sin recargar, editar un teléfono en B: no debe enviarse ni aparecer un segundo error.
 6. Agregar un teléfono en A y reemplazar la lista antigua desde B. El conflicto debe impedir borrar el teléfono de A.
 7. Cambiar Venta en A y Prima en B desde la misma lectura. Ambos guardados deben funcionar.
 8. Escribir rápido en un familiar nuevo mientras se guarda: debe conservarse una sola fila con su ID confirmado y el último texto.

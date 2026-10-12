@@ -1,6 +1,11 @@
 export type SeccionVersion = 'datos' | 'venta' | 'prima' | 'familiares'
 export type ResultadoVersion<T> = { data: T; version: string }
 
+/** La sección tiene un conflicto pendiente de recargar; no se envía nada. */
+export class SeccionBloqueadaError extends Error {
+  constructor() { super('Recargá la sección antes de volver a guardarla.') }
+}
+
 /** Serializa escrituras locales del mismo grupo y conserva su última versión confirmada. */
 export class EditorSecciones {
   private versiones: Partial<Record<SeccionVersion, string>> = {}
@@ -13,7 +18,7 @@ export class EditorSecciones {
   }
   guardar<T>(seccion: SeccionVersion, enviar: (version: string) => Promise<ResultadoVersion<T>>): Promise<T> {
     const tarea = (this.colas[seccion] ?? Promise.resolve()).catch(() => {}).then(async () => {
-      if (this.bloqueadas.has(seccion)) throw new Error('Revise el conflicto antes de volver a guardar esta sección.')
+      if (this.bloqueadas.has(seccion)) throw new SeccionBloqueadaError()
       const version = this.versiones[seccion]
       if (!version) throw new Error('La ficha todavía no tiene una versión de lectura.')
       try {

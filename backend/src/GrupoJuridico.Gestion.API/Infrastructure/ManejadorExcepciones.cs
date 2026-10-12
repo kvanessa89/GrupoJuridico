@@ -27,7 +27,12 @@ public class ManejadorExcepciones : IExceptionHandler
                 Title = v.Message
             },
             VersionRequeridaException => new ProblemDetails { Status = 428, Title = ex.Message },
-            ConflictoVersionException => new ProblemDetails { Status = 409, Title = ex.Message },
+            ConflictoVersionException c => new ProblemDetails
+            {
+                Status = 409,
+                Title = ex.Message,
+                Extensions = { ["modificadoPorId"] = c.ModificadoPorId, ["modificadoPor"] = c.ModificadoPor, ["modificadoEn"] = c.ModificadoEn }
+            },
             DbUpdateConcurrencyException => new ProblemDetails { Status = 409, Title = "Otra sesión modificó esta sección. Revise la versión guardada antes de continuar." },
             NoEncontradoException => new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = ex.Message },
             ProhibidoException => new ProblemDetails { Status = StatusCodes.Status403Forbidden, Title = ex.Message },
