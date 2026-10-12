@@ -1,3 +1,4 @@
+let siguienteIdLocal = -1
 import { useState } from 'react'
 import type { ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, TipoNumero } from '../../api/tipos'
 import { Select, TarjetaSeccion } from '../../components/Controles'
@@ -48,7 +49,7 @@ export function Contactos({
         accion={
           <button
             className="btn-enlace"
-            onClick={() => onNumeros([...numeros, { id: 0, numero: '', tipo: 'Teléfono', principal: !numeros.some((x) => x.tipo === 'Teléfono' && x.principal) }])}
+            onClick={() => onNumeros([...numeros, { id: siguienteIdLocal--, numero: '', tipo: 'Teléfono', principal: !numeros.some((x) => x.tipo === 'Teléfono' && x.principal) }])}
           >
             + Agregar
           </button>
@@ -86,7 +87,7 @@ export function Contactos({
       <TarjetaSeccion
         titulo="Correos electrónicos"
         accion={
-          <button className="btn-enlace" onClick={() => onCorreos([...correos, { id: 0, correo: '', principal: !correos.some((x) => x.principal) }])}>
+          <button className="btn-enlace" onClick={() => onCorreos([...correos, { id: siguienteIdLocal--, correo: '', principal: !correos.some((x) => x.principal) }])}>
             + Agregar
           </button>
         }
@@ -122,7 +123,7 @@ export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[
       accion={
         <button
           className="btn-enlace"
-          onClick={() => onCambiar([...familiares, { id: 0, nombreCompleto: '', parentesco: '', telefono: '', correoElectronico: '', whatsapp: '' }])}
+          onClick={() => onCambiar([...familiares, { id: siguienteIdLocal--, nombreCompleto: '', parentesco: '', telefono: '', correoElectronico: '', whatsapp: '' }])}
         >
           + Agregar familiar
         </button>

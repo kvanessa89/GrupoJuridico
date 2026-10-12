@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useBlocker, useNavigate, useParams } from 'react-router'
 import { erroresDe, mensajeDe } from '../../api/cliente'
 import { api } from '../../api/endpoints'
 import type { ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
@@ -7,6 +7,7 @@ import { useSesion } from '../../auth/Sesion'
 import { EtiquetaEstadoGrande, EtiquetaPrimaGrande } from '../../components/Chips'
 import { CampoNotas, CampoSelect, CampoTexto, Select, TarjetaSeccion, type Opcion } from '../../components/Controles'
 import { Atras, Check } from '../../components/Iconos'
+import { EditorSecciones, type SeccionVersion } from '../../hooks/EditorSecciones'
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
 import { fFecha, fMonto, iniciales, num, origenEtiqueta, vendedorEtiqueta } from '../../utils/formato'
 import {
@@ -26,8 +27,14 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const navegar = useNavigate()
   const { catalogos } = useSesion()
 
+  const editor = useRef(new EditorSecciones())
+  const idsNuevos = useRef({ numeros: new Map<number, number>(), correos: new Map<number, number>(), familiares: new Map<number, number>() })
+  const [resolviendo, setResolviendo] = useState(false)
+  const [conflictos, setConflictos] = useState<Partial<Record<SeccionVersion, PersonaDetalle | null>>>({})
   const [persona, setPersona] = useState<PersonaDetalle | null>(null)
   const [form, setForm] = useState<FormPersona>(formVacio)
+  const formRef = useRef(form)
+  useEffect(() => { formRef.current = form })
   const [comentarios, setComentarios] = useState<ComentarioDto[]>([])
   const [cargaError, setCargaError] = useState('')
   const [guardado, setGuardado] = useState(false)
@@ -45,6 +52,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     api.persona(personaId)
       .then((p) => {
         if (!vivo) return
+        editor.current.cargar(p.versiones)
         setPersona(p)
         setForm(formDesde(p))
         setComentarios(p.comentarios)
@@ -59,57 +67,134 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     }
   }, [personaId, nuevo])
 
+  const guardadoresRef = useRef<{ hayPendientes: () => boolean }[]>([])
   const esCliente = !!persona?.esCliente
   const ok = useCallback(() => {
-    setGuardado(true)
-    setErrorGuardar('')
+    window.setTimeout(() => setGuardado(guardadoresRef.current.every(g => !g.hayPendientes())), 0)
   }, [])
-  const fallo = useCallback((e: unknown) => setErrorGuardar(mensajeDe(e, 'No se pudieron guardar los cambios.')), [])
+  const fallo = (seccion: SeccionVersion) => (e: unknown) => {
+    setGuardado(false)
+    setErrorGuardar(mensajeDe(e, e instanceof Error ? e.message : 'No se pudieron guardar los cambios.'))
+    if ([409, 428].includes((e as { response?: { status?: number } }).response?.status ?? 0)) {
+      setConflictos(cs => ({ ...cs, [seccion]: null }))
+      void revisar(seccion)
+    }
+  }
+  const revisar = async (seccion: SeccionVersion) => {
+    try {
+      const actual = await api.persona(personaId)
+      setConflictos(cs => ({ ...cs, [seccion]: actual }))
+    } catch (e) { setErrorGuardar(mensajeDe(e, 'No se pudo obtener la versión guardada. Tu borrador sigue en pantalla.')) }
+  }
+  const enviar = <T,>(seccion: SeccionVersion, fn: (version: string) => Promise<{ data: T; version: string }>) => editor.current.guardar(seccion, fn)
+  const traducirIds = <T extends { id: number }>(lista: 'numeros' | 'correos' | 'familiares', items: T[]) =>
+    items.map(x => ({ ...x, id: idsNuevos.current[lista].get(x.id) ?? x.id }))
+  const confirmarIds = <T extends { id: number }>(lista: 'numeros' | 'correos' | 'familiares', enviados: T[], recibidos: T[]) => {
+    const existentes = new Set(traducirIds(lista, enviados).filter(x => x.id > 0).map(x => x.id))
+    const nuevos = recibidos.filter(x => !existentes.has(x.id))
+    enviados.filter(x => x.id <= 0 && !idsNuevos.current[lista].has(x.id)).forEach((x, i) => {
+      if (nuevos[i]) idsNuevos.current[lista].set(x.id, nuevos[i].id)
+    })
+    setForm(f => ({ ...f, [lista]: f[lista].map(x => ({ ...x, id: idsNuevos.current[lista].get(x.id) ?? x.id })) }))
+    ok()
+  }
 
   // Un guardador por sección, como en el prototipo (cada cambio se guarda solo).
-  const gDatos = useGuardadoDiferido((f: FormPersona) => api.guardarDatos(personaId, payloadDatos(f, esCliente)), ok, fallo)
+  const gDatos = useGuardadoDiferido((f: FormPersona) => enviar('datos', v => api.guardarDatos(personaId, payloadDatos(f, esCliente), v)), ok, fallo('datos'))
   const gVenta = useGuardadoDiferido(
-    (f: FormPersona) => api.guardarVenta(personaId, {
+    (f: FormPersona) => enviar('venta', v => api.guardarVenta(personaId, {
       procedenciaVentaId: idONull(f.venta.procedenciaVentaId), metodoVentaId: idONull(f.venta.metodoVentaId),
       monto: num(f.venta.monto), notas: f.venta.notas,
-    }),
-    ok, fallo,
+    }, v)),
+    ok, fallo('venta'),
   )
   const gPrima = useGuardadoDiferido(
-    (f: FormPersona) => api.guardarPrima(personaId, {
+    (f: FormPersona) => enviar('prima', v => api.guardarPrima(personaId, {
       monto: num(f.prima.monto), montoCancelado: num(f.prima.montoCancelado),
       fechaEstimadaPago: f.prima.fechaEstimadaPago || null, fechaPago: f.prima.fechaPago || null,
-    }),
-    ok, fallo,
+    }, v)),
+    ok, fallo('prima'),
   )
-  // Las listas se reemplazan completas; al volver, se copian los ids nuevos si no hubo más cambios.
   const gNumeros = useGuardadoDiferido(
-    (n: NumeroDto[]) => api.guardarNumeros(personaId, n),
-    (r: NumeroDto[], hayMas: boolean) => {
-      ok()
-      if (!hayMas) setForm((f) => (f.numeros.length === r.length ? { ...f, numeros: f.numeros.map((x, i) => ({ ...x, id: r[i].id, principal: r[i].principal })) } : f))
-    },
-    fallo,
+    (n: NumeroDto[]) => enviar('datos', v => api.guardarNumeros(personaId, traducirIds('numeros', n), v)),
+    (r, _hayMas, enviado) => confirmarIds('numeros', enviado, r), fallo('datos'),
   )
   const gCorreos = useGuardadoDiferido(
-    (c: CorreoDto[]) => api.guardarCorreos(personaId, c),
-    (r: CorreoDto[], hayMas: boolean) => {
-      ok()
-      if (!hayMas) setForm((f) => (f.correos.length === r.length ? { ...f, correos: f.correos.map((x, i) => ({ ...x, id: r[i].id, principal: r[i].principal })) } : f))
-    },
-    fallo,
+    (c: CorreoDto[]) => enviar('datos', v => api.guardarCorreos(personaId, traducirIds('correos', c), v)),
+    (r, _hayMas, enviado) => confirmarIds('correos', enviado, r), fallo('datos'),
   )
   const gFamiliares = useGuardadoDiferido(
-    (fs: FamiliarDto[]) => api.guardarFamiliares(personaId, fs),
-    (r: FamiliarDto[], hayMas: boolean) => {
-      ok()
-      if (!hayMas) setForm((f) => (f.familiares.length === r.length ? { ...f, familiares: f.familiares.map((x, i) => ({ ...x, id: r[i].id })) } : f))
-    },
-    fallo,
+    (fs: FamiliarDto[]) => enviar('familiares', v => api.guardarFamiliares(personaId, traducirIds('familiares', fs), v)),
+    (r, _hayMas, enviado) => confirmarIds('familiares', enviado, r), fallo('familiares'),
   )
+  const todos = [gDatos, gVenta, gPrima, gNumeros, gCorreos, gFamiliares]
+  useEffect(() => { guardadoresRef.current = todos })
+  const grupo = (seccion: SeccionVersion) => seccion === 'datos' ? [gDatos, gNumeros, gCorreos] :
+    seccion === 'venta' ? [gVenta] : seccion === 'prima' ? [gPrima] : [gFamiliares]
+  const hayCambios = () => guardadoresRef.current.some(g => g.hayPendientes())
+  const blocker = useBlocker(() => !nuevo && hayCambios())
+  useEffect(() => {
+    const prevenir = (e: BeforeUnloadEvent) => {
+      if (hayCambios()) { e.preventDefault(); e.returnValue = '' }
+    }
+    window.addEventListener('beforeunload', prevenir)
+    return () => window.removeEventListener('beforeunload', prevenir)
+  }, [])
+  const guardarPendientes = async () => {
+    const resultados = await Promise.all(todos.map(g => g.flush()))
+    const exito = resultados.every(Boolean) && !hayCambios()
+    if (!exito) setErrorGuardar('Hay cambios pendientes o un conflicto. Revisá el aviso antes de salir.')
+    return exito
+  }
+  const resolver = async (seccion: SeccionVersion, conservar: boolean) => {
+    const actual = conflictos[seccion]
+    if (!actual) return
+    setResolviendo(true)
+    await Promise.all(grupo(seccion).map(g => g.flush()))
+    grupo(seccion).forEach(g => g.cancelar())
+    const borrador = formRef.current
+    editor.current.resolver(seccion, actual.versiones[seccion])
+    const remoto = formDesde(actual)
+    if (!conservar) {
+      setForm(f => seccion === 'datos' ? { ...f, datos: remoto.datos, numeros: remoto.numeros, correos: remoto.correos } : { ...f, [seccion]: remoto[seccion] })
+    } else if (seccion === 'datos') {
+      gDatos.programar(borrador)
+      if (actual.esCliente) { gNumeros.programar(borrador.numeros); gCorreos.programar(borrador.correos) }
+    } else if (seccion === 'venta') gVenta.programar(borrador)
+    else if (seccion === 'prima') gPrima.programar(borrador)
+    else gFamiliares.programar(borrador.familiares)
+    if (seccion === 'datos') setPersona(p => p ? { ...p, esCliente: actual.esCliente, cliente: actual.cliente } : p)
+    setConflictos(cs => { const copia = { ...cs }; delete copia[seccion]; return copia })
+    setErrorGuardar('')
+    setGuardado(false)
+    setResolviendo(false)
+  }
+  const vistaGrupo = (f: FormPersona, seccion: SeccionVersion): Record<string, string> => {
+    if (seccion === 'familiares') return { Familiares: f.familiares.map(x =>
+      [x.nombreCompleto, x.parentesco, x.telefono, x.correoElectronico, x.whatsapp].filter(Boolean).join(' · ')).join('\n') }
+    const etiquetas: Record<string, string> = {
+      nombres: 'Nombres', apellidos: 'Apellidos', cedula: 'Cédula', finca: 'Finca', expediente: 'Expediente',
+      fechaIngreso: 'Fecha de ingreso', vendedorId: 'Vendedor', telefonoPrincipal: 'Teléfono principal',
+      whatsappPrincipal: 'WhatsApp principal', correoPrincipal: 'Correo principal', estadoClienteId: 'Estado del cliente',
+      origenClienteId: 'Origen', procedenciaVentaId: 'Procedencia', metodoVentaId: 'Método de venta', monto: 'Monto',
+      notas: 'Notas', montoCancelado: 'Monto cancelado', fechaEstimadaPago: 'Fecha estimada de pago', fechaPago: 'Fecha de pago',
+    }
+    const opciones: Record<string, { id: number; nombre: string }[] | undefined> = {
+      vendedorId: catalogos?.vendedores, estadoClienteId: catalogos?.estadosCliente, origenClienteId: catalogos?.origenes,
+      procedenciaVentaId: catalogos?.procedencias, metodoVentaId: catalogos?.metodos,
+    }
+    const filas = Object.fromEntries(Object.entries(f[seccion]).map(([k, v]) =>
+      [etiquetas[k] ?? k, opciones[k]?.find(x => String(x.id) === v)?.nombre ?? v]))
+    if (seccion === 'datos') {
+      filas['Números de contacto'] = f.numeros.map(x => `${x.tipo}: ${x.numero}${x.principal ? ' (principal)' : ''}`).join('\n')
+      filas['Correos de contacto'] = f.correos.map(x => `${x.correo}${x.principal ? ' (principal)' : ''}`).join('\n')
+    }
+    return filas
+  }
 
   const cambiar = (parte: 'datos' | 'venta' | 'prima', campo: string, valor: string) => {
     const nuevoForm = { ...form, [parte]: { ...form[parte], [campo]: valor } } as FormPersona
+    setGuardado(false)
     setForm(nuevoForm)
     if (nuevo) return
     if (parte === 'datos') gDatos.programar(nuevoForm)
@@ -117,6 +202,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     else gPrima.programar(nuevoForm)
   }
   const cambiarLista = <K extends 'numeros' | 'correos' | 'familiares'>(lista: K, valor: FormPersona[K]) => {
+    setGuardado(false)
     setForm((f) => ({ ...f, [lista]: valor }))
     if (nuevo) return
     if (lista === 'numeros') gNumeros.programar(valor as NumeroDto[])
@@ -136,7 +222,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       setVolverIntento(true)
       return
     }
-    if (!nuevo) await Promise.all([gDatos.flush(), gVenta.flush(), gPrima.flush(), gNumeros.flush(), gCorreos.flush(), gFamiliares.flush()])
+    if (!nuevo && !await guardarPendientes()) return
     navegar(seccion === 'clientes' ? '/gestion/clientes' : '/gestion/ventas')
   }
 
@@ -163,14 +249,15 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       return
     }
     try {
-      await Promise.all([gDatos.flush(), gVenta.flush(), gPrima.flush()])
-      await api.convertir(personaId, {
+      if (!await guardarPendientes()) return
+      await enviar('datos', v => api.convertir(personaId, {
         expediente: conv.expediente.trim(),
         origenClienteId: Number(conv.origen),
         estadoClienteId: Number(conv.estado) || 1,
-      })
+      }, v))
       navegar(`/gestion/clientes/${personaId}`)
     } catch (e) {
+      fallo('datos')(e)
       setConv({ ...conv, error: mensajeDe(e) })
     }
   }
@@ -322,6 +409,36 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       </div>
 
       {errorGuardar && <div role="alert" className="alerta">{errorGuardar}</div>}
+
+      {Object.entries(conflictos).map(([nombreSeccion, actual]) => {
+        const seccion = nombreSeccion as SeccionVersion
+        return <div key={seccion} role="alert" className="alerta">
+          <strong>Conflicto en {seccion === 'datos' ? 'Datos y contactos' : seccion}.</strong>
+          <p>Otra sesión guardó cambios. Tu borrador sigue en pantalla y el autoguardado de esta sección está pausado.</p>
+          {actual ? <>
+            <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', textAlign: 'left' }}>
+              <thead><tr><th>Campo</th><th>Mi borrador</th><th>Versión guardada</th></tr></thead>
+              <tbody>{Object.entries(vistaGrupo(form, seccion)).map(([campo, valor]) => <tr key={campo}>
+                <th>{campo}</th><td style={{ whiteSpace: 'pre-wrap' }}>{valor || '—'}</td>
+                <td style={{ whiteSpace: 'pre-wrap' }}>{vistaGrupo(formDesde(actual), seccion)[campo] || '—'}</td>
+              </tr>)}</tbody>
+            </table></div>
+            <p>Guardar tu borrador reemplaza los datos de esta sección, incluidas sus listas. Revisá ambas versiones antes de elegir.</p>
+            <button className="btn-secundario" disabled={resolviendo} onClick={() => void resolver(seccion, false)}>Usar versión guardada</button>{' '}
+            <button className="btn-primario" disabled={resolviendo} onClick={() => void resolver(seccion, true)}>Guardar mi borrador revisado</button>
+          </> : <p>Obteniendo la versión guardada…</p>}
+          <button className="btn-enlace" onClick={() => void revisar(seccion)}>Actualizar comparación</button>
+        </div>
+      })}
+      {errorGuardar && !Object.keys(conflictos).length && <button className="btn-secundario" onClick={async () => {
+        todos.forEach(g => g.reanudar())
+        if (await guardarPendientes()) { setErrorGuardar(''); setGuardado(true) }
+      }}>Reintentar guardado</button>}
+      {blocker.state === 'blocked' && <div role="alert" className="alerta">
+        <p>Hay cambios sin guardar. Permanecé en la ficha para guardarlos o resolver el conflicto.</p>
+        <button className="btn-primario" onClick={() => blocker.reset()}>Seguir editando</button>{' '}
+        <button className="btn-secundario" onClick={async () => { if (await guardarPendientes()) blocker.proceed() }}>Guardar y salir</button>
+      </div>}
 
       {conv && (
         <div className="convertir">

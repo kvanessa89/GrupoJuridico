@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrupoJuridico.Gestion.Appli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrupoJuridico.Gestion.Infrastructure", "src\GrupoJuridico.Gestion.Infrastructure\GrupoJuridico.Gestion.Infrastructure.csproj", "{FE5087A9-188E-458E-A72E-30E04D02A284}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrupoJuridico.Gestion.Api", "src\GrupoJuridico.Gestion.Api\GrupoJuridico.Gestion.Api.csproj", "{209D3748-8E95-4120-A0FE-2E6AEF1AC06B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrupoJuridico.Gestion.Api", "src\GrupoJuridico.Gestion.API\GrupoJuridico.Gestion.API.csproj", "{209D3748-8E95-4120-A0FE-2E6AEF1AC06B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{12FD7360-1658-4FA6-ABD6-F1F4EF54E67B}"
 EndProject

@@ -96,7 +96,8 @@ public record PersonaDetalleDto(
     IReadOnlyList<NumeroDto> Numeros,
     IReadOnlyList<CorreoDto> Correos,
     IReadOnlyList<FamiliarDto> Familiares,
-    IReadOnlyList<ComentarioDto> Comentarios);
+    IReadOnlyList<ComentarioDto> Comentarios,
+    IReadOnlyDictionary<string, Guid> Versiones);
 
 // ---------- Comandos ----------
 

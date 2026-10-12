@@ -193,3 +193,16 @@ internal class ComentarioConfig : IEntityTypeConfiguration<Comentario>
         b.HasIndex(x => new { x.PersonaId, x.Fecha });
     }
 }
+
+
+internal class VersionSeccionConfig : IEntityTypeConfiguration<VersionSeccion>
+{
+    public void Configure(EntityTypeBuilder<VersionSeccion> b)
+    {
+        b.ToTable("VersionesSeccion");
+        b.HasKey(x => new { x.PersonaId, x.Seccion });
+        b.Property(x => x.Seccion).HasMaxLength(20);
+        b.Property(x => x.Version).IsConcurrencyToken();
+        b.HasOne<Persona>().WithMany(p => p.Versiones).HasForeignKey(x => x.PersonaId).OnDelete(DeleteBehavior.Cascade);
+    }
+}

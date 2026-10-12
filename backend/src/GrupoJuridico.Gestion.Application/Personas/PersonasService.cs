@@ -30,6 +30,19 @@ public class PersonasService
         _fecha = fecha;
     }
 
+    public Guid VersionGuardada { get; private set; }
+
+    private void PrepararVersion(Persona persona, string seccion, Guid? esperada)
+    {
+        if (esperada == null) throw new VersionRequeridaException();
+        var version = persona.Versiones.SingleOrDefault(v => v.Seccion == seccion);
+        if (version == null || version.Version != esperada.Value) throw new ConflictoVersionException();
+        // EF conserva la versión original para el WHERE del UPDATE. El cambio de versión
+        // y los datos se guardan en la misma transacción; un conflicto revierte todo.
+        version.Version = Guid.NewGuid();
+        VersionGuardada = version.Version;
+    }
+
     public static string TipoTexto(TipoNumero t) => t == TipoNumero.WhatsApp ? "WhatsApp" : "Teléfono";
     public static TipoNumero TipoDesde(string? t) =>
         string.Equals(t, "WhatsApp", StringComparison.OrdinalIgnoreCase) ? TipoNumero.WhatsApp : TipoNumero.Telefono;
@@ -44,7 +57,8 @@ public class PersonasService
             .Include(p => p.Fincas)
             .Include(p => p.Familiares)
             .Include(p => p.Comentarios)
-            .AsSplitQuery()
+            .Include(p => p.Versiones)
+            .AsSingleQuery()
             .FirstOrDefaultAsync(p => p.Id == id, ct)
         ?? throw new NoEncontradoException("Persona", id);
 
@@ -87,7 +101,7 @@ public class PersonasService
                 autores.TryGetValue(c.UsuarioId, out var u);
                 return new ComentarioDto(c.Id, c.UsuarioId, u?.Nombre ?? "Usuario eliminado", u?.Rol, c.Texto,
                     DateTime.SpecifyKind(c.Fecha, DateTimeKind.Utc), c.UsuarioId == _usuario.Id);
-            }).ToList());
+            }).ToList(), p.Versiones.ToDictionary(x => x.Seccion, x => x.Version));
     }
 
     public async Task<PersonaDetalleDto> CrearProspectoAsync(CrearProspectoRequest r, CancellationToken ct = default)
@@ -137,9 +151,10 @@ public class PersonasService
         return await CrearDetalleAsync(persona);
     }
 
-    public async Task ActualizarDatosAsync(int id, ActualizarDatosRequest r, CancellationToken ct = default)
+    public async Task ActualizarDatosAsync(int id, ActualizarDatosRequest r, CancellationToken ct = default, Guid? version = null)
     {
         var p = await CargarAsync(id, ct);
+        PrepararVersion(p, "datos", version);
         p.Nombres = r.Nombres?.Trim() ?? "";
         p.Apellidos = r.Apellidos?.Trim() ?? "";
         p.Cedula = r.Cedula?.Trim() ?? "";
@@ -174,10 +189,11 @@ public class PersonasService
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<VentaDto> ActualizarVentaAsync(int id, ActualizarVentaRequest r, CancellationToken ct = default)
+    public async Task<VentaDto> ActualizarVentaAsync(int id, ActualizarVentaRequest r, CancellationToken ct = default, Guid? version = null)
     {
         await _ventaValidator.ValidarAsync(r, ct);
         var p = await CargarAsync(id, ct);
+        PrepararVersion(p, "venta", version);
         var v = p.Venta ?? throw new NoEncontradoException("Venta de la persona", id);
         v.ProcedenciaVentaId = r.ProcedenciaVentaId is > 0 ? r.ProcedenciaVentaId : null;
         v.MetodoVentaId = r.MetodoVentaId is > 0 ? r.MetodoVentaId : null;
@@ -187,10 +203,11 @@ public class PersonasService
         return new VentaDto(v.Id, v.ProcedenciaVentaId, v.MetodoVentaId, v.Monto, v.Notas);
     }
 
-    public async Task<PrimaDto> ActualizarPrimaAsync(int id, ActualizarPrimaRequest r, CancellationToken ct = default)
+    public async Task<PrimaDto> ActualizarPrimaAsync(int id, ActualizarPrimaRequest r, CancellationToken ct = default, Guid? version = null)
     {
         await _primaValidator.ValidarAsync(r, ct);
         var p = await CargarAsync(id, ct);
+        PrepararVersion(p, "prima", version);
         var pr = p.Prima ?? throw new NoEncontradoException("Prima de la persona", id);
         pr.Monto = r.Monto;
         pr.MontoCancelado = r.MontoCancelado;
@@ -202,9 +219,10 @@ public class PersonasService
     }
 
     /// <summary>Reemplaza la lista de números. Queda a lo sumo un principal por tipo.</summary>
-    public async Task<IReadOnlyList<NumeroDto>> ReemplazarNumerosAsync(int id, IReadOnlyList<NumeroItem> items, CancellationToken ct = default)
+    public async Task<IReadOnlyList<NumeroDto>> ReemplazarNumerosAsync(int id, IReadOnlyList<NumeroItem> items, CancellationToken ct = default, Guid? version = null)
     {
         var p = await CargarAsync(id, ct);
+        PrepararVersion(p, "datos", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Numeros.RemoveRange(p.Numeros.Where(n => !conservar.Contains(n.Id)));
         var resultado = new List<Numero>();
@@ -223,9 +241,10 @@ public class PersonasService
         return resultado.Select(n => new NumeroDto(n.Id, n.Valor, TipoTexto(n.Tipo), n.Principal)).ToList();
     }
 
-    public async Task<IReadOnlyList<CorreoDto>> ReemplazarCorreosAsync(int id, IReadOnlyList<CorreoItem> items, CancellationToken ct = default)
+    public async Task<IReadOnlyList<CorreoDto>> ReemplazarCorreosAsync(int id, IReadOnlyList<CorreoItem> items, CancellationToken ct = default, Guid? version = null)
     {
         var p = await CargarAsync(id, ct);
+        PrepararVersion(p, "datos", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Correos.RemoveRange(p.Correos.Where(c => !conservar.Contains(c.Id)));
         var resultado = new List<CorreoElectronico>();
@@ -242,9 +261,10 @@ public class PersonasService
         return resultado.Select(c => new CorreoDto(c.Id, c.Correo, c.Principal)).ToList();
     }
 
-    public async Task<IReadOnlyList<FamiliarDto>> ReemplazarFamiliaresAsync(int id, IReadOnlyList<FamiliarItem> items, CancellationToken ct = default)
+    public async Task<IReadOnlyList<FamiliarDto>> ReemplazarFamiliaresAsync(int id, IReadOnlyList<FamiliarItem> items, CancellationToken ct = default, Guid? version = null)
     {
         var p = await CargarAsync(id, ct);
+        PrepararVersion(p, "familiares", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Familiares.RemoveRange(p.Familiares.Where(f => !conservar.Contains(f.Id)));
         var resultado = new List<PersonaFamiliar>();
@@ -259,10 +279,11 @@ public class PersonasService
         return resultado.Select(f => new FamiliarDto(f.Id, f.NombreCompleto, f.Parentesco, f.Telefono, f.CorreoElectronico, f.Whatsapp)).ToList();
     }
 
-    public async Task<PersonaDetalleDto> ConvertirEnClienteAsync(int id, ConvertirClienteRequest r, CancellationToken ct = default)
+    public async Task<PersonaDetalleDto> ConvertirEnClienteAsync(int id, ConvertirClienteRequest r, CancellationToken ct = default, Guid? version = null)
     {
         await _convertirValidator.ValidarAsync(r, ct);
         var p = await CargarAsync(id, ct);
+        PrepararVersion(p, "datos", version);
         if (p.EsCliente) throw new ValidacionException("id", "La persona ya es cliente oficial.");
         if (!await _db.OrigenesCliente.AnyAsync(o => o.Id == r.OrigenClienteId, ct))
             throw new ValidacionException(nameof(r.OrigenClienteId), "El origen del cliente es requerido.");

@@ -22,6 +22,15 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.VersionSeccion", b =>
+                {
+                    b.Property<int>("PersonaId").HasColumnType("integer");
+                    b.Property<string>("Seccion").HasMaxLength(20).HasColumnType("character varying(20)");
+                    b.Property<Guid>("Version").IsConcurrencyToken().HasColumnType("uuid");
+                    b.HasKey("PersonaId", "Seccion");
+                    b.ToTable("VersionesSeccion", (string)null);
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Cliente", b =>
                 {
                     b.Property<int>("Id")
@@ -985,8 +994,17 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.Navigation("Persona");
                 });
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.VersionSeccion", b =>
+                {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Persona", null)
+                        .WithMany("Versiones").HasForeignKey("PersonaId")
+                        .OnDelete(DeleteBehavior.Cascade).IsRequired();
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Persona", b =>
                 {
+                    b.Navigation("Versiones");
+
                     b.Navigation("Comentarios");
 
                     b.Navigation("Correos");

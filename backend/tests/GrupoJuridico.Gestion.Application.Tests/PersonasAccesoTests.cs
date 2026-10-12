@@ -5,6 +5,16 @@ using GrupoJuridico.Gestion.Application.Usuarios;
 using GrupoJuridico.Gestion.Domain.Constants;
 using GrupoJuridico.Gestion.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.DependencyInjection;
+using System.Net;
+using System.Net.Http.Json;
+using GrupoJuridico.Gestion.Api.Controllers;
+using GrupoJuridico.Gestion.Api.Infrastructure;
 
 namespace GrupoJuridico.Gestion.Application.Tests;
 
@@ -81,7 +91,8 @@ public class PersonasAccesoTests
         var id = await SembrarAsync(db, EstadoPrima.Incompleta);
         var servicio = CrearServicio(db, Roles.AsistenteVentas);
         var dto = await servicio.ActualizarPrimaAsync(id,
-            new ActualizarPrimaRequest(100m, 100m, null, new DateOnly(2026, 10, 9)));
+            new ActualizarPrimaRequest(100m, 100m, null, new DateOnly(2026, 10, 9)),
+            version: (await servicio.ObtenerAsync(id)).Versiones["prima"]);
 
         Assert.Equal(EstadoPrima.Pagada, dto.EstadoPrimaId);
         Assert.Equal(0m, dto.SaldoPendiente);
@@ -115,6 +126,132 @@ public class PersonasAccesoTests
         await db.SaveChangesAsync();
         await Assert.ThrowsAsync<ProhibidoException>(() =>
             CrearServicio(db, Roles.Administrador).EliminarComentarioAsync(c.Id));
+    }
+
+    [Fact]
+    public async Task Edicion_sin_version_no_guarda()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        Assert.Equal(4, (await servicio.ObtenerAsync(id)).Versiones.Count);
+        var guardados = db.Guardados;
+        await Assert.ThrowsAsync<VersionRequeridaException>(() =>
+            servicio.ReemplazarNumerosAsync(id, Array.Empty<NumeroItem>()));
+        Assert.Equal(guardados, db.Guardados);
+    }
+
+    [Fact]
+    public async Task Version_desactualizada_rechaza_el_reemplazo_de_contactos()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var version = (await servicio.ObtenerAsync(id)).Versiones["datos"];
+        await servicio.ReemplazarNumerosAsync(id, new[] { new NumeroItem(0, "88888888", "Teléfono", true) }, version: version);
+        await Assert.ThrowsAsync<ConflictoVersionException>(() =>
+            servicio.ReemplazarNumerosAsync(id, Array.Empty<NumeroItem>(), version: version));
+        Assert.Single(await db.Numeros.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Carrera_real_revierte_todos_los_cambios_del_segundo_guardado()
+    {
+        using var conexion = new SqliteConnection("Data Source=:memory:;Foreign Keys=False");
+        await conexion.OpenAsync();
+        var options = new DbContextOptionsBuilder<TestDb>().UseSqlite(conexion).Options;
+        int id;
+        using (var seed = new TestDb(options))
+        {
+            await seed.Database.EnsureCreatedAsync();
+            id = await SembrarAsync(seed, EstadoPrima.Pendiente);
+        }
+        using var a = new TestDb(options);
+        using var b = new TestDb(options);
+        var sa = CrearServicio(a, Roles.Administrador);
+        var sb = CrearServicio(b, Roles.Administrador);
+        var version = (await sa.ObtenerAsync(id)).Versiones["datos"];
+        await sb.ObtenerAsync(id); // ambas sesiones ya cargaron la misma versión en EF
+        await sa.ReemplazarNumerosAsync(id, new[] { new NumeroItem(0, "88888888", "Teléfono", true) }, version: version);
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => sb.ActualizarDatosAsync(id,
+            new ActualizarDatosRequest("Cambio perdido", "Vargas", "123", "", "", new DateOnly(2026, 10, 9),
+                null, "99999999", null, null, null, null), version: version));
+        using var verificar = new TestDb(options);
+        Assert.Equal("Ana", (await verificar.Personas.SingleAsync()).Nombres);
+        Assert.Equal("88888888", (await verificar.Numeros.SingleAsync()).Valor);
+    }
+
+    [Fact]
+    public async Task Secciones_distintas_pueden_guardarse_desde_la_misma_lectura()
+    {
+        using var conexion = new SqliteConnection("Data Source=:memory:;Foreign Keys=False");
+        await conexion.OpenAsync();
+        var options = new DbContextOptionsBuilder<TestDb>().UseSqlite(conexion).Options;
+        int id;
+        using (var seed = new TestDb(options))
+        {
+            await seed.Database.EnsureCreatedAsync();
+            id = await SembrarAsync(seed, EstadoPrima.Pendiente);
+        }
+        using var a = new TestDb(options);
+        using var b = new TestDb(options);
+        var sa = CrearServicio(a, Roles.Administrador);
+        var sb = CrearServicio(b, Roles.Administrador);
+        var versiones = (await sa.ObtenerAsync(id)).Versiones;
+        await sb.ObtenerAsync(id);
+        await sa.ActualizarVentaAsync(id, new ActualizarVentaRequest(null, null, 2000m, "Venta"), version: versiones["venta"]);
+        await sb.ActualizarPrimaAsync(id, new ActualizarPrimaRequest(100m, 50m, null, null), version: versiones["prima"]);
+        using var verificar = new TestDb(options);
+        Assert.Equal(2000m, (await verificar.Ventas.SingleAsync()).Monto);
+        Assert.Equal(50m, (await verificar.Primas.SingleAsync()).MontoCancelado);
+    }
+
+    [Fact]
+    public async Task Http_exige_version_devuelve_etag_y_rechaza_version_antigua()
+    {
+        using var conexion = new SqliteConnection("Data Source=:memory:;Foreign Keys=False");
+        await conexion.OpenAsync();
+        var options = new DbContextOptionsBuilder<TestDb>().UseSqlite(conexion).Options;
+        int id;
+        using (var seed = new TestDb(options))
+        {
+            await seed.Database.EnsureCreatedAsync();
+            id = await SembrarAsync(seed, EstadoPrima.Pendiente);
+        }
+        using var server = new TestServer(new WebHostBuilder()
+            .ConfigureServices(services =>
+            {
+                services.AddControllers().AddApplicationPart(typeof(PersonasController).Assembly);
+                // La autenticación se prueba por separado; aquí se aísla el contrato HTTP de concurrencia.
+                services.AddAuthorization(o => o.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAssertion(_ => true).Build());
+                services.AddScoped(_ => new TestDb(options));
+                services.AddScoped(sp => CrearServicio(sp.GetRequiredService<TestDb>(), Roles.Administrador));
+                services.AddProblemDetails();
+                services.AddExceptionHandler<ManejadorExcepciones>();
+            })
+            .Configure(app =>
+            {
+                app.UseExceptionHandler();
+                app.UseRouting();
+                app.UseAuthorization();
+                app.UseEndpoints(e => e.MapControllers());
+            }));
+        using var http = server.CreateClient();
+        var ficha = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
+        var original = $"\"{ficha!.Versiones["datos"]:D}\"";
+        var ruta = $"/api/personas/{id}/numeros";
+        Assert.Equal((HttpStatusCode)428, (await http.PutAsJsonAsync(ruta, Array.Empty<NumeroItem>())).StatusCode);
+        http.DefaultRequestHeaders.Add("If-Match", original);
+        var primera = await http.PutAsJsonAsync(ruta, new[] { new NumeroItem(0, "88888888", "Teléfono", true) });
+        Assert.Equal(HttpStatusCode.OK, primera.StatusCode);
+        Assert.NotNull(primera.Headers.ETag);
+        Assert.NotEqual(original, primera.Headers.ETag!.Tag);
+        Assert.Equal(HttpStatusCode.Conflict, (await http.PutAsJsonAsync(ruta, Array.Empty<NumeroItem>())).StatusCode);
+        var actual = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
+        Assert.Equal("88888888", Assert.Single(actual!.Numeros).Numero);
+        http.DefaultRequestHeaders.Remove("If-Match");
+        http.DefaultRequestHeaders.Add("If-Match", "*");
+        Assert.Equal(HttpStatusCode.BadRequest, (await http.PutAsJsonAsync(ruta, Array.Empty<NumeroItem>())).StatusCode);
     }
 
     private static TestDb CrearDb() => new(new DbContextOptionsBuilder<TestDb>()
@@ -190,12 +327,20 @@ public class PersonasAccesoTests
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            foreach (var entry in ChangeTracker.Entries<Persona>().Where(e => e.State == EntityState.Added).ToList())
+                foreach (var seccion in VersionSeccion.Secciones)
+                    if (!entry.Entity.Versiones.Any(v => v.Seccion == seccion))
+                        entry.Entity.Versiones.Add(new VersionSeccion { Seccion = seccion });
             Guardados++;
             return base.SaveChangesAsync(cancellationToken);
         }
 
         protected override void OnModelCreating(ModelBuilder model)
         {
+            model.Entity<VersionSeccion>().HasKey(x => new { x.PersonaId, x.Seccion });
+            model.Entity<VersionSeccion>().Property(x => x.Version).IsConcurrencyToken();
+            model.Entity<VersionSeccion>().HasOne<Persona>().WithMany(p => p.Versiones)
+                .HasForeignKey(x => x.PersonaId).OnDelete(DeleteBehavior.Cascade);
             model.Entity<ConfiguracionSistema>().HasKey(c => c.Clave);
             model.Entity<Persona>().HasOne(p => p.Cliente).WithOne(c => c.Persona)
                 .HasForeignKey<Persona>(p => p.ClienteId);
