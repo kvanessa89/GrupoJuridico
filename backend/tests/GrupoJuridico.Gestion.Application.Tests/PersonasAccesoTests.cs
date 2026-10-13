@@ -517,6 +517,11 @@ public class PersonasAccesoTests
         var conservada = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
         Assert.Equal("88888888", Assert.Single(conservada!.Numeros).Numero);
         Assert.Equal(actual.Versiones["datos"], conservada.Versiones["datos"]);
+        var longitudInvalida = await http.PutAsJsonAsync(ruta, new[] { new NumeroItem(actual.Numeros[0].Id, "8888777", "Teléfono", true) });
+        Assert.Equal(HttpStatusCode.BadRequest, longitudInvalida.StatusCode);
+        var longitudConservada = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
+        Assert.Equal(actual.Versiones["datos"], longitudConservada!.Versiones["datos"]);
+        Assert.Equal("88888888", longitudConservada.Numeros[0].Numero);
         // Validación HTTP: no se pierde el último contacto ni cambia la versión.
         var vacio = await http.PutAsJsonAsync(ruta, Array.Empty<NumeroItem>());
         Assert.Equal(HttpStatusCode.BadRequest, vacio.StatusCode);
@@ -810,6 +815,103 @@ public class PersonasAccesoTests
         }
     }
 
+    [Theory]
+    [InlineData("crear", "+506", 8)]
+    [InlineData("crear", "+1", 10)]
+    [InlineData("crear-whatsapp", "+506", 8)]
+    [InlineData("crear-whatsapp", "+1", 10)]
+    [InlineData("datos-whatsapp", "+506", 8)]
+    [InlineData("datos-whatsapp", "+1", 10)]
+    [InlineData("datos", "+506", 8)]
+    [InlineData("datos", "+1", 10)]
+    [InlineData("numeros", "+506", 8)]
+    [InlineData("numeros", "+1", 10)]
+    [InlineData("whatsapp", "+506", 8)]
+    [InlineData("whatsapp", "+1", 10)]
+    [InlineData("familiar", "+506", 8)]
+    [InlineData("familiar", "+1", 10)]
+    [InlineData("familiar-whatsapp", "+506", 8)]
+    [InlineData("familiar-whatsapp", "+1", 10)]
+    [InlineData("numeros", "+44", 12)]
+    [InlineData("familiar", "+44", 12)]
+    public async Task Telefonos_respetan_longitud_por_pais_sin_escrituras_parciales(string operacion, string codigo, int largo)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        if (!await db.Paises.AnyAsync(p => p.Codigo == codigo))
+        {
+            db.Paises.Add(new Pais { Codigo = codigo, Nombre = codigo == "+1" ? "Estados Unidos" : "Otro país" });
+            await db.SaveChangesAsync();
+        }
+        var paisId = await db.Paises.Where(p => p.Codigo == codigo).Select(p => p.Id).SingleAsync();
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var antes = await servicio.ObtenerAsync(id);
+        var seccion = operacion.StartsWith("familiar") ? "familiares" : "datos";
+        Task Guardar(string numero) => operacion switch
+        {
+            "crear" or "crear-whatsapp" => servicio.CrearProspectoAsync(new CrearProspectoRequest(
+                "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 13), 1,
+                operacion == "crear" ? numero : "", operacion == "crear-whatsapp" ? numero : "", "",
+                1, 1, 1000m, "", 100m, 0m, null, null, null, paisId, paisId)),
+            "datos" or "datos-whatsapp" => servicio.ActualizarDatosAsync(id, new ActualizarDatosRequest(
+                "Cambio", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 13), 1,
+                operacion == "datos" ? numero : "", operacion == "datos-whatsapp" ? numero : "", "",
+                null, null, paisId, paisId), version: antes.Versiones[seccion]),
+            "numeros" or "whatsapp" => servicio.ReemplazarNumerosAsync(id, new[]
+            {
+                new NumeroItem(0, "88888888", "Teléfono", true),
+                new NumeroItem(-1, numero, operacion == "whatsapp" ? "WhatsApp" : "Teléfono", false, paisId)
+            }, version: antes.Versiones[seccion]),
+            _ => servicio.ReemplazarFamiliaresAsync(id, new[]
+            {
+                new FamiliarItem(0, "Luis", null, "88887777", "", ""),
+                new FamiliarItem(-1, "María", null, operacion == "familiar" ? numero : "", "maria@mail.cr",
+                    operacion == "familiar-whatsapp" ? numero : "", paisId, paisId)
+            }, version: antes.Versiones[seccion])
+        };
+        foreach (var cantidad in new[] { largo - 1, largo + 1 })
+        {
+            if (codigo != "+506")
+            {
+                await Guardar(new string('8', cantidad));
+                antes = await servicio.ObtenerAsync(id);
+                continue;
+            }
+            var guardados = db.Guardados;
+            await Assert.ThrowsAsync<ValidacionException>(() => Guardar(new string('8', cantidad)));
+            Assert.Equal(guardados, db.Guardados);
+            Assert.DoesNotContain(db.ChangeTracker.Entries(), e =>
+                e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted);
+            db.ChangeTracker.Clear();
+            var despues = await servicio.ObtenerAsync(id);
+            Assert.Equal(antes.Versiones[seccion], despues.Versiones[seccion]);
+            Assert.Equal("Ana", despues.Nombres);
+            Assert.Empty(despues.Numeros);
+            Assert.Empty(despues.Familiares);
+        }
+        await Guardar(new string('8', largo));
+    }
+
+    [Fact]
+    public async Task Cambiar_pais_revalida_longitud_y_conserva_numero_y_version_si_falla()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        db.Paises.Add(new Pais { Codigo = "+1", Nombre = "Estados Unidos" });
+        await db.SaveChangesAsync();
+        var eeuu = await db.Paises.Where(p => p.Codigo == "+1").Select(p => p.Id).SingleAsync();
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var guardados = await servicio.ReemplazarNumerosAsync(id,
+            new[] { new NumeroItem(0, "305555010012", "Teléfono", true, eeuu) }, version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        var antes = await servicio.ObtenerAsync(id);
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarNumerosAsync(id,
+            new[] { new NumeroItem(guardados[0].Id, "305555010012", "Teléfono", true) }, version: antes.Versiones["datos"]));
+        db.ChangeTracker.Clear();
+        var despues = await servicio.ObtenerAsync(id);
+        Assert.Equal(antes.Versiones["datos"], despues.Versiones["datos"]);
+        Assert.Equal(antes.Numeros[0], despues.Numeros[0]);
+    }
+
     private static PersonasService CrearServicio(TestDb db, string rol) =>
         new(db, new UsuarioPrueba(rol), new IdentityPrueba(), new FechaPrueba());
 
@@ -893,4 +995,5 @@ public class PersonasAccesoTests
         }
     }
 }
+
 

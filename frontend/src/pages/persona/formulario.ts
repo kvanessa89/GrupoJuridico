@@ -1,3 +1,4 @@
+import { errorTelefono, type PaisTelefono } from '../../utils/telefonos.ts'
 import type { CorreoDto, CrearProspecto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
 import { limiteFamiliares, limiteNumeros, limiteCorreos } from './limitesContactos.ts'
 import { estadoDePrima, hoyIso, num } from '../../utils/formato.ts'
@@ -166,7 +167,7 @@ function fechaValida(v: string): boolean {
     !isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v
 }
 
-export function erroresDatos(f: FormPersona, esCliente: boolean): Record<string, string> {
+export function erroresDatos(f: FormPersona, esCliente: boolean, paises: readonly PaisTelefono[] = []): Record<string, string> {
   const e: Record<string, string> = {}
   const d = f.datos
   for (const k of ['nombres', 'apellidos', 'cedula', 'finca'] as const) if (vacio(d[k])) e[k] = 'Campo requerido.'
@@ -174,6 +175,10 @@ export function erroresDatos(f: FormPersona, esCliente: boolean): Record<string,
   if (!idONull(d.vendedorId)) e.vendedorId = 'Campo requerido.'
   if (!esCliente) {
     if (!correoValido(d.correoPrincipal)) e.correoPrincipal = MSG_CORREO
+    const telefono = errorTelefono(d.telefonoPrincipal, idONull(d.telefonoPrincipalPaisId), paises)
+    const whatsapp = errorTelefono(d.whatsappPrincipal, idONull(d.whatsappPrincipalPaisId), paises)
+    if (telefono) e.telefonoPrincipal = telefono
+    if (whatsapp) e.whatsappPrincipal = whatsapp
     if (!d.telefonoPrincipal.replace(/\D/g, '') && !d.whatsappPrincipal.replace(/\D/g, '')) {
       e.telefonoPrincipal = MSG_CONTACTO
       e.whatsappPrincipal = MSG_CONTACTO
@@ -203,25 +208,28 @@ export function erroresPrima(f: FormPersona): Record<string, string> {
   return e
 }
 
-export function errorNumeros(numeros: NumeroDto[]): string | undefined {
+export function errorNumeros(numeros: NumeroDto[], paises: readonly PaisTelefono[] = []): string | undefined {
   return limiteNumeros(numeros) ?? (numeros.length === 0 ? MSG_CONTACTO :
-    numeros.some(n => !n.numero.replace(/\D/g, '')) ? 'Complete el número o quite la fila vacía.' : undefined)
+    numeros.some(n => !n.numero.replace(/\D/g, '')) ? 'Complete el número o quite la fila vacía.' :
+    numeros.map(n => errorTelefono(n.numero, n.paisId, paises)).find(Boolean))
 }
 
 export function errorCorreos(correos: CorreoDto[]): string | undefined {
   return limiteCorreos(correos) ?? (correos.every(c => correoValido(c.correo)) ? undefined : MSG_CORREO)
 }
 
-export function errorFamiliares(familiares: FamiliarDto[]): string | undefined {
+export function errorFamiliares(familiares: FamiliarDto[], paises: readonly PaisTelefono[] = []): string | undefined {
   return limiteFamiliares(familiares) ?? (familiares.some(faltaNombreFamiliar) ? MSG_NOMBRE_FAMILIAR :
     familiares.some(faltaContactoFamiliar) ? MSG_CONTACTO_FAMILIAR :
-    familiares.every(f => correoValido(f.correoElectronico)) ? undefined : MSG_CORREO)
+    !familiares.every(f => correoValido(f.correoElectronico)) ? MSG_CORREO :
+    familiares.map(f => errorTelefono(f.telefono, f.telefonoPaisId, paises) ?? errorTelefono(f.whatsapp, f.whatsappPaisId, paises)).find(Boolean))
 }
 
 /** Crear y editar comparten las reglas; cada familiar agregado debe completarse o quitarse. */
-export function faltantesNuevo(f: FormPersona): Record<string, string> {
-  const e = { ...erroresDatos(f, false), ...erroresVenta(f), ...erroresPrima(f) }
-  const familiares = errorFamiliares(f.familiares)
+export function faltantesNuevo(f: FormPersona, paises: readonly PaisTelefono[] = []): Record<string, string> {
+  const e = { ...erroresDatos(f, false, paises), ...erroresVenta(f), ...erroresPrima(f) }
+  const familiares = errorFamiliares(f.familiares, paises)
   if (familiares) e.familiares = familiares
   return e
 }
+
