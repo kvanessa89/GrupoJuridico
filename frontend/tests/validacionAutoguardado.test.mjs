@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { formVacio, payloadDatos, erroresDatos, erroresVenta, erroresPrima, errorMonto, errorNumeros, errorFamiliares, errorCorreos, faltantesNuevo } from '../src/pages/persona/formulario.ts'
+import { formVacio, payloadDatos, erroresDatos, erroresVenta, erroresPrima, errorMonto, errorNumeros, errorFamiliares, errorCorreos, faltantesNuevo, etiquetaDe } from '../src/pages/persona/formulario.ts'
 
 function valido() {
   const f = formVacio()
@@ -55,4 +55,14 @@ test('contactos requieren un número y nunca guardan una fila numérica vacía',
   assert.equal(errorNumeros([{numero:'88888888',tipo:'WhatsApp'}]),undefined)
   assert.equal(errorCorreos([]),undefined)
   assert.ok(errorCorreos([{correo:'ana@'}]))
+})
+test('cada campo que puede dar error tiene etiqueta visible para el aviso de pendientes', () => {
+  const f=formVacio()
+  Object.assign(f.datos,{ fechaIngreso:'', correoPrincipal:'ana@' })
+  Object.assign(f.prima,{ montoCancelado:'', fechaEstimadaPago:'2026-13-40' })
+  const claves=new Set([...Object.keys(erroresDatos(f,false)),...Object.keys(erroresVenta(f)),...Object.keys(erroresPrima(f))])
+  f.prima.monto='100';f.prima.montoCancelado='100';f.prima.fechaPago=''
+  for (const k of Object.keys(erroresPrima(f))) claves.add(k)
+  assert.ok(claves.size>=14)
+  for (const k of claves) assert.notEqual(etiquetaDe(k),k,`falta etiqueta para ${k}`)
 })

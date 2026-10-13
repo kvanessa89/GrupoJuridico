@@ -119,6 +119,32 @@ export function payloadCrear(f: FormPersona): CrearProspecto {
 const vacio = (x: string) => !x.trim()
 export const MSG_CONTACTO = 'Ingrese un teléfono o un WhatsApp.'
 
+/**
+ * Etiqueta visible de cada campo, por la misma clave que usan erroresDatos/Venta/Prima.
+ * La ficha toma de aquí el label de cada input y el aviso de pendientes nombra el campo con ella.
+ */
+export const ETIQUETAS = {
+  nombres: 'Nombres',
+  apellidos: 'Apellidos',
+  cedula: 'Cédula',
+  finca: 'Número de finca',
+  fechaIngreso: 'Fecha de ingreso',
+  vendedorId: 'Vendido por',
+  telefonoPrincipal: 'Teléfono principal',
+  whatsappPrincipal: 'WhatsApp principal',
+  correoPrincipal: 'Correo electrónico principal',
+  procedenciaVentaId: 'Procedencia de venta',
+  metodoVentaId: 'Método de venta',
+  montoVenta: 'Monto de la venta',
+  montoPrima: 'Monto de prima',
+  montoCancelado: 'Monto cancelado',
+  fechaEstimadaPago: 'Fecha estimada de pago',
+  fechaPago: 'Fecha de pago',
+} as const
+
+/** Etiqueta del campo; si la clave no está en el mapa, la clave tal cual. */
+export const etiquetaDe = (clave: string): string => (ETIQUETAS as Record<string, string>)[clave] ?? clave
+
 /** Largos máximos (iguales a Persona.MaxNombre / MaxCedula / MaxCorreo en el backend). */
 export const MAX_NOMBRE = 20
 export const MAX_CEDULA = 15
