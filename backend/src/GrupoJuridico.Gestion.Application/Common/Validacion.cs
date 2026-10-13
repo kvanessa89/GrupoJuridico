@@ -16,6 +16,15 @@ public static class Validacion
         throw new ValidacionException(errores);
     }
 
+    public const int MaxNotasVenta = 1000;
+    public const string MensajeFinca = "Use el formato 12-12345 (2 dígitos, guion y 5 dígitos).";
+    public const string MensajeExpediente = "Use el formato 12-123456-1234-AB (2, 6 y 4 dígitos, y 2 letras).";
+
+    public static bool FincaValida(string? valor) =>
+        System.Text.RegularExpressions.Regex.IsMatch(valor?.Trim() ?? "", @"\A[0-9]{2}-[0-9]{5}\z");
+    public static bool ExpedienteValido(string? valor) => Vacio(valor) ||
+        System.Text.RegularExpressions.Regex.IsMatch(valor!.Trim(), @"\A[0-9]{2}-[0-9]{6}-[0-9]{4}-[A-Za-z]{2}\z");
+
     public static bool Vacio(string? s) => string.IsNullOrWhiteSpace(s);
 
     /// <summary>Los teléfonos se guardan solo con dígitos; el prefijo va en el país.</summary>
@@ -49,4 +58,5 @@ public static class Validacion
     public static string CamelCase(string nombre) =>
         string.IsNullOrEmpty(nombre) ? nombre : char.ToLowerInvariant(nombre[0]) + nombre[1..];
 }
+
 

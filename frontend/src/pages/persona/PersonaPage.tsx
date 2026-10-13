@@ -12,7 +12,7 @@ import { EditorSecciones, SeccionBloqueadaError, type SeccionVersion } from '../
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
 import { fFecha, fNumero, iniciales, num, origenEtiqueta, soloDigitos, vendedorEtiqueta } from '../../utils/formato'
 import {
-  correoValido, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
+  correoValido, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
 import { Comentarios, Contactos, Familiares } from './Secciones'
@@ -307,6 +307,8 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
 
   const confirmarConvertir = async () => {
     if (!conv) return
+    const expedienteError = errorExpediente(conv.expediente)
+    if (expedienteError) { setConv({ ...conv, error: expedienteError }); return }
     if (!conv.origen) {
       setConv({ ...conv, error: 'El origen del cliente es requerido.' })
       return
@@ -355,8 +357,8 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         <CampoTexto label="Nombres" valor={d.nombres} onChange={(v) => cambiar('datos', 'nombres', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('nombres')} />
         <CampoTexto label="Apellidos" valor={d.apellidos} onChange={(v) => cambiar('datos', 'apellidos', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('apellidos')} />
         <CampoTexto label="Cédula" valor={d.cedula} onChange={(v) => cambiar('datos', 'cedula', soloDigitos(v))} inputMode="numeric" maxLength={MAX_CEDULA} requerido={req} error={err('cedula')} />
-        <CampoTexto label="Número de finca" valor={d.finca} onChange={(v) => cambiar('datos', 'finca', v)} requerido={req} error={err('finca')} />
-        <CampoTexto label="Número de expediente" valor={d.expediente} onChange={(v) => cambiar('datos', 'expediente', v)} />
+        <CampoTexto label="Número de finca" valor={d.finca} onChange={(v) => cambiar('datos', 'finca', v)} placeholder="12-12345" maxLength={MAX_FINCA} requerido={req} error={err('finca')} />
+        <CampoTexto label="Número de expediente" valor={d.expediente} onChange={(v) => cambiar('datos', 'expediente', v)} placeholder="12-123456-1234-AB" maxLength={MAX_EXPEDIENTE} error={err('expediente')} />
         <CampoTexto label="Fecha de ingreso" tipo="date" valor={d.fechaIngreso} onChange={(v) => cambiar('datos', 'fechaIngreso', v)} requerido={req} error={err('fechaIngreso')} />
         <CampoSelect
           label="Vendido por" valor={d.vendedorId} onChange={(v) => cambiar('datos', 'vendedorId', v)} requerido={req} error={err('vendedorId')}
@@ -412,7 +414,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         />
         <CampoMonto label="Monto de la venta" valor={form.venta.monto} onChange={(v) => cambiar('venta', 'monto', v)} requerido={req} error={err('montoVenta')} />
       </div>
-      <CampoNotas label="Notas de la venta" valor={form.venta.notas} onChange={(v) => cambiar('venta', 'notas', v)} />
+      <CampoNotas label="Notas de la venta" maxLength={MAX_NOTAS_VENTA} error={err('notasVenta')} valor={form.venta.notas} onChange={(v) => cambiar('venta', 'notas', v)} />
     </TarjetaSeccion>
   )
 
@@ -517,7 +519,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
             {!d.expediente.trim() && (
               <label style={{ flex: 1, minWidth: 180 }}>
                 <span className="etiqueta">Expediente</span>
-                <input className="campo" value={conv.expediente} placeholder="XX-XXXXXX-XXXX-CJ" onChange={(e) => setConv({ ...conv, expediente: e.target.value })} />
+                <input className="campo" value={conv.expediente} placeholder="12-123456-1234-AB" maxLength={MAX_EXPEDIENTE} onChange={(e) => setConv({ ...conv, expediente: e.target.value })} />
               </label>
             )}
             <label style={{ flex: 1, minWidth: 180 }}>
@@ -587,6 +589,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     </div>
   )
 }
+
 
 
 

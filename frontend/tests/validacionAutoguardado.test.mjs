@@ -4,7 +4,7 @@ import { formVacio, payloadDatos, erroresDatos, erroresVenta, erroresPrima, erro
 
 function valido() {
   const f = formVacio()
-  Object.assign(f.datos, { nombres:'Ana', apellidos:'Vargas', cedula:'123', finca:'Finca', vendedorId:'1', telefonoPrincipal:'88888888' })
+  Object.assign(f.datos, { nombres:'Ana', apellidos:'Vargas', cedula:'123', finca:'01-20013', vendedorId:'1', telefonoPrincipal:'88888888' })
   Object.assign(f.venta, { procedenciaVentaId:'1', metodoVentaId:'1', monto:'1000' })
   Object.assign(f.prima, { monto:'100', montoCancelado:'0' })
   return f
@@ -56,3 +56,4 @@ test('contactos requieren un número y nunca guardan una fila numérica vacía',
   assert.equal(errorCorreos([]),undefined)
   assert.ok(errorCorreos([{correo:'ana@'}]))
 })
+

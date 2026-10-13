@@ -120,6 +120,11 @@ const vacio = (x: string) => !x.trim()
 export const MSG_CONTACTO = 'Ingrese un teléfono o un WhatsApp.'
 
 /** Largos máximos (iguales a Persona.MaxNombre / MaxCedula / MaxCorreo en el backend). */
+export const MAX_FINCA = 8
+export const MAX_EXPEDIENTE = 17
+export const MAX_NOTAS_VENTA = 1000
+export const MSG_FINCA = 'Use el formato 12-12345 (2 dígitos, guion y 5 dígitos).'
+export const MSG_EXPEDIENTE = 'Use el formato 12-123456-1234-AB (2, 6 y 4 dígitos, y 2 letras).'
 export const MAX_NOMBRE = 20
 export const MAX_CEDULA = 15
 export const MAX_CORREO = 100
@@ -167,10 +172,17 @@ function fechaValida(v: string): boolean {
     !isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v
 }
 
+export function errorExpediente(v: string): string | undefined {
+  if (v.trim() && !/^[0-9]{2}-[0-9]{6}-[0-9]{4}-[A-Za-z]{2}$/.test(v.trim())) return MSG_EXPEDIENTE
+}
+
 export function erroresDatos(f: FormPersona, esCliente: boolean, paises: readonly PaisTelefono[] = []): Record<string, string> {
   const e: Record<string, string> = {}
   const d = f.datos
   for (const k of ['nombres', 'apellidos', 'cedula', 'finca'] as const) if (vacio(d[k])) e[k] = 'Campo requerido.'
+  if (d.finca.trim() && !/^[0-9]{2}-[0-9]{5}$/.test(d.finca.trim())) e.finca = MSG_FINCA
+  const expediente = errorExpediente(d.expediente)
+  if (expediente) e.expediente = expediente
   if (!fechaValida(d.fechaIngreso)) e.fechaIngreso = 'Ingrese una fecha válida.'
   if (!idONull(d.vendedorId)) e.vendedorId = 'Campo requerido.'
   if (!esCliente) {
@@ -193,6 +205,7 @@ export function erroresVenta(f: FormPersona): Record<string, string> {
   if (!idONull(f.venta.metodoVentaId)) e.metodoVentaId = 'Campo requerido.'
   const monto = errorMonto(f.venta.monto)
   if (monto) e.montoVenta = monto
+  if (f.venta.notas.length > MAX_NOTAS_VENTA) e.notasVenta = 'Máximo 1000 caracteres.'
   return e
 }
 
@@ -232,4 +245,5 @@ export function faltantesNuevo(f: FormPersona, paises: readonly PaisTelefono[] =
   if (familiares) e.familiares = familiares
   return e
 }
+
 
