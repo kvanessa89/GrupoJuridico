@@ -65,7 +65,7 @@ public class PersonasAccesoTests
         Task Ejecutar() => operacion switch
         {
             "datos" => servicio.ActualizarDatosAsync(id, new ActualizarDatosRequest(
-                "Otro", "Nombre", "123", "Finca", "", new DateOnly(2026, 10, 9),
+                "Otro", "Nombre", "123", "01-20013", "", new DateOnly(2026, 10, 9),
                 null, null, null, null, null, null)),
             "venta" => servicio.ActualizarVentaAsync(id, new ActualizarVentaRequest(null, null, 2000m, "Cambio")),
             "prima" => servicio.ActualizarPrimaAsync(id, new ActualizarPrimaRequest(100m, 0m, null, null)),
@@ -114,7 +114,7 @@ public class PersonasAccesoTests
         await db.SaveChangesAsync();
         var servicio = CrearServicio(db, Roles.AsistenteVentas);
         var dto = await servicio.CrearProspectoAsync(new CrearProspectoRequest(
-            "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), vendedor.Id,
+            "Ana", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 9), vendedor.Id,
             "88888888", "", "", procedencia.Id, metodo.Id, 1000m, "", 100m, 100m,
             null, new DateOnly(2026, 10, 9), null));
 
@@ -142,7 +142,7 @@ public class PersonasAccesoTests
         var id = await SembrarAsync(db, EstadoPrima.Pendiente);
         var servicio = CrearServicio(db, Roles.Administrador);
         ActualizarDatosRequest Datos(string nombres, string apellidos) => new(
-            nombres, apellidos, "123", "Finca", "", new DateOnly(2026, 10, 9), 1, "88888888", null, null, null, null);
+            nombres, apellidos, "123", "01-20013", "", new DateOnly(2026, 10, 9), 1, "88888888", null, null, null, null);
 
         var veinte = new string('a', 20);
         await servicio.ActualizarDatosAsync(id, Datos(veinte, veinte), version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
@@ -153,7 +153,7 @@ public class PersonasAccesoTests
         Assert.Equal(guardados, db.Guardados);
 
         var largo = new CrearProspectoValidator().Validate(
-            new CrearProspectoRequest(veinte + "b", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), 1,
+            new CrearProspectoRequest(veinte + "b", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 9), 1,
                 "88888888", "", "", 1, 1, 1000m, "", 100m, 0m, null, null, null));
         Assert.Contains(largo.Errors, e => e.PropertyName == nameof(CrearProspectoRequest.Nombres));
     }
@@ -165,7 +165,7 @@ public class PersonasAccesoTests
         var id = await SembrarAsync(db, EstadoPrima.Pendiente);
         var servicio = CrearServicio(db, Roles.Administrador);
         ActualizarDatosRequest Datos(string cedula, string? correo) => new(
-            "Ana", "Vargas", cedula, "Finca", "", new DateOnly(2026, 10, 9), 1, "88888888", null, correo, null, null);
+            "Ana", "Vargas", cedula, "01-20013", "", new DateOnly(2026, 10, 9), 1, "88888888", null, correo, null, null);
         var ficha = await servicio.ObtenerAsync(id);
         var guardados = db.Guardados;
 
@@ -252,7 +252,7 @@ public class PersonasAccesoTests
 
         // Ids que no existen en ningún catálogo: aun así, el error es de permiso.
         await Assert.ThrowsAsync<ProhibidoException>(() => servicio.ActualizarDatosAsync(id, new ActualizarDatosRequest(
-            "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), 999, null, null, null, null, null)));
+            "Ana", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 9), 999, null, null, null, null, null)));
         await Assert.ThrowsAsync<ProhibidoException>(() => servicio.ActualizarVentaAsync(id,
             new ActualizarVentaRequest(999, 999, 1000m, "")));
         await Assert.ThrowsAsync<ProhibidoException>(() => servicio.ConvertirEnClienteAsync(id,
@@ -282,7 +282,7 @@ public class PersonasAccesoTests
         var guardados = db.Guardados;
 
         var datos = await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarDatosAsync(id, new ActualizarDatosRequest(
-            "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), vendedor.Id, "88888888", null, null, null, null),
+            "Ana", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 9), vendedor.Id, "88888888", null, null, null, null),
             version: ficha.Versiones["datos"]));
         Assert.Contains("vendedorId", datos.Errores.Keys);
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarVentaAsync(id,
@@ -427,7 +427,7 @@ public class PersonasAccesoTests
         await sb.ObtenerAsync(id); // ambas sesiones ya cargaron la misma versión en EF
         await sa.ReemplazarNumerosAsync(id, new[] { new NumeroItem(0, "88888888", "Teléfono", true) }, version: version);
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => sb.ActualizarDatosAsync(id,
-            new ActualizarDatosRequest("Cambio perdido", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9),
+            new ActualizarDatosRequest("Cambio perdido", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 9),
                 1, "99999999", null, null, null, null), version: version));
         using var verificar = new TestDb(options);
         Assert.Equal("Ana", (await verificar.Personas.SingleAsync()).Nombres);
@@ -719,7 +719,7 @@ public class PersonasAccesoTests
         await db.SaveChangesAsync();
         var servicio = CrearServicio(db, Roles.Administrador);
         CrearProspectoRequest Request(int cantidad) => new(
-            "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), vendedor.Id,
+            "Ana", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 9), vendedor.Id,
             "88888888", "", "", procedencia.Id, metodo.Id, 1000m, "", 100m, 0m, null, null,
             Enumerable.Range(0, cantidad).Select(i => new FamiliarItem(-i, "Familiar " + i, null, "88887777", "", "")).ToArray());
         var guardados = db.Guardados;
@@ -770,7 +770,7 @@ public class PersonasAccesoTests
         var id = await SembrarAsync(db, EstadoPrima.Pendiente);
         var servicio = CrearServicio(db, Roles.Administrador);
         var antes = await servicio.ObtenerAsync(id);
-        var valido = new ActualizarDatosRequest("Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9),
+        var valido = new ActualizarDatosRequest("Ana", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 9),
             1, "88888888", "", "", null, null);
         var r = campo switch
         {
@@ -850,11 +850,11 @@ public class PersonasAccesoTests
         Task Guardar(string numero) => operacion switch
         {
             "crear" or "crear-whatsapp" => servicio.CrearProspectoAsync(new CrearProspectoRequest(
-                "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 13), 1,
+                "Ana", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 13), 1,
                 operacion == "crear" ? numero : "", operacion == "crear-whatsapp" ? numero : "", "",
                 1, 1, 1000m, "", 100m, 0m, null, null, null, paisId, paisId)),
             "datos" or "datos-whatsapp" => servicio.ActualizarDatosAsync(id, new ActualizarDatosRequest(
-                "Cambio", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 13), 1,
+                "Cambio", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 13), 1,
                 operacion == "datos" ? numero : "", operacion == "datos-whatsapp" ? numero : "", "",
                 null, null, paisId, paisId), version: antes.Versiones[seccion]),
             "numeros" or "whatsapp" => servicio.ReemplazarNumerosAsync(id, new[]
@@ -910,6 +910,41 @@ public class PersonasAccesoTests
         var despues = await servicio.ObtenerAsync(id);
         Assert.Equal(antes.Versiones["datos"], despues.Versiones["datos"]);
         Assert.Equal(antes.Numeros[0], despues.Numeros[0]);
+    }
+
+    [Theory]
+    [InlineData("finca")]
+    [InlineData("expediente")]
+    [InlineData("notas")]
+    [InlineData("conversion")]
+    public async Task Formatos_invalidos_no_modifican_datos_ni_versiones(string campo)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var antes = await servicio.ObtenerAsync(id);
+        var guardados = db.Guardados;
+        var r = new ActualizarDatosRequest("Cambio", "Vargas", "123", "12-12345", "", new DateOnly(2026, 10, 13),
+            1, "88887777", "", "", null, null);
+        Task Guardar() => campo switch
+        {
+            "finca" => servicio.ActualizarDatosAsync(id, r with { Finca = "12-123456" }, version: antes.Versiones["datos"]),
+            "expediente" => servicio.ActualizarDatosAsync(id, r with { Expediente = "12-123456-1234-A1" }, version: antes.Versiones["datos"]),
+            "notas" => servicio.ActualizarVentaAsync(id, new ActualizarVentaRequest(1, 1, 1000m, new string('x', 1001)), version: antes.Versiones["venta"]),
+            _ => servicio.ConvertirEnClienteAsync(id, new ConvertirClienteRequest("12-123456-1234-A1", 1, null), version: antes.Versiones["datos"])
+        };
+        await Assert.ThrowsAsync<ValidacionException>(Guardar);
+        Assert.Equal(guardados, db.Guardados);
+        Assert.DoesNotContain(db.ChangeTracker.Entries(), e =>
+            e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted);
+        db.ChangeTracker.Clear();
+        var despues = await servicio.ObtenerAsync(id);
+        Assert.Equal(antes.Nombres, despues.Nombres);
+        Assert.Equal(antes.Finca, despues.Finca);
+        Assert.Equal(antes.Expediente, despues.Expediente);
+        Assert.Equal(antes.Venta!.Notas, despues.Venta!.Notas);
+        Assert.Equal(antes.Versiones["datos"], despues.Versiones["datos"]);
+        Assert.Equal(antes.Versiones["venta"], despues.Versiones["venta"]);
     }
 
     private static PersonasService CrearServicio(TestDb db, string rol) =>
@@ -995,5 +1030,6 @@ public class PersonasAccesoTests
         }
     }
 }
+
 
 

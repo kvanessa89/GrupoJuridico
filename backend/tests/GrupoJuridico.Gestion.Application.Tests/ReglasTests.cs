@@ -46,7 +46,7 @@ public class PersonaTests
 public class CrearProspectoValidatorTests
 {
     private static CrearProspectoRequest Valido() => new(
-        "Ana", "Vargas Mora", "1-0884-0219", "01-200137", "", new DateOnly(2026, 10, 1), 1,
+        "Ana", "Vargas Mora", "1-0884-0219", "01-20013", "", new DateOnly(2026, 10, 1), 1,
         "8812-4477", "", "", 1, 2, 900000, "", 225000, 0, new DateOnly(2026, 10, 15), null, null);
 
     [Fact]
@@ -148,5 +148,58 @@ public class EdicionRequeridosTests
     public void Prima_requiere_monto_positivo_y_cancelado_admite_cero(decimal monto, decimal cancelado, bool valido)
     {
         Assert.Equal(valido, new ActualizarPrimaValidator().Validate(new ActualizarPrimaRequest(monto, cancelado, null, null)).IsValid);
+    }
+}
+
+
+public class FormatosPersonaTests
+{
+    private static CrearProspectoRequest Nuevo() => new(
+        "Ana", "Vargas", "123", "12-12345", "", new DateOnly(2026, 10, 13), 1,
+        "88887777", "", "", 1, 1, 1000m, "", 100m, 0m, null, null, null);
+    private static ActualizarDatosRequest Datos() => new(
+        "Ana", "Vargas", "123", "12-12345", "", new DateOnly(2026, 10, 13), 1,
+        "88887777", "", "", null, null);
+
+    [Theory]
+    [InlineData("12-12345", true)]
+    [InlineData("01-00001", true)]
+    [InlineData("1-12345", false)]
+    [InlineData("12-123456", false)]
+    [InlineData("12-ABCDE", false)]
+    [InlineData("1212345", false)]
+    [InlineData("", false)]
+    public void Finca_exige_dos_y_cinco_digitos(string finca, bool valido)
+    {
+        Assert.Equal(valido, new CrearProspectoValidator().Validate(Nuevo() with { Finca = finca }).IsValid);
+        Assert.Equal(valido, new ActualizarDatosValidator().Validate(Datos() with { Finca = finca }).IsValid);
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("", true)]
+    [InlineData("12-123456-1234-AB", true)]
+    [InlineData("12-123456-1234-ab", true)]
+    [InlineData("1-123456-1234-AB", false)]
+    [InlineData("12-12345-1234-AB", false)]
+    [InlineData("12-123456-123-AB", false)]
+    [InlineData("12-123456-1234-A1", false)]
+    [InlineData("12-123456-1234-ABC", false)]
+    public void Expediente_opcional_respeta_formato_en_creacion_edicion_y_conversion(string? expediente, bool valido)
+    {
+        Assert.Equal(valido, new CrearProspectoValidator().Validate(Nuevo() with { Expediente = expediente }).IsValid);
+        Assert.Equal(valido, new ActualizarDatosValidator().Validate(Datos() with { Expediente = expediente! }).IsValid);
+        Assert.Equal(valido, new ConvertirClienteValidator().Validate(new ConvertirClienteRequest(expediente, 1, null)).IsValid);
+    }
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(1000, true)]
+    [InlineData(1001, false)]
+    public void Notas_de_venta_admiten_hasta_mil_caracteres(int cantidad, bool valido)
+    {
+        var notas = new string('x', cantidad);
+        Assert.Equal(valido, new CrearProspectoValidator().Validate(Nuevo() with { NotasVenta = notas }).IsValid);
+        Assert.Equal(valido, new ActualizarVentaValidator().Validate(new ActualizarVentaRequest(1, 1, 1000m, notas)).IsValid);
     }
 }

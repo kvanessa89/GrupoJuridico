@@ -22,7 +22,7 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     const cat={id:1,nombre:'Opción',codigo:'1'}
     api.yo=async()=>({id:1,nombre:'Admin',rol:'Administrador'})
     api.catalogos=async()=>({vendedores:[cat],procedencias:[cat],metodos:[cat],estadosCliente:[cat],origenes:[cat],estadosPrima:[{id:1,nombre:'Pendiente'}],paises:[{id:1,codigo:'+506',nombre:'Costa Rica'},{id:2,codigo:'+1',nombre:'Estados Unidos'}],parentescos:[]})
-    api.persona=async()=>({id:1,esCliente:true,nombres:'Ana',apellidos:'Vargas',cedula:'123',finca:'Finca',expediente:'',fechaIngreso:'2026-10-13',vendedorId:1,telefonoPrincipal:'88888888',whatsappPrincipal:'',correoPrincipal:'',venta:{id:1,procedenciaVentaId:1,metodoVentaId:1,monto:1000,notas:''},prima:{id:1,monto:100,montoCancelado:0,fechaEstimadaPago:null,fechaPago:null},cliente:{id:1,estadoClienteId:1,origenClienteId:1},numeros:[{id:1,numero:'88888888',tipo:'Teléfono',principal:true,paisId:1}],correos:[{id:1,correo:'ana@mail.cr',principal:true}],familiares:[],comentarios:[],versiones:{datos:'d1',venta:'v1',prima:'p1',familiares:'f1'}})
+    api.persona=async()=>({id:1,esCliente:true,nombres:'Ana',apellidos:'Vargas',cedula:'123',finca:'01-20013',expediente:'',fechaIngreso:'2026-10-13',vendedorId:1,telefonoPrincipal:'88888888',whatsappPrincipal:'',correoPrincipal:'',venta:{id:1,procedenciaVentaId:1,metodoVentaId:1,monto:1000,notas:''},prima:{id:1,monto:100,montoCancelado:0,fechaEstimadaPago:null,fechaPago:null},cliente:{id:1,estadoClienteId:1,origenClienteId:1},numeros:[{id:1,numero:'88888888',tipo:'Teléfono',principal:true,paisId:1}],correos:[{id:1,correo:'ana@mail.cr',principal:true}],familiares:[],comentarios:[],versiones:{datos:'d1',venta:'v1',prima:'p1',familiares:'f1'}})
     const enviados=[]
     api.guardarDatos=async(_id,d)=>{enviados.push(['datos',d]);return {data:null,version:'d2'}}
     api.guardarNumeros=async(_id,n)=>{enviados.push(['numeros',n]);return {data:n,version:'d4'}}
@@ -32,7 +32,20 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await act(async()=>{root.render(createElement(RouterProvider,{router}));await new Promise(r=>setTimeout(r,20))})
     const input=label=>[...document.querySelectorAll('label')].find(l=>l.querySelector('.etiqueta')?.textContent.startsWith(label))?.querySelector('input')
     const props=el=>el[Object.keys(el).find(k=>k.startsWith('__reactProps'))]
+    assert.equal(input('Número de finca').placeholder,'12-12345')
+    assert.equal(input('Número de expediente').placeholder,'12-123456-1234-AB')
+    assert.equal(input('Número de expediente').maxLength,17)
     const boton=texto=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===texto)
+    await act(async()=>props(input('Número de finca')).onChange({target:{value:'12-123456'}}))
+    assert.ok(input('Número de finca').classList.contains('error'))
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,0,'Una finca con formato incorrecto no se autoguarda')
+    await act(async()=>props(input('Número de finca')).onChange({target:{value:'01-20013'}}))
+    await act(async()=>props(input('Número de expediente')).onChange({target:{value:'12-123456-1234-A1'}}))
+    assert.ok(input('Número de expediente').classList.contains('error'))
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,0,'Un expediente inválido cancela también el envío pendiente de datos')
+    await act(async()=>props(input('Número de expediente')).onChange({target:{value:'12-123456-1234-AB'}}))
     await act(async()=>props(input('Nombres')).onChange({target:{value:''}}))
     assert.ok(input('Nombres').classList.contains('error'))
     assert.match(input('Nombres').closest('label').textContent,/Campo requerido/)
@@ -125,6 +138,20 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await act(async()=>props(boton('+ Agregar familiar')).onClick())
     assert.equal(document.querySelectorAll('.alerta, .familiar .error, .familiar .msg-error').length,0,
       'Agregar otra fila después de corregir un intento anterior vuelve a empezar sin avisos')
+    api.guardarVenta=async(_id,v)=>{enviados.push(['venta',v]);return {data:v,version:'v2'}}
+    await act(async()=>props(boton('Ventas')).onClick())
+    const notas=()=>document.querySelector('textarea.nota')
+    assert.equal(notas().maxLength,1000)
+    const antesNotas=enviados.length
+    await act(async()=>props(notas()).onChange({target:{value:'x'.repeat(1001)}}))
+    assert.match(document.body.textContent,/Máximo 1000 caracteres/)
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,antesNotas,'Notas excesivas no se autoguardan')
+    await act(async()=>props(notas()).onChange({target:{value:'x'.repeat(1000)}}))
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,antesNotas+1)
+    assert.equal(enviados.at(-1)[1].notas.length,1000)
+
 
 
   } finally {
@@ -132,6 +159,7 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await vite.close();dom.window.close()
   }
 })
+
 
 
 

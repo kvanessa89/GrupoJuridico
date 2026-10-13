@@ -202,11 +202,13 @@ export function CampoTelefono({
   )
 }
 
-export function CampoNotas({ label, valor, onChange }: { label: string; valor: string; onChange: (v: string) => void }) {
+export function CampoNotas({ label, valor, onChange, maxLength, error }: { label: string; valor: string; onChange: (v: string) => void; maxLength?: number; error?: string }) {
   return (
     <label style={{ display: 'block', marginTop: 15 }}>
       <span className="etiqueta">{label}</span>
-      <textarea className="nota" rows={3} value={valor} onChange={(e) => onChange(e.target.value)} />
+      <textarea className={'nota' + (error ? ' campo error' : '')} rows={3} value={valor} maxLength={maxLength} aria-invalid={!!error || undefined} onChange={(e) => onChange(e.target.value)} />
+      {maxLength != null && <span className="ayuda">{valor.length}/{maxLength} caracteres.</span>}
+      {error && <span className="msg-error">{error}</span>}
     </label>
   )
 }
@@ -268,5 +270,6 @@ export function Modal({
     </div>
   )
 }
+
 
 
