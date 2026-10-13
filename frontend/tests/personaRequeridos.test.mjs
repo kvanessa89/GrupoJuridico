@@ -32,7 +32,7 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     const props=el=>el[Object.keys(el).find(k=>k.startsWith('__reactProps'))]
     await act(async()=>props(input('Nombres')).onChange({target:{value:''}}))
     assert.ok(input('Nombres').classList.contains('error'))
-    assert.match(document.body.textContent,/Cambios sin guardar/)
+    assert.match(input('Nombres').closest('label').textContent,/Campo requerido/)
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
     assert.equal(enviados.length,0)
     await act(async()=>props(input('Nombres')).onChange({target:{value:'Ana María'}}))
@@ -56,19 +56,26 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await act(async()=>props(boton('Familiares')).onClick())
     await act(async()=>props(boton('+ Agregar familiar')).onClick())
     assert.equal(document.querySelectorAll('.familiar .error').length,0,'Una fila nueva no empieza en rojo')
+    assert.equal(document.querySelectorAll('[role=alert], .alerta, .familiar .msg-error').length,0,'Agregar familiar no muestra avisos preventivos')
     assert.ok(document.querySelector('.familiar .requerido'))
     assert.match(document.body.textContent,/al menos un teléfono o un correo por familiar/)
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
     assert.equal(enviados.length,2,'La fila vacía permanece pendiente y no se guarda')
+    assert.equal(document.querySelectorAll('.alerta').length,0,'Esperar el autoguardado de una fila nueva tampoco muestra avisos')
     await act(async()=>props(document.querySelector('.familiar input[aria-label="Nombre completo"]')).onChange({target:{value:'Luis'}}))
     assert.equal(document.querySelectorAll('.familiar .error').length,0,'No muestra errores en contactos aún no editados')
     await act(async()=>props(document.querySelector('.volver')).onClick())
     assert.ok(document.querySelector('.familiar .telefono.error'),'Intentar salir muestra el contacto pendiente')
+    assert.ok(document.querySelector('[role=alert]'),'La validación sí avisa cuando se intenta salir sin completar')
     await act(async()=>props(document.querySelector('.familiar input[aria-label="Teléfono"]')).onChange({target:{value:'88887777'}}))
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
     assert.equal(enviados.length,3)
     assert.equal(enviados[2][0],'familiares');assert.equal(enviados[2][1][0].telefono,'88887777')
     assert.equal(document.querySelectorAll('.familiar .error').length,0)
+    await act(async()=>props(boton('+ Agregar familiar')).onClick())
+    assert.equal(document.querySelectorAll('.alerta, .familiar .error, .familiar .msg-error').length,0,
+      'Agregar otra fila después de corregir un intento anterior vuelve a empezar sin avisos')
+
 
   } finally {
     if(root) {const {act}=await import('react');await act(async()=>root.unmount())}

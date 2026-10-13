@@ -265,6 +265,10 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     programarValidos(siguiente, parte)
   }
   const cambiarLista = <K extends 'numeros' | 'correos' | 'familiares'>(lista: K, valor: FormPersona[K]) => {
+    if (lista === 'familiares' && (valor as FamiliarDto[]).some(f => !form.familiares.some(actual => actual.id === f.id))) {
+      setVolverIntento(false)
+      setCrearIntento(false)
+    }
     const siguiente = { ...form, [lista]: valor }
     setGuardado(false)
     setForm(siguiente)
@@ -482,9 +486,6 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         </div>
       </div>
 
-      {!nuevo && pendientesDe(form).length > 0 && <div role="status" className="alerta">
-        Cambios sin guardar: revise los campos marcados.
-      </div>}
       {errorGuardar && <div role="alert" className="alerta">
         {errorGuardar}
         {/* Con un conflicto abierto se resuelve con "Recargar sección", no reintentando. */}
