@@ -6,7 +6,7 @@ import { BasureroLleno, Estrella } from '../../components/Iconos'
 import { useSesion } from '../../auth/Sesion'
 import { colorAutor } from '../../utils/colores'
 import { fFecha, iniciales } from '../../utils/formato'
-import { correoValido, faltaNombreFamiliar, MAX_CORREO, MAX_NOMBRE_FAMILIAR, MSG_CORREO, MSG_NOMBRE_FAMILIAR } from './formulario'
+import { correoValido, faltaNombreFamiliar, faltaContactoFamiliar, MSG_CONTACTO_FAMILIAR, MAX_CORREO, MAX_NOMBRE_FAMILIAR, MSG_CORREO, MSG_NOMBRE_FAMILIAR } from './formulario'
 
 import { MAX_TELEFONOS, MAX_WHATSAPP, MAX_CORREOS, MAX_FAMILIARES, limiteNumeros, limiteCorreos, limiteFamiliares } from './limitesContactos'
 
@@ -65,6 +65,7 @@ export function Contactos({
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {numeros.length === 0 && <span className="msg-error">Ingrese un teléfono o un WhatsApp.</span>}
           {numeros.map((n, i) => {
             const titulo = n.principal ? n.tipo + ' principal' : 'Marcar como ' + n.tipo.toLowerCase() + ' principal'
             return (
@@ -72,6 +73,7 @@ export function Contactos({
                 <Telefono
                   paisId={n.paisId}
                   numero={n.numero}
+                  error={!n.numero.trim()}
                   onPais={(paisId) => onNumeros(numeros.map((x, j) => (j === i ? { ...x, paisId } : x)))}
                   onNumero={(numero) => onNumeros(numeros.map((x, j) => (j === i ? { ...x, numero } : x)))}
                 />
@@ -168,8 +170,8 @@ export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[
               value={f[c]}
               placeholder={label}
               aria-label={label}
-              className={(c === 'correoElectronico' ? !correoValido(f[c]) : faltaNombreFamiliar(f)) ? 'error' : undefined}
-              title={c === 'correoElectronico' ? (correoValido(f[c]) ? undefined : MSG_CORREO) : (faltaNombreFamiliar(f) ? MSG_NOMBRE_FAMILIAR : undefined)}
+              className={(c === 'correoElectronico' ? (!correoValido(f[c]) || faltaContactoFamiliar(f)) : faltaNombreFamiliar(f)) ? 'error' : undefined}
+              title={c === 'correoElectronico' ? (faltaContactoFamiliar(f) ? MSG_CONTACTO_FAMILIAR : correoValido(f[c]) ? undefined : MSG_CORREO) : (faltaNombreFamiliar(f) ? MSG_NOMBRE_FAMILIAR : undefined)}
               type={c === 'correoElectronico' ? 'email' : undefined}
               maxLength={c === 'correoElectronico' ? MAX_CORREO : MAX_NOMBRE_FAMILIAR}
               onChange={(e) => cambiar({ [c]: e.target.value })}
@@ -190,6 +192,7 @@ export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[
             <Telefono
               paisId={f.telefonoPaisId}
               numero={f.telefono}
+              error={faltaContactoFamiliar(f)}
               placeholder="Teléfono"
               ariaLabel="Teléfono"
               onPais={(telefonoPaisId) => cambiar({ telefonoPaisId })}
@@ -203,6 +206,7 @@ export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[
         <span className="ayuda">Familiares: {familiares.length}/{MAX_FAMILIARES}.</span>
         {limiteFamiliares(familiares) && <span className="msg-error">{limiteFamiliares(familiares)}</span>}
         {familiares.length === 0 && <span className="vacio">Sin familiares registrados.</span>}
+        {familiares.some(faltaContactoFamiliar) && <span className="msg-error">{MSG_CONTACTO_FAMILIAR}</span>}
         {familiares.some(faltaNombreFamiliar) && <span className="msg-error">{MSG_NOMBRE_FAMILIAR}</span>}
         {!familiares.every((f) => correoValido(f.correoElectronico)) && <span className="msg-error">{MSG_CORREO}</span>}
       </div>
@@ -263,3 +267,4 @@ export function Comentarios({
     </TarjetaSeccion>
   )
 }
+

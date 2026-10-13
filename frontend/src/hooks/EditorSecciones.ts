@@ -1,6 +1,9 @@
 export type SeccionVersion = 'datos' | 'venta' | 'prima' | 'familiares'
 export type ResultadoVersion<T> = { data: T; version: string }
 
+/** El borrador cambió antes de que comenzara la solicitud; no es un error de guardado. */
+export class GuardadoCanceladoError extends Error {}
+
 /** La sección tiene un conflicto pendiente de recargar; no se envía nada. */
 export class SeccionBloqueadaError extends Error {
   constructor() { super('Recargue la sección antes de volver a guardarla.') }
@@ -16,8 +19,9 @@ export class EditorSecciones {
     this.versiones[seccion] = version
     this.bloqueadas.delete(seccion)
   }
-  guardar<T>(seccion: SeccionVersion, enviar: (version: string) => Promise<ResultadoVersion<T>>): Promise<T> {
+  guardar<T>(seccion: SeccionVersion, enviar: (version: string) => Promise<ResultadoVersion<T>>, vigente: () => boolean = () => true): Promise<T> {
     const tarea = (this.colas[seccion] ?? Promise.resolve()).catch(() => {}).then(async () => {
+      if (!vigente()) throw new GuardadoCanceladoError()
       if (this.bloqueadas.has(seccion)) throw new SeccionBloqueadaError()
       const version = this.versiones[seccion]
       if (!version) throw new Error('La ficha todavía no tiene una versión de lectura.')
@@ -35,3 +39,4 @@ export class EditorSecciones {
     return tarea
   }
 }
+

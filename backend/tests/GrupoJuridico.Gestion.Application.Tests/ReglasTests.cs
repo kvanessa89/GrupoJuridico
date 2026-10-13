@@ -126,3 +126,27 @@ public class PaginadoTests
         Assert.Equal(25, p.Total);
     }
 }
+
+
+public class EdicionRequeridosTests
+{
+    [Theory]
+    [InlineData(null, 1, 100)]
+    [InlineData(1, null, 100)]
+    [InlineData(1, 1, 0)]
+    [InlineData(1, 1, -1)]
+    public void Venta_requiere_catalogos_y_monto_positivo(int? procedencia, int? metodo, decimal monto)
+    {
+        Assert.False(new ActualizarVentaValidator().Validate(new ActualizarVentaRequest(procedencia, metodo, monto, "")).IsValid);
+    }
+
+    [Theory]
+    [InlineData(0, 0, false)]
+    [InlineData(-1, 0, false)]
+    [InlineData(100, -1, false)]
+    [InlineData(100, 0, true)]
+    public void Prima_requiere_monto_positivo_y_cancelado_admite_cero(decimal monto, decimal cancelado, bool valido)
+    {
+        Assert.Equal(valido, new ActualizarPrimaValidator().Validate(new ActualizarPrimaRequest(monto, cancelado, null, null)).IsValid);
+    }
+}

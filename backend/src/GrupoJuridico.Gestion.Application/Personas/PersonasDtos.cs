@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace GrupoJuridico.Gestion.Application.Personas;
 
 // ---------- Listas ----------
@@ -29,7 +31,7 @@ public record VentaFilaDto(
     string? Procedencia,
     string? Metodo,
     string? Vendedor,
-    decimal MontoPrima,
+    [property: JsonRequired] decimal MontoPrima,
     decimal SaldoPendiente,
     DateOnly? FechaEstimadaPago,
     int EstadoPrimaId,
@@ -114,7 +116,7 @@ public record ActualizarDatosRequest(
     string Cedula,
     string Finca,
     string Expediente,
-    DateOnly FechaIngreso,
+    [property: JsonRequired] DateOnly FechaIngreso,
     int? VendedorId,
     string? TelefonoPrincipal,
     string? WhatsappPrincipal,
@@ -124,9 +126,9 @@ public record ActualizarDatosRequest(
     int? TelefonoPrincipalPaisId = null,
     int? WhatsappPrincipalPaisId = null);
 
-public record ActualizarVentaRequest(int? ProcedenciaVentaId, int? MetodoVentaId, decimal Monto, string? Notas);
+public record ActualizarVentaRequest(int? ProcedenciaVentaId, int? MetodoVentaId, [property: JsonRequired] decimal Monto, string? Notas);
 
-public record ActualizarPrimaRequest(decimal Monto, decimal MontoCancelado, DateOnly? FechaEstimadaPago, DateOnly? FechaPago);
+public record ActualizarPrimaRequest([property: JsonRequired] decimal Monto, [property: JsonRequired] decimal MontoCancelado, DateOnly? FechaEstimadaPago, DateOnly? FechaPago);
 
 /// <summary>PaisId nulo toma el país por defecto (el primero del catálogo).</summary>
 public record NumeroItem(int Id, string Numero, string Tipo, bool Principal, int? PaisId = null);
@@ -154,12 +156,13 @@ public record CrearProspectoRequest(
     string? CorreoPrincipal,
     int? ProcedenciaVentaId,
     int? MetodoVentaId,
-    decimal MontoVenta,
+    [property: JsonRequired] decimal MontoVenta,
     string? NotasVenta,
-    decimal MontoPrima,
-    decimal MontoCancelado,
+    [property: JsonRequired] decimal MontoPrima,
+    [property: JsonRequired] decimal MontoCancelado,
     DateOnly? FechaEstimadaPago,
     DateOnly? FechaPago,
     IReadOnlyList<FamiliarItem>? Familiares,
     int? TelefonoPrincipalPaisId = null,
     int? WhatsappPrincipalPaisId = null);
+

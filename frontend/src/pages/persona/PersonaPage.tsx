@@ -11,11 +11,12 @@ import { EditorSecciones, SeccionBloqueadaError, type SeccionVersion } from '../
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
 import { fFecha, fNumero, iniciales, num, origenEtiqueta, soloDigitos, vendedorEtiqueta } from '../../utils/formato'
 import {
-  correoValido, correosValidos, faltaFechaPago, faltaNombreFamiliar, faltantesNuevo, familiarVacio, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
+  correoValido, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
-import { limiteNumeros, limiteCorreos, limiteFamiliares } from './limitesContactos'
 import { Comentarios, Contactos, Familiares } from './Secciones'
+
+type ParteGuardada = 'datos' | 'venta' | 'prima' | 'numeros' | 'correos' | 'familiares'
 
 type Pestana = 'general' | 'ventas' | 'familiares' | 'actividad'
 
@@ -79,6 +80,9 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   }, [personaId, nuevo])
 
   const pendientesRef = useRef<{ campo: string; pestana: Pestana }[]>([])
+  const ultimoForm = useRef(form)
+  useEffect(() => { ultimoForm.current = form })
+  const sucias = useRef(new Set<ParteGuardada>())
   const guardadoresRef = useRef<{ hayPendientes: () => boolean }[]>([])
   const esCliente = !!persona?.esCliente
   const ok = useCallback(() => {
@@ -95,10 +99,15 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     }
     setErrorGuardar(mensajeDe(e, e instanceof Error ? e.message : 'No se pudieron guardar los cambios.'))
   }
-  const enviar = <T,>(seccion: SeccionVersion, fn: (version: string) => Promise<{ data: T; version: string }>) => editor.current.guardar(seccion, fn)
+  const enviar = <T,>(seccion: SeccionVersion, fn: (version: string) => Promise<{ data: T; version: string }>, vigente?: () => boolean) => editor.current.guardar(seccion, fn, vigente)
+  const confirmarParte = (parte: ParteGuardada, enviado: FormPersona) => {
+    if (ultimoForm.current[parte] === enviado[parte]) sucias.current.delete(parte)
+    ok()
+  }
   const traducirIds = <T extends { id: number }>(lista: 'numeros' | 'correos' | 'familiares', items: T[]) =>
     items.map(x => ({ ...x, id: idsNuevos.current[lista].get(x.id) ?? x.id }))
   const confirmarIds = <T extends { id: number }>(lista: 'numeros' | 'correos' | 'familiares', enviados: T[], recibidos: T[]) => {
+    if ((ultimoForm.current[lista] as readonly { id: number }[]) === enviados) sucias.current.delete(lista)
     const existentes = new Set(traducirIds(lista, enviados).filter(x => x.id > 0).map(x => x.id))
     const nuevos = recibidos.filter(x => !existentes.has(x.id))
     enviados.filter(x => x.id <= 0 && !idsNuevos.current[lista].has(x.id)).forEach((x, i) => {
@@ -109,33 +118,32 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   }
 
   // Un guardador por sección, como en el prototipo (cada cambio se guarda solo).
-  const gDatos = useGuardadoDiferido((f: FormPersona) => enviar('datos', v => api.guardarDatos(personaId, payloadDatos(f, esCliente), v)), ok, fallo('datos'))
+  const gDatos = useGuardadoDiferido((f: FormPersona, vigente) => enviar('datos', v => api.guardarDatos(personaId, payloadDatos(f, esCliente), v), vigente), (_r, _hayMas, f) => confirmarParte('datos', f), fallo('datos'))
   const gVenta = useGuardadoDiferido(
-    (f: FormPersona) => enviar('venta', v => api.guardarVenta(personaId, {
+    (f: FormPersona, vigente) => enviar('venta', v => api.guardarVenta(personaId, {
       procedenciaVentaId: idONull(f.venta.procedenciaVentaId), metodoVentaId: idONull(f.venta.metodoVentaId),
       monto: num(f.venta.monto), notas: f.venta.notas,
-    }, v)),
-    ok, fallo('venta'),
+    }, v), vigente),
+    (_r, _hayMas, f) => confirmarParte('venta', f), fallo('venta'),
   )
   const gPrima = useGuardadoDiferido(
-    (f: FormPersona) => enviar('prima', v => api.guardarPrima(personaId, {
+    (f: FormPersona, vigente) => enviar('prima', v => api.guardarPrima(personaId, {
       monto: num(f.prima.monto), montoCancelado: num(f.prima.montoCancelado),
       fechaEstimadaPago: f.prima.fechaEstimadaPago || null, fechaPago: f.prima.fechaPago || null,
-    }, v)),
-    ok, fallo('prima'),
+    }, v), vigente),
+    (_r, _hayMas, f) => confirmarParte('prima', f), fallo('prima'),
   )
   const gNumeros = useGuardadoDiferido(
-    (n: NumeroDto[]) => enviar('datos', v => api.guardarNumeros(personaId, traducirIds('numeros', n), v)),
+    (n: NumeroDto[], vigente) => enviar('datos', v => api.guardarNumeros(personaId, traducirIds('numeros', n), v), vigente),
     (r, _hayMas, enviado) => confirmarIds('numeros', enviado, r), fallo('datos'),
   )
   const gCorreos = useGuardadoDiferido(
-    (c: CorreoDto[]) => enviar('datos', v => api.guardarCorreos(personaId, traducirIds('correos', c), v)),
+    (c: CorreoDto[], vigente) => enviar('datos', v => api.guardarCorreos(personaId, traducirIds('correos', c), v), vigente),
     (r, _hayMas, enviado) => confirmarIds('correos', enviado, r), fallo('datos'),
   )
   const gFamiliares = useGuardadoDiferido(
-    // Las filas nuevas sin datos no se envían (el backend también las ignora).
-    (fs: FamiliarDto[]) => enviar('familiares', v => api.guardarFamiliares(personaId,
-      traducirIds('familiares', fs.filter(x => !(x.id <= 0 && familiarVacio(x)))), v)),
+    (fs: FamiliarDto[], vigente) => enviar('familiares', v => api.guardarFamiliares(personaId,
+      traducirIds('familiares', fs), v), vigente),
     (r, _hayMas, enviado) => confirmarIds('familiares', enviado, r), fallo('familiares'),
   )
   const todos = [gDatos, gVenta, gPrima, gNumeros, gCorreos, gFamiliares]
@@ -149,11 +157,19 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const pendientesDe = (f: FormPersona): { campo: string; pestana: Pestana }[] => {
     if (nuevo) return []
     const lista: { campo: string; pestana: Pestana }[] = []
-    if (faltaFechaPago(f)) lista.push({ campo: 'Fecha de pago', pestana: 'ventas' })
-    if (limiteNumeros(f.numeros)) lista.push({ campo: limiteNumeros(f.numeros)!, pestana: 'general' })
-    if (limiteCorreos(f.correos)) lista.push({ campo: limiteCorreos(f.correos)!, pestana: 'general' })
-    if (limiteFamiliares(f.familiares)) lista.push({ campo: limiteFamiliares(f.familiares)!, pestana: 'familiares' })
-    if (f.familiares.some(faltaNombreFamiliar)) lista.push({ campo: 'Nombre familiar', pestana: 'familiares' })
+    const agregar = (e: Record<string, string>, pestana: Pestana) =>
+      Object.entries(e).forEach(([campo, mensaje]) => lista.push({ campo: `${campo}: ${mensaje}`, pestana }))
+    agregar(erroresDatos(f, esCliente), 'general')
+    agregar(erroresVenta(f), 'ventas')
+    agregar(erroresPrima(f), 'ventas')
+    if (esCliente) {
+      const numeros = errorNumeros(f.numeros)
+      const correos = errorCorreos(f.correos)
+      if (numeros) lista.push({ campo: numeros, pestana: 'general' })
+      if (correos) lista.push({ campo: correos, pestana: 'general' })
+    }
+    const familiares = errorFamiliares(f.familiares)
+    if (familiares) lista.push({ campo: familiares, pestana: 'familiares' })
     return lista
   }
   useEffect(() => { pendientesRef.current = pendientesDe(form) })
@@ -188,6 +204,8 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       await Promise.all(grupo(seccion).map(g => g.flush()))
       const actual = await api.persona(personaId)
       grupo(seccion).forEach(g => g.cancelar())
+      const partes: ParteGuardada[] = seccion === 'datos' ? ['datos', 'numeros', 'correos'] : [seccion]
+      partes.forEach(p => sucias.current.delete(p))
       editor.current.resolver(seccion, actual.versiones[seccion])
       const remoto = formDesde(actual)
       setForm(f => seccion === 'datos' ? { ...f, datos: remoto.datos, numeros: remoto.numeros, correos: remoto.correos } : { ...f, [seccion]: remoto[seccion] })
@@ -208,44 +226,57 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     return <>Otro usuario modificó la sección {seccionTxt}{cuando}.</>
   }
 
-  const cambiar = (parte: 'datos' | 'venta' | 'prima', campo: string, valor: string) => {
-    const nuevoForm = { ...form, [parte]: { ...form[parte], [campo]: valor } } as FormPersona
-    setGuardado(false)
-    setForm(nuevoForm)
+  // Datos, números y correos comparten sección/version. Si uno es inválido se retiran
+  // todos sus envíos pendientes; al corregirlo se programan los últimos valores editados.
+  const programarValidos = (f: FormPersona, parte: ParteGuardada) => {
+    ultimoForm.current = f
+    sucias.current.add(parte)
+    pendientesRef.current = pendientesDe(f)
     if (nuevo) return
-    // Con un correo inválido no se envía: el campo muestra el error hasta que se corrija.
-    if (parte === 'datos' && !esCliente && !correosValidos.datos(nuevoForm)) return
-    if (parte === 'datos') gDatos.programar(nuevoForm)
-    else if (parte === 'venta') gVenta.programar(nuevoForm)
-    // Pagada sin fecha de pago: espera a que se complete la fecha (el campo ya muestra el error).
-    else if (!faltaFechaPago(nuevoForm)) gPrima.programar(nuevoForm)
+    const grupoDatosValido = !Object.keys(erroresDatos(f, esCliente)).length &&
+      (!esCliente || (!errorNumeros(f.numeros) && !errorCorreos(f.correos)))
+    if (['datos', 'numeros', 'correos'].includes(parte)) {
+      if (!grupoDatosValido) [gDatos, gNumeros, gCorreos].forEach(g => g.suspender())
+      else {
+        if (sucias.current.has('numeros')) gNumeros.programar(f.numeros)
+        if (sucias.current.has('datos')) gDatos.programar(f)
+        if (sucias.current.has('correos')) gCorreos.programar(f.correos)
+      }
+    }
+    if (parte === 'venta') {
+      if (Object.keys(erroresVenta(f)).length) gVenta.suspender()
+      else if (sucias.current.has('venta')) gVenta.programar(f)
+    }
+    if (parte === 'prima') {
+      if (Object.keys(erroresPrima(f)).length) gPrima.suspender()
+      else if (sucias.current.has('prima')) gPrima.programar(f)
+    }
+    if (parte === 'familiares') {
+      if (errorFamiliares(f.familiares)) gFamiliares.suspender()
+      else if (sucias.current.has('familiares')) gFamiliares.programar(f.familiares)
+    }
+  }
+
+  const cambiar = (parte: 'datos' | 'venta' | 'prima', campo: string, valor: string) => {
+    const siguiente = { ...form, [parte]: { ...form[parte], [campo]: valor } } as FormPersona
+    setGuardado(false)
+    setForm(siguiente)
+    programarValidos(siguiente, parte)
   }
   const cambiarLista = <K extends 'numeros' | 'correos' | 'familiares'>(lista: K, valor: FormPersona[K]) => {
+    const siguiente = { ...form, [lista]: valor }
     setGuardado(false)
-    setForm((f) => ({ ...f, [lista]: valor }))
-    if (nuevo) return
-    const exceso = lista === 'numeros' ? limiteNumeros(valor as NumeroDto[]) :
-      lista === 'correos' ? limiteCorreos(valor) : limiteFamiliares(valor)
-    if (exceso) {
-      if (lista === 'numeros') gNumeros.cancelar()
-      else if (lista === 'correos') gCorreos.cancelar()
-      else gFamiliares.cancelar()
-      return
-    }
-    const conLista = { ...form, [lista]: valor }
-    if (lista === 'correos' && !correosValidos.correos(conLista)) return
-    if (lista === 'familiares' && !correosValidos.familiares(conLista)) return
-    if (lista === 'numeros') gNumeros.programar(valor as NumeroDto[])
-    else if (lista === 'correos') gCorreos.programar(valor as CorreoDto[])
-    else gFamiliares.programar(valor as FamiliarDto[])
+    setForm(siguiente)
+    programarValidos(siguiente, lista)
   }
 
   const prima = primaCalculada(form)
-  const fechaReq = !nuevo && prima.estado === 3
-  const fechaFalta = !nuevo && faltaFechaPago(form)
-  const errores = nuevo ? { ...faltantesNuevo(form), ...(crearIntento ? erroresServidor : {}) } : {}
-  const err = (k: string) => (nuevo && crearIntento ? errores[k] : undefined)
-  const req = nuevo
+  const fechaReq = prima.estado === 3
+  const fechaFalta = (!nuevo || crearIntento) && faltaFechaPago(form)
+  const errores = nuevo ? { ...faltantesNuevo(form), ...(crearIntento ? erroresServidor : {}) } :
+    { ...erroresDatos(form, esCliente), ...erroresVenta(form), ...erroresPrima(form) }
+  const err = (k: string) => (!nuevo || crearIntento ? errores[k] : undefined)
+  const req = true
 
   const volver = async () => {
     if (avisarPendientes(pendientesDe(form))) return
@@ -384,7 +415,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     <TarjetaSeccion titulo="Prima">
       <div className="grilla-campos">
         <CampoMonto label="Monto de prima" valor={form.prima.monto} onChange={(v) => cambiar('prima', 'monto', v)} requerido={req} error={err('montoPrima')} />
-        <CampoMonto label="Monto cancelado" valor={form.prima.montoCancelado} onChange={(v) => cambiar('prima', 'montoCancelado', v)} />
+        <CampoMonto label="Monto cancelado" valor={form.prima.montoCancelado} onChange={(v) => cambiar('prima', 'montoCancelado', v)} requerido error={err('montoCancelado')} />
         <CampoTexto label="Saldo pendiente" valor={fNumero(prima.saldo)} soloLectura />
         <CampoTexto label="Fecha estimada de pago" tipo="date" valor={form.prima.fechaEstimadaPago} onChange={(v) => cambiar('prima', 'fechaEstimadaPago', v)} />
         <CampoTexto
@@ -411,7 +442,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       </button>
       {volverIntento && pendientesDe(form).map(({ campo }) => (
         <div key={campo} role="alert" className="alerta">
-          Campo requerido pendiente: {campo}
+          Cambio pendiente: {campo}
         </div>
       ))}
 
@@ -450,6 +481,9 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         </div>
       </div>
 
+      {!nuevo && pendientesDe(form).length > 0 && <div role="status" className="alerta">
+        Cambios sin guardar: revise los campos marcados.
+      </div>}
       {errorGuardar && <div role="alert" className="alerta">
         {errorGuardar}
         {/* Con un conflicto abierto se resuelve con "Recargar sección", no reintentando. */}
@@ -551,3 +585,4 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     </div>
   )
 }
+
