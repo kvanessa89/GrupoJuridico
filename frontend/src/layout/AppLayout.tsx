@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router'
 import { permisos, useSesion } from '../auth/Sesion'
+import { Cargando } from '../components/Cargando'
 import { IconoClientes, IconoConfig, IconoMenu, IconoUsuarios, IconoVentas, Maletin } from '../components/Iconos'
 import { iniciales } from '../utils/formato'
 import { FiltrosProvider, useReiniciarFiltros, type SeccionLista } from './Filtros'
@@ -53,7 +54,7 @@ export function AppLayout() {
     window.scrollTo(0, 0)
   }, [pathname])
 
-  if (cargando) return <div className="app" />
+  if (cargando) return <div className="app"><Cargando pantalla /></div>
   if (!usuario) return <Navigate to="/gestion/login" replace />
 
   const [nombre, ...resto] = usuario.nombre.split(' ')
@@ -75,7 +76,8 @@ export function AppLayout() {
         <div className="cuerpo">
           <Menu />
           <main className="principal">
-            <Outlet />
+            {/* La clave reinicia la animación de entrada en cada pantalla. */}
+            <div key={pathname} className="pantalla-entrada"><Outlet /></div>
           </main>
         </div>
       </div>

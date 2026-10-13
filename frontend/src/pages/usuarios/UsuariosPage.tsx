@@ -4,6 +4,7 @@ import { api } from '../../api/endpoints'
 import type { Usuario } from '../../api/tipos'
 import { useSesion } from '../../auth/Sesion'
 import { CampoContrasena, Select } from '../../components/Controles'
+import { Cargando } from '../../components/Cargando'
 import { Basurero } from '../../components/Iconos'
 
 /** Las contraseñas se guardan cifradas: en la lista el campo queda vacío y escribir una nueva la reemplaza. */
@@ -19,10 +20,11 @@ export function UsuariosPage() {
   const [nuevo, setNuevo] = useState({ nombre: '', usuario: '', contrasena: '', rol: 'Administrador' })
   const [errorNuevo, setErrorNuevo] = useState('')
   const [errorLista, setErrorLista] = useState('')
+  const [cargando, setCargando] = useState(true)
   const timers = useRef<Record<number, number>>({})
 
   useEffect(() => {
-    api.usuarios().then((us) => setUsuarios(us.map((u) => ({ ...u, contrasena: '' })))).catch((e) => setErrorLista(mensajeDe(e)))
+    api.usuarios().then((us) => setUsuarios(us.map((u) => ({ ...u, contrasena: '' })))).catch((e) => setErrorLista(mensajeDe(e))).finally(() => setCargando(false))
   }, [])
 
   const roles = (catalogos?.roles ?? []).map((r) => ({ v: r.nombre, l: r.nombre }))
@@ -85,7 +87,7 @@ export function UsuariosPage() {
       <div className="cabecera-lista">
         <div style={{ minWidth: 0 }}>
           <h1>Usuarios del sistema</h1>
-          <p>{usuarios.length + (usuarios.length === 1 ? ' usuario' : ' usuarios')} con acceso al sistema</p>
+          <p>{cargando ? ' ' : usuarios.length + (usuarios.length === 1 ? ' usuario' : ' usuarios') + ' con acceso al sistema'}</p>
         </div>
       </div>
 
@@ -123,6 +125,7 @@ export function UsuariosPage() {
               <span className="etiqueta" style={{ margin: 0 }}>Rol</span>
               <span />
             </div>
+            {cargando && <Cargando />}
             {usuarios.map((u) => {
               const esYo = yo?.id === u.id
               return (
