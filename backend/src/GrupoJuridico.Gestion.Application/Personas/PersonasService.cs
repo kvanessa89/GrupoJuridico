@@ -17,6 +17,7 @@ public class PersonasService
     private readonly IIdentityService _identity;
     private readonly IFechaActual _fecha;
 
+    private readonly ActualizarDatosValidator _datosValidator = new();
     private readonly CrearProspectoValidator _crearValidator = new();
     private readonly ActualizarVentaValidator _ventaValidator = new();
     private readonly ActualizarPrimaValidator _primaValidator = new();
@@ -229,6 +230,14 @@ public class PersonasService
 
     public async Task ActualizarDatosAsync(int id, ActualizarDatosRequest r, CancellationToken ct = default, Guid? version = null)
     {
+        var p = await CargarAsync(id, ct);
+        await _datosValidator.ValidarAsync(r, ct);
+        // Nulos conservan contactos existentes; cadenas vacías solicitan quitarlos.
+        var telefono = r.TelefonoPrincipal == null ? p.NumeroPrincipal(TipoNumero.Telefono)?.Valor : r.TelefonoPrincipal;
+        var whatsapp = r.WhatsappPrincipal == null ? p.NumeroPrincipal(TipoNumero.WhatsApp)?.Valor : r.WhatsappPrincipal;
+        if ((r.TelefonoPrincipal != null || r.WhatsappPrincipal != null || !p.EsCliente)
+            && Validacion.SoloDigitos(telefono).Length == 0 && Validacion.SoloDigitos(whatsapp).Length == 0)
+            throw new ValidacionException("telefonoPrincipal", CrearProspectoValidator.MensajeContacto);
         var nombres = r.Nombres?.Trim() ?? "";
         var apellidos = r.Apellidos?.Trim() ?? "";
         if (nombres.Length > Persona.MaxNombre)
@@ -239,7 +248,6 @@ public class PersonasService
         if (cedula.Length > Persona.MaxCedula)
             throw new ValidacionException(nameof(r.Cedula), $"La cédula admite como máximo {Persona.MaxCedula} dígitos.");
         var correo = r.CorreoPrincipal == null ? null : Validacion.Correo(r.CorreoPrincipal, nameof(r.CorreoPrincipal), Persona.MaxCorreo);
-        var p = await CargarAsync(id, ct);
         // Después del control de acceso y antes de tomar la versión.
         await ValidarCatalogoAsync(_db.Vendedores, r.VendedorId, nameof(r.VendedorId), "El vendedor seleccionado ya no existe. Recargue la página y elija otro.", ct);
         await PrepararVersionAsync(p, "datos", version);
@@ -285,8 +293,8 @@ public class PersonasService
 
     public async Task<VentaDto> ActualizarVentaAsync(int id, ActualizarVentaRequest r, CancellationToken ct = default, Guid? version = null)
     {
-        await _ventaValidator.ValidarAsync(r, ct);
         var p = await CargarAsync(id, ct);
+        await _ventaValidator.ValidarAsync(r, ct);
         // Después del control de acceso y antes de tomar la versión.
         await ValidarCatalogoAsync(_db.ProcedenciasVenta, r.ProcedenciaVentaId, nameof(r.ProcedenciaVentaId), "La procedencia seleccionada ya no existe. Recargue la página y elija otra.", ct);
         await ValidarCatalogoAsync(_db.MetodosVenta, r.MetodoVentaId, nameof(r.MetodoVentaId), "El método seleccionado ya no existe. Recargue la página y elija otro.", ct);
@@ -322,6 +330,10 @@ public class PersonasService
         ValidarIdsPropios(items.Select(i => i.Id), p.Numeros.Select(x => x.Id), "numeros");
         ValidarCantidad(items.Count(i => TipoDesde(i.Tipo) == TipoNumero.Telefono), Persona.MaxTelefonos, "numeros", "teléfonos");
         ValidarCantidad(items.Count(i => TipoDesde(i.Tipo) == TipoNumero.WhatsApp), Persona.MaxWhatsApp, "numeros", "números de WhatsApp");
+        if (!items.Any(i => Validacion.SoloDigitos(i.Numero).Length > 0))
+            throw new ValidacionException("numeros", CrearProspectoValidator.MensajeContacto);
+        if (items.Any(i => Validacion.SoloDigitos(i.Numero).Length == 0))
+            throw new ValidacionException("numeros", "Complete el número o quite la fila vacía.");
         await PrepararVersionAsync(p, "datos", version);
         var pais = await PaisesAsync(ct);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
@@ -368,8 +380,7 @@ public class PersonasService
 
     public async Task<IReadOnlyList<FamiliarDto>> ReemplazarFamiliaresAsync(int id, IReadOnlyList<FamiliarItem> items, CancellationToken ct = default, Guid? version = null)
     {
-        // Una fila nueva sin ningún dato se ignora; cualquier otra necesita al menos el nombre.
-        items = items.Where(i => !(i.Id <= 0 && FamiliarVacio(i))).ToList();
+        // Cada fila enviada necesita nombre y teléfono o correo; para quitarla debe omitirse.
         foreach (var i in items)
         {
             if (Validacion.Vacio(i.NombreCompleto))
@@ -378,6 +389,8 @@ public class PersonasService
                 throw new ValidacionException(nameof(i.NombreCompleto),
                     $"El nombre del familiar admite como máximo {PersonaFamiliar.MaxNombreCompleto} caracteres.");
             Validacion.Correo(i.CorreoElectronico, nameof(i.CorreoElectronico), Persona.MaxCorreo);
+            if (Validacion.SoloDigitos(i.Telefono).Length == 0 && Validacion.Vacio(i.CorreoElectronico))
+                throw new ValidacionException(nameof(i.Telefono), "Ingrese un teléfono o un correo del familiar.");
         }
         await ValidarParentescosAsync(items, ct);
         var p = await CargarAsync(id, ct);
@@ -500,3 +513,4 @@ public class PersonasService
         f.WhatsappPaisId = f.Whatsapp.Length > 0 ? pais(i.WhatsappPaisId, nameof(i.WhatsappPaisId)) : null;
     }
 }
+

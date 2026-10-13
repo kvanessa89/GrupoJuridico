@@ -24,12 +24,15 @@ public class CrearProspectoValidator : AbstractValidator<CrearProspectoRequest>
             .Must(Validacion.CorreoValido).WithMessage("Correo electrónico no válido.");
         RuleForEach(x => x.Familiares).Must(f => Validacion.CorreoValido(f.CorreoElectronico) && (f.CorreoElectronico?.Trim().Length ?? 0) <= Persona.MaxCorreo)
             .WithMessage("El correo de un familiar no es válido.");
-        RuleForEach(x => x.Familiares).Must(f => PersonasService.FamiliarVacio(f) || !Validacion.Vacio(f.NombreCompleto))
+        RuleForEach(x => x.Familiares).Must(f => !Validacion.Vacio(f.NombreCompleto))
             .WithMessage("El nombre del familiar es requerido.");
         RuleForEach(x => x.Familiares).Must(f => (f.NombreCompleto?.Trim().Length ?? 0) <= PersonaFamiliar.MaxNombreCompleto)
             .WithMessage($"El nombre de un familiar admite como máximo {PersonaFamiliar.MaxNombreCompleto} caracteres.");
+        RuleForEach(x => x.Familiares).Must(f =>
+                Validacion.SoloDigitos(f.Telefono).Length > 0 || !Validacion.Vacio(f.CorreoElectronico))
+            .WithMessage("Ingrese un teléfono o un correo del familiar.");
         RuleFor(x => x.Finca).NotEmpty().WithMessage("Campo requerido.");
-        RuleFor(x => x.FechaIngreso).NotNull().WithMessage("Campo requerido.");
+        RuleFor(x => x.FechaIngreso).Must(d => d.HasValue && d.Value != default).WithMessage("Campo requerido.");
         RuleFor(x => x.VendedorId).Must(v => v is > 0).WithMessage("Campo requerido.");
         RuleFor(x => x.ProcedenciaVentaId).Must(v => v is > 0).WithMessage("Campo requerido.");
         RuleFor(x => x.MetodoVentaId).Must(v => v is > 0).WithMessage("Campo requerido.");
@@ -52,11 +55,26 @@ public class CrearProspectoValidator : AbstractValidator<CrearProspectoRequest>
         Validacion.SoloDigitos(r.TelefonoPrincipal).Length > 0 || Validacion.SoloDigitos(r.WhatsappPrincipal).Length > 0;
 }
 
+public class ActualizarDatosValidator : AbstractValidator<ActualizarDatosRequest>
+{
+    public ActualizarDatosValidator()
+    {
+        RuleFor(x => x.Nombres).NotEmpty().WithMessage("Campo requerido.");
+        RuleFor(x => x.Apellidos).NotEmpty().WithMessage("Campo requerido.");
+        RuleFor(x => x.Cedula).Must(c => Validacion.SoloDigitos(c).Length > 0).WithMessage("Campo requerido.");
+        RuleFor(x => x.Finca).NotEmpty().WithMessage("Campo requerido.");
+        RuleFor(x => x.FechaIngreso).NotEqual(default(DateOnly)).WithMessage("Campo requerido.");
+        RuleFor(x => x.VendedorId).Must(v => v is > 0).WithMessage("Campo requerido.");
+    }
+}
+
 public class ActualizarVentaValidator : AbstractValidator<ActualizarVentaRequest>
 {
     public ActualizarVentaValidator()
     {
-        RuleFor(x => x.Monto).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.ProcedenciaVentaId).Must(v => v is > 0).WithMessage("Campo requerido.");
+        RuleFor(x => x.MetodoVentaId).Must(v => v is > 0).WithMessage("Campo requerido.");
+        RuleFor(x => x.Monto).GreaterThan(0).WithMessage("Debe ser mayor que cero.");
     }
 }
 
@@ -64,7 +82,7 @@ public class ActualizarPrimaValidator : AbstractValidator<ActualizarPrimaRequest
 {
     public ActualizarPrimaValidator()
     {
-        RuleFor(x => x.Monto).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.Monto).GreaterThan(0).WithMessage("Debe ser mayor que cero.");
         RuleFor(x => x.MontoCancelado).GreaterThanOrEqualTo(0);
         // Igual que al crear: una prima pagada no se guarda sin su fecha de pago.
         RuleFor(x => x.FechaPago)
@@ -88,3 +106,4 @@ public class ComentarioValidator : AbstractValidator<ComentarioRequest>
         RuleFor(x => x.Texto).NotEmpty().WithMessage("Escriba un comentario.").MaximumLength(4000);
     }
 }
+

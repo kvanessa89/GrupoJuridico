@@ -59,3 +59,38 @@ test('desmontar o descartar no envía un borrador pendiente',async()=>{
   ficha.hook.programar('borrador');ficha.hook.cancelar();assert.equal(ficha.hook.hayPendientes(),false)
   ficha.hook.programar('otro');await ficha.desmontar();assert.equal(enviados.length,0)
 })
+
+
+test('borrar un requerido retira el envío anterior y corregirlo guarda el último valor',async()=>{
+  const enviados=[];const ficha=await montar(async v=>{enviados.push(v);return v})
+  ficha.hook.programar('100');ficha.hook.suspender()
+  assert.equal(await ficha.hook.flush(),true);assert.deepEqual(enviados,[])
+  ficha.hook.programar('200');assert.equal(await ficha.hook.flush(),true)
+  assert.deepEqual(enviados,['200']);await ficha.desmontar()
+})
+test('suspender un borrador inválido conserva el bloqueo de un conflicto',async()=>{
+  const ficha=await montar(async()=>{throw {response:{status:409}}})
+  ficha.hook.programar('100');assert.equal(await ficha.hook.flush(),false)
+  ficha.hook.suspender();assert.equal(ficha.hook.hayPendientes(),true)
+  assert.equal(await ficha.hook.flush(),false);await ficha.desmontar()
+})
+test('cancela un envío esperando otra escritura de datos antes de iniciar HTTP',async()=>{
+  const editor=new EditorSecciones();editor.cargar(versiones)
+  const vuelo=diferido();const primera=editor.guardar('datos',()=>vuelo.promise)
+  let llamadas=0
+  const ficha=await montar((v,vigente)=>editor.guardar('datos',async()=>{llamadas++;return {data:v,version:'d3'}},vigente))
+  ficha.hook.programar('correo@valido.cr');const fin=ficha.hook.flush()
+  await new Promise(r=>setImmediate(r))
+  ficha.hook.suspender();vuelo.resolve({data:'a',version:'d2'});await primera
+  assert.equal(await fin,true);assert.equal(llamadas,0)
+  ficha.hook.programar('nuevo@valido.cr');assert.equal(await ficha.hook.flush(),true)
+  assert.equal(llamadas,1);await ficha.desmontar()
+})
+test('invalidar mientras una petición está en vuelo no restaura el borrador anterior al fallar',async()=>{
+  const vuelo=diferido();const enviados=[]
+  const ficha=await montar(v=>{enviados.push(v);return vuelo.promise})
+  ficha.hook.programar('100');const fin=ficha.hook.flush()
+  await new Promise(r=>setImmediate(r));ficha.hook.suspender();vuelo.reject(new Error('red'))
+  assert.equal(await fin,false);ficha.hook.reanudar();assert.equal(await ficha.hook.flush(),true)
+  assert.deepEqual(enviados,['100']);await ficha.desmontar()
+})

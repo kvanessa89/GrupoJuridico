@@ -1,6 +1,6 @@
 import type { CorreoDto, CrearProspecto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
-import { limiteFamiliares } from './limitesContactos'
-import { estadoDePrima, hoyIso, num } from '../../utils/formato'
+import { limiteFamiliares, limiteNumeros, limiteCorreos } from './limitesContactos.ts'
+import { estadoDePrima, hoyIso, num } from '../../utils/formato.ts'
 
 /** Estado editable de la ficha. Los montos y selects se guardan como texto, igual que en los campos. */
 export interface FormPersona {
@@ -89,7 +89,7 @@ export function payloadDatos(f: FormPersona, esCliente: boolean) {
   const d = f.datos
   return {
     nombres: d.nombres, apellidos: d.apellidos, cedula: d.cedula, finca: d.finca, expediente: d.expediente,
-    fechaIngreso: d.fechaIngreso || hoyIso(), vendedorId: idONull(d.vendedorId),
+    fechaIngreso: d.fechaIngreso, vendedorId: idONull(d.vendedorId),
     telefonoPrincipal: esCliente ? null : d.telefonoPrincipal,
     whatsappPrincipal: esCliente ? null : d.whatsappPrincipal,
     telefonoPrincipalPaisId: esCliente ? null : idONull(d.telefonoPrincipalPaisId),
@@ -111,12 +111,11 @@ export function payloadCrear(f: FormPersona): CrearProspecto {
     montoVenta: num(f.venta.monto), notasVenta: f.venta.notas,
     montoPrima: num(f.prima.monto), montoCancelado: num(f.prima.montoCancelado),
     fechaEstimadaPago: f.prima.fechaEstimadaPago || null, fechaPago: f.prima.fechaPago || null,
-    familiares: f.familiares.filter((x) => !familiarVacio(x)),
+    familiares: f.familiares,
   }
 }
 
 const vacio = (x: string) => !x.trim()
-const sinMonto = (x: string) => vacio(x) || !(num(x) > 0)
 export const MSG_CONTACTO = 'Ingrese un teléfono o un WhatsApp.'
 
 /** Largos máximos (iguales a Persona.MaxNombre / MaxCedula / MaxCorreo en el backend). */
@@ -140,7 +139,7 @@ export function familiarVacio(x: FamiliarDto): boolean {
 
 /** El nombre es requerido en cualquier familiar con datos (o ya guardado). */
 export function faltaNombreFamiliar(x: FamiliarDto): boolean {
-  return vacio(x.nombreCompleto) && (x.id > 0 || !familiarVacio(x))
+  return vacio(x.nombreCompleto)
 }
 
 /** Datos inválidos en la ficha: mientras haya alguno, esa parte no se envía al autoguardado. */
@@ -150,27 +149,79 @@ export const correosValidos = {
   familiares: (f: FormPersona) => f.familiares.every((x) => correoValido(x.correoElectronico) && !faltaNombreFamiliar(x)),
 }
 
-/** Campos requeridos al registrar un prospecto (misma regla que el backend). */
-export function faltantesNuevo(f: FormPersona): Record<string, string> {
+export const MSG_CONTACTO_FAMILIAR = 'Ingrese un teléfono o un correo del familiar.'
+
+export function faltaContactoFamiliar(x: FamiliarDto): boolean {
+  return !x.telefono.replace(/\D/g, '') && vacio(x.correoElectronico)
+}
+
+export function errorMonto(v: string, permiteCero = false): string | undefined {
+  if (vacio(v)) return 'Campo requerido.'
+  if (!/^\d+(?:\.\d{1,2})?$/.test(v) || !Number.isFinite(Number(v))) return 'Complete un monto válido.'
+  if (permiteCero ? Number(v) < 0 : Number(v) <= 0) return permiteCero ? 'No puede ser negativo.' : 'Debe ser mayor que cero.'
+}
+
+function fechaValida(v: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) && v.slice(0, 4) !== '0000' &&
+    !isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v
+}
+
+export function erroresDatos(f: FormPersona, esCliente: boolean): Record<string, string> {
   const e: Record<string, string> = {}
   const d = f.datos
-  if (vacio(d.nombres)) e.nombres = 'Campo requerido.'
-  if (vacio(d.apellidos)) e.apellidos = 'Campo requerido.'
-  if (vacio(d.cedula)) e.cedula = 'Campo requerido.'
-  if (!correoValido(d.correoPrincipal)) e.correoPrincipal = MSG_CORREO
-  if (!correosValidos.familiares(f)) e.familiares = MSG_NOMBRE_FAMILIAR
-  const excesoFamiliares = limiteFamiliares(f.familiares.filter(x => !familiarVacio(x)))
-  if (excesoFamiliares) e.familiares = excesoFamiliares
-  if (vacio(d.finca)) e.finca = 'Campo requerido.'
-  if (vacio(d.fechaIngreso)) e.fechaIngreso = 'Campo requerido.'
+  for (const k of ['nombres', 'apellidos', 'cedula', 'finca'] as const) if (vacio(d[k])) e[k] = 'Campo requerido.'
+  if (!fechaValida(d.fechaIngreso)) e.fechaIngreso = 'Ingrese una fecha válida.'
   if (!idONull(d.vendedorId)) e.vendedorId = 'Campo requerido.'
-  if (vacio(d.telefonoPrincipal) && vacio(d.whatsappPrincipal)) {
-    e.telefonoPrincipal = MSG_CONTACTO
-    e.whatsappPrincipal = MSG_CONTACTO
+  if (!esCliente) {
+    if (!correoValido(d.correoPrincipal)) e.correoPrincipal = MSG_CORREO
+    if (!d.telefonoPrincipal.replace(/\D/g, '') && !d.whatsappPrincipal.replace(/\D/g, '')) {
+      e.telefonoPrincipal = MSG_CONTACTO
+      e.whatsappPrincipal = MSG_CONTACTO
+    }
   }
+  return e
+}
+
+export function erroresVenta(f: FormPersona): Record<string, string> {
+  const e: Record<string, string> = {}
   if (!idONull(f.venta.procedenciaVentaId)) e.procedenciaVentaId = 'Campo requerido.'
   if (!idONull(f.venta.metodoVentaId)) e.metodoVentaId = 'Campo requerido.'
-  if (sinMonto(f.venta.monto)) e.montoVenta = 'Campo requerido.'
-  if (sinMonto(f.prima.monto)) e.montoPrima = 'Campo requerido.'
+  const monto = errorMonto(f.venta.monto)
+  if (monto) e.montoVenta = monto
+  return e
+}
+
+export function erroresPrima(f: FormPersona): Record<string, string> {
+  const e: Record<string, string> = {}
+  const monto = errorMonto(f.prima.monto)
+  const cancelado = errorMonto(f.prima.montoCancelado, true)
+  if (monto) e.montoPrima = monto
+  if (cancelado) e.montoCancelado = cancelado
+  if (faltaFechaPago(f)) e.fechaPago = 'Requerida cuando la prima está pagada.'
+  for (const k of ['fechaEstimadaPago', 'fechaPago'] as const)
+    if (f.prima[k] && !fechaValida(f.prima[k])) e[k] = 'Ingrese una fecha válida.'
+  return e
+}
+
+export function errorNumeros(numeros: NumeroDto[]): string | undefined {
+  return limiteNumeros(numeros) ?? (numeros.length === 0 ? MSG_CONTACTO :
+    numeros.some(n => !n.numero.replace(/\D/g, '')) ? 'Complete el número o quite la fila vacía.' : undefined)
+}
+
+export function errorCorreos(correos: CorreoDto[]): string | undefined {
+  return limiteCorreos(correos) ?? (correos.every(c => correoValido(c.correo)) ? undefined : MSG_CORREO)
+}
+
+export function errorFamiliares(familiares: FamiliarDto[]): string | undefined {
+  return limiteFamiliares(familiares) ?? (familiares.some(faltaNombreFamiliar) ? MSG_NOMBRE_FAMILIAR :
+    familiares.some(faltaContactoFamiliar) ? MSG_CONTACTO_FAMILIAR :
+    familiares.every(f => correoValido(f.correoElectronico)) ? undefined : MSG_CORREO)
+}
+
+/** Crear y editar comparten las reglas; cada familiar agregado debe completarse o quitarse. */
+export function faltantesNuevo(f: FormPersona): Record<string, string> {
+  const e = { ...erroresDatos(f, false), ...erroresVenta(f), ...erroresPrima(f) }
+  const familiares = errorFamiliares(f.familiares)
+  if (familiares) e.familiares = familiares
   return e
 }
