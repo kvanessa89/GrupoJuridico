@@ -89,6 +89,20 @@ public class PersonasService
     private static FamiliarDto FamiliarDe(PersonaFamiliar f) =>
         new(f.Id, f.NombreCompleto, f.ParentescoId, f.Telefono, f.CorreoElectronico, f.Whatsapp, f.TelefonoPaisId, f.WhatsappPaisId);
 
+    /// <summary>Un ID positivo identifica una fila existente de esta persona; nunca es un alta implícita.</summary>
+    private static void ValidarIdsPropios(IEnumerable<int> ids, IEnumerable<int> propios, string campo)
+    {
+        var permitidos = propios.ToHashSet();
+        var indice = 0;
+        foreach (var id in ids)
+        {
+            if (id > 0 && !permitidos.Contains(id))
+                throw new ValidacionException($"{campo}[{indice}].id",
+                    "El registro indicado no existe entre los contactos de esta persona. Recargá la sección antes de guardar.");
+            indice++;
+        }
+    }
+
     public static string TipoTexto(TipoNumero t) => t == TipoNumero.WhatsApp ? "WhatsApp" : "Teléfono";
     public static TipoNumero TipoDesde(string? t) =>
         string.Equals(t, "WhatsApp", StringComparison.OrdinalIgnoreCase) ? TipoNumero.WhatsApp : TipoNumero.Telefono;
@@ -298,6 +312,7 @@ public class PersonasService
     public async Task<IReadOnlyList<NumeroDto>> ReemplazarNumerosAsync(int id, IReadOnlyList<NumeroItem> items, CancellationToken ct = default, Guid? version = null)
     {
         var p = await CargarAsync(id, ct);
+        ValidarIdsPropios(items.Select(i => i.Id), p.Numeros.Select(x => x.Id), "numeros");
         await PrepararVersionAsync(p, "datos", version);
         var pais = await PaisesAsync(ct);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
@@ -323,6 +338,7 @@ public class PersonasService
     {
         foreach (var i in items) Validacion.Correo(i.Correo, nameof(i.Correo), Persona.MaxCorreo);
         var p = await CargarAsync(id, ct);
+        ValidarIdsPropios(items.Select(i => i.Id), p.Correos.Select(x => x.Id), "correos");
         await PrepararVersionAsync(p, "datos", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Correos.RemoveRange(p.Correos.Where(c => !conservar.Contains(c.Id)));
@@ -355,6 +371,7 @@ public class PersonasService
         }
         await ValidarParentescosAsync(items, ct);
         var p = await CargarAsync(id, ct);
+        ValidarIdsPropios(items.Select(i => i.Id), p.Familiares.Select(x => x.Id), "familiares");
         await PrepararVersionAsync(p, "familiares", version);
         var pais = await PaisesAsync(ct);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();

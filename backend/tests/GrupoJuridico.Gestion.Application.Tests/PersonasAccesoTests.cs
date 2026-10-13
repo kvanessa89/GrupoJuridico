@@ -509,9 +509,121 @@ public class PersonasAccesoTests
         Assert.Equal(new DateTime(2026, 10, 9, 12, 0, 0, DateTimeKind.Utc), problema.GetProperty("modificadoEn").GetDateTime());
         var actual = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
         Assert.Equal("88888888", Assert.Single(actual!.Numeros).Numero);
+        // Un ID positivo desconocido devuelve 400 y conserva la lista y su versión.
+        http.DefaultRequestHeaders.Remove("If-Match");
+        http.DefaultRequestHeaders.Add("If-Match", $"\"{actual.Versiones["datos"]:D}\"");
+        var invalido = await http.PutAsJsonAsync(ruta, new[] { new NumeroItem(int.MaxValue, "99999999", "Teléfono", true) });
+        Assert.Equal(HttpStatusCode.BadRequest, invalido.StatusCode);
+        var conservada = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
+        Assert.Equal("88888888", Assert.Single(conservada!.Numeros).Numero);
+        Assert.Equal(actual.Versiones["datos"], conservada.Versiones["datos"]);
         http.DefaultRequestHeaders.Remove("If-Match");
         http.DefaultRequestHeaders.Add("If-Match", "*");
         Assert.Equal(HttpStatusCode.BadRequest, (await http.PutAsJsonAsync(ruta, Array.Empty<NumeroItem>())).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("numeros", true)]
+    [InlineData("numeros", false)]
+    [InlineData("correos", true)]
+    [InlineData("correos", false)]
+    [InlineData("familiares", true)]
+    [InlineData("familiares", false)]
+    public async Task Id_positivo_ajeno_o_inexistente_rechaza_toda_la_lista_sin_mutaciones(string tipo, bool ajeno)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var otroId = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var seccion = tipo == "familiares" ? "familiares" : "datos";
+
+        Task Guardar(int personaId, (int Id, string Valor)[] filas, Guid version) => tipo switch
+        {
+            "numeros" => servicio.ReemplazarNumerosAsync(personaId,
+                filas.Select(x => new NumeroItem(x.Id, x.Valor, "Teléfono", true)).ToArray(), version: version),
+            "correos" => servicio.ReemplazarCorreosAsync(personaId,
+                filas.Select(x => new CorreoItem(x.Id, x.Valor, true)).ToArray(), version: version),
+            _ => servicio.ReemplazarFamiliaresAsync(personaId,
+                filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "", "", "")).ToArray(), version: version)
+        };
+        int Primero(PersonaDetalleDto ficha) => tipo switch
+        {
+            "numeros" => ficha.Numeros[0].Id,
+            "correos" => ficha.Correos[0].Id,
+            _ => ficha.Familiares[0].Id
+        };
+        string Lista(PersonaDetalleDto ficha) => tipo switch
+        {
+            "numeros" => System.Text.Json.JsonSerializer.Serialize(ficha.Numeros),
+            "correos" => System.Text.Json.JsonSerializer.Serialize(ficha.Correos),
+            _ => System.Text.Json.JsonSerializer.Serialize(ficha.Familiares)
+        };
+        var valores = tipo == "numeros" ? new[] { "11111111", "22222222", "33333333", "99999999" } :
+            tipo == "correos" ? new[] { "uno@mail.cr", "dos@mail.cr", "ajeno@mail.cr", "cambio@mail.cr" } :
+            new[] { "Uno", "Dos", "Ajeno", "Cambio" };
+
+        await Guardar(id, new[] { (0, valores[0]), (-1, valores[1]) }, (await servicio.ObtenerAsync(id)).Versiones[seccion]);
+        await Guardar(otroId, new[] { (0, valores[2]) }, (await servicio.ObtenerAsync(otroId)).Versiones[seccion]);
+        var antes = await servicio.ObtenerAsync(id);
+        var otroAntes = await servicio.ObtenerAsync(otroId);
+        var guardados = db.Guardados;
+        var invalido = ajeno ? Primero(otroAntes) : int.MaxValue;
+        // Incluye edición propia y alta; omite otra fila propia que el reemplazo borraría.
+        var error = await Assert.ThrowsAsync<ValidacionException>(() => Guardar(id,
+            new[] { (Primero(antes), valores[3]), (-2, valores[3]), (invalido, valores[3]) }, antes.Versiones[seccion]));
+        Assert.Contains(tipo + "[2].id", error.Errores.Keys);
+        Assert.Equal(guardados, db.Guardados);
+        Assert.DoesNotContain(db.ChangeTracker.Entries(), e =>
+            e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted);
+        db.ChangeTracker.Clear();
+        var despues = await servicio.ObtenerAsync(id);
+        Assert.Equal(Lista(antes), Lista(despues));
+        Assert.Equal(antes.Versiones[seccion], despues.Versiones[seccion]);
+        Assert.Equal(Lista(otroAntes), Lista(await servicio.ObtenerAsync(otroId)));
+    }
+
+    [Theory]
+    [InlineData("numeros")]
+    [InlineData("correos")]
+    [InlineData("familiares")]
+    public async Task Id_propio_se_conserva_y_ids_cero_o_negativos_siguen_creando_filas(string tipo)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var seccion = tipo == "familiares" ? "familiares" : "datos";
+        Task Guardar((int Id, string Valor)[] filas, Guid version) => tipo switch
+        {
+            "numeros" => servicio.ReemplazarNumerosAsync(id,
+                filas.Select(x => new NumeroItem(x.Id, x.Valor, "Teléfono", true)).ToArray(), version: version),
+            "correos" => servicio.ReemplazarCorreosAsync(id,
+                filas.Select(x => new CorreoItem(x.Id, x.Valor, true)).ToArray(), version: version),
+            _ => servicio.ReemplazarFamiliaresAsync(id,
+                filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "", "", "")).ToArray(), version: version)
+        };
+        int[] Ids(PersonaDetalleDto ficha) => tipo switch
+        {
+            "numeros" => ficha.Numeros.Select(x => x.Id).ToArray(),
+            "correos" => ficha.Correos.Select(x => x.Id).ToArray(),
+            _ => ficha.Familiares.Select(x => x.Id).ToArray()
+        };
+        var valores = tipo == "numeros" ? new[] { "11111111", "22222222", "33333333", "44444444" } :
+            tipo == "correos" ? new[] { "uno@mail.cr", "dos@mail.cr", "tres@mail.cr", "cuatro@mail.cr" } :
+            new[] { "Uno", "Dos", "Tres", "Cuatro" };
+        await Guardar(new[] { (0, valores[0]) }, (await servicio.ObtenerAsync(id)).Versiones[seccion]);
+        var antes = await servicio.ObtenerAsync(id);
+        var propio = Ids(antes)[0];
+        await Guardar(new[] { (propio, valores[1]), (0, valores[2]), (-1, valores[3]) }, antes.Versiones[seccion]);
+        var despues = await servicio.ObtenerAsync(id);
+        var ids = Ids(despues);
+        Assert.Equal(3, ids.Length);
+        Assert.Contains(propio, ids);
+        Assert.All(ids, i => Assert.True(i > 0));
+        Assert.Equal(3, ids.Distinct().Count());
+        var valorEditado = tipo == "numeros" ? despues.Numeros.Single(x => x.Id == propio).Numero :
+            tipo == "correos" ? despues.Correos.Single(x => x.Id == propio).Correo :
+            despues.Familiares.Single(x => x.Id == propio).NombreCompleto;
+        Assert.Equal(valores[1], valorEditado);
     }
 
     private static TestDb CrearDb() => new(new DbContextOptionsBuilder<TestDb>()
