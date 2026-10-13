@@ -832,13 +832,15 @@ public class PersonasAccesoTests
     [InlineData("familiar", "+1", 10)]
     [InlineData("familiar-whatsapp", "+506", 8)]
     [InlineData("familiar-whatsapp", "+1", 10)]
+    [InlineData("numeros", "+44", 12)]
+    [InlineData("familiar", "+44", 12)]
     public async Task Telefonos_respetan_longitud_por_pais_sin_escrituras_parciales(string operacion, string codigo, int largo)
     {
         using var db = CrearDb();
         var id = await SembrarAsync(db, EstadoPrima.Pendiente);
         if (!await db.Paises.AnyAsync(p => p.Codigo == codigo))
         {
-            db.Paises.Add(new Pais { Codigo = codigo, Nombre = "Estados Unidos" });
+            db.Paises.Add(new Pais { Codigo = codigo, Nombre = codigo == "+1" ? "Estados Unidos" : "Otro país" });
             await db.SaveChangesAsync();
         }
         var paisId = await db.Paises.Where(p => p.Codigo == codigo).Select(p => p.Id).SingleAsync();
@@ -869,6 +871,12 @@ public class PersonasAccesoTests
         };
         foreach (var cantidad in new[] { largo - 1, largo + 1 })
         {
+            if (codigo != "+506")
+            {
+                await Guardar(new string('8', cantidad));
+                antes = await servicio.ObtenerAsync(id);
+                continue;
+            }
             var guardados = db.Guardados;
             await Assert.ThrowsAsync<ValidacionException>(() => Guardar(new string('8', cantidad)));
             Assert.Equal(guardados, db.Guardados);
@@ -894,10 +902,10 @@ public class PersonasAccesoTests
         var eeuu = await db.Paises.Where(p => p.Codigo == "+1").Select(p => p.Id).SingleAsync();
         var servicio = CrearServicio(db, Roles.Administrador);
         var guardados = await servicio.ReemplazarNumerosAsync(id,
-            new[] { new NumeroItem(0, "88887777", "Teléfono", true) }, version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+            new[] { new NumeroItem(0, "305555010012", "Teléfono", true, eeuu) }, version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
         var antes = await servicio.ObtenerAsync(id);
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarNumerosAsync(id,
-            new[] { new NumeroItem(guardados[0].Id, "88887777", "Teléfono", true, eeuu) }, version: antes.Versiones["datos"]));
+            new[] { new NumeroItem(guardados[0].Id, "305555010012", "Teléfono", true) }, version: antes.Versiones["datos"]));
         db.ChangeTracker.Clear();
         var despues = await servicio.ObtenerAsync(id);
         Assert.Equal(antes.Versiones["datos"], despues.Versiones["datos"]);

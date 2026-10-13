@@ -25,7 +25,7 @@ public static class Validacion
     public static void Telefono(string? numero, string codigoPais, string campo)
     {
         if (Vacio(numero)) return;
-        var largo = SoloDigitos(codigoPais) switch { "506" => 8, "1" => 10, _ => 0 };
+        var largo = SoloDigitos(codigoPais) switch { "506" => 8, _ => 0 };
         if (largo > 0 && SoloDigitos(numero).Length != largo)
             throw new ValidacionException(campo, $"El número debe tener {largo} dígitos, sin el prefijo del país.");
     }
