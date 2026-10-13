@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
@@ -31,6 +32,7 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await act(async()=>{root.render(createElement(RouterProvider,{router}));await new Promise(r=>setTimeout(r,20))})
     const input=label=>[...document.querySelectorAll('label')].find(l=>l.querySelector('.etiqueta')?.textContent.startsWith(label))?.querySelector('input')
     const props=el=>el[Object.keys(el).find(k=>k.startsWith('__reactProps'))]
+    const boton=texto=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===texto)
     await act(async()=>props(input('Nombres')).onChange({target:{value:''}}))
     assert.ok(input('Nombres').classList.contains('error'))
     assert.match(input('Nombres').closest('label').textContent,/Campo requerido/)
@@ -71,9 +73,34 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await act(async()=>props(numero()).onChange({target:{value:'88887777'}}))
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
     assert.equal(enviados.length,4)
+    const antesNumeros=enviados.length
+    await act(async()=>props(boton('+ Teléfono')).onClick())
+    const ultimaFila=()=>[...document.querySelectorAll('.fila-contacto')].filter(f=>f.querySelector('input[inputmode="numeric"]')).at(-1)
+    assert.equal(ultimaFila().querySelectorAll('.telefono.error').length,0,'Agregar teléfono no marca errores')
+    assert.ok(ultimaFila().querySelector('.requerido'),'Solo el número tiene indicador requerido')
+    assert.equal(document.querySelectorAll('.alerta').length,0)
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,antesNumeros,'La fila vacía no se envía')
+    await act(async()=>props(ultimaFila().querySelector('input[inputmode="numeric"]')).onBlur())
+    assert.ok(ultimaFila().querySelector('.telefono.error'),'Salir del número vacío muestra el error')
+    const css=await readFile(new URL('../src/estilos.css',import.meta.url),'utf8')
+    const estilo=document.createElement('style')
+    estilo.textContent=css.split('\n').filter(l=>l.startsWith('.telefono-pais ') || l.startsWith('.telefono.error ')).join('\n')
+      .replaceAll('var(--line)','rgb(204, 204, 204)').replaceAll('var(--rojo)','rgb(255, 0, 0)')
+    document.head.append(estilo)
+    assert.equal(window.getComputedStyle(ultimaFila().querySelector('input')).borderTopColor,'rgb(255, 0, 0)')
+    assert.equal(window.getComputedStyle(ultimaFila().querySelector('.telefono-pais')).borderTopColor,'rgb(204, 204, 204)',
+      'El selector de país conserva su borde normal cuando falta el número')
+    await act(async()=>props(boton('+ WhatsApp')).onClick())
+    assert.equal(ultimaFila().querySelectorAll('.telefono.error').length,0,'Agregar WhatsApp tampoco marca errores')
+    assert.ok(ultimaFila().querySelector('.requerido'))
+    const filas=[...document.querySelectorAll('.fila-contacto')].filter(f=>f.querySelector('input[inputmode="numeric"]'))
+    await act(async()=>props(filas[1].querySelector('.btn-icono')).onClick())
+    await act(async()=>props(ultimaFila().querySelector('.btn-icono')).onClick())
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.ok(enviados.slice(antesNumeros).every(([,n])=>n.every(x=>x.numero)), 'Quitar las filas vacías conserva solo números completos')
     const antesFamiliares=enviados.length
     api.guardarFamiliares=async(_id,fs)=>{enviados.push(['familiares',fs]);return {data:fs.map((f,i)=>({...f,id:i+1})),version:'f2'}}
-    const boton=texto=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===texto)
     await act(async()=>props(boton('Familiares')).onClick())
     await act(async()=>props(boton('+ Agregar familiar')).onClick())
     assert.equal(document.querySelectorAll('.familiar .error').length,0,'Una fila nueva no empieza en rojo')
@@ -103,5 +130,6 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await vite.close();dom.window.close()
   }
 })
+
 
 

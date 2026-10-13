@@ -265,7 +265,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     programarValidos(siguiente, parte)
   }
   const cambiarLista = <K extends 'numeros' | 'correos' | 'familiares'>(lista: K, valor: FormPersona[K]) => {
-    if (lista === 'familiares' && (valor as FamiliarDto[]).some(f => !form.familiares.some(actual => actual.id === f.id))) {
+    if ((lista === 'familiares' || lista === 'numeros') && valor.some(f => !form[lista].some(actual => actual.id === f.id))) {
       setVolverIntento(false)
       setCrearIntento(false)
     }
@@ -554,7 +554,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
 
         {en('general') && bloqueDatos}
         {esCliente && en('general') && (
-          <Contactos numeros={form.numeros} correos={form.correos} onNumeros={(n) => cambiarLista('numeros', n)} onCorreos={(c) => cambiarLista('correos', c)} />
+          <Contactos mostrarErrores={volverIntento || blocker.state === 'blocked'} numeros={form.numeros} correos={form.correos} onNumeros={(n) => cambiarLista('numeros', n)} onCorreos={(c) => cambiarLista('correos', c)} />
         )}
         {en('ventas') && persona?.venta !== null && bloqueVenta}
         {en('ventas') && persona?.prima !== null && bloquePrima}
@@ -587,6 +587,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     </div>
   )
 }
+
 
 
 

@@ -265,7 +265,7 @@ input[type='date']::-webkit-calendar-picker-indicator { filter: invert(0.8); cur
 .telefono > span:first-child { flex: none; }
 .telefono > input { flex: 1; min-width: 0; }
 .telefono-pais { width: 66px; padding: 11px 18px 11px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surf); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; }
-.telefono.error > input, .telefono.error .telefono-pais { border-color: var(--rojo); }
+.telefono.error > input { border-color: var(--rojo); }
 .fila-contacto .telefono { flex: 1; }
 .btn-llamar { width: 42px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surf); color: var(--ink3); }
 .btn-llamar:hover { color: var(--gold); border-color: rgba(232, 193, 88, 0.55); }
@@ -302,4 +302,5 @@ input[type='date']::-webkit-calendar-picker-indicator { filter: invert(0.8); cur
   .familiar { grid-template-columns: 1fr 1fr; }
   .familiar > label:first-child { grid-column: span 2; }
 }
+
 

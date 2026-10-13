@@ -20,8 +20,10 @@ function BotonEliminar({ onClick, titulo = 'Eliminar' }: { onClick: () => void; 
 
 /** Teléfonos y correos del cliente oficial: la estrella marca el principal (uno por tipo). */
 export function Contactos({
-  numeros, correos, onNumeros, onCorreos,
-}: { numeros: NumeroDto[]; correos: CorreoDto[]; onNumeros: (n: NumeroDto[]) => void; onCorreos: (c: CorreoDto[]) => void }) {
+  numeros, correos, onNumeros, onCorreos, mostrarErrores = false,
+}: { numeros: NumeroDto[]; correos: CorreoDto[]; onNumeros: (n: NumeroDto[]) => void; onCorreos: (c: CorreoDto[]) => void; mostrarErrores?: boolean }) {
+  const [tocados, setTocados] = useState<Record<number, boolean>>({})
+  const errorVacio = (n: NumeroDto) => !n.numero.trim() && (mostrarErrores || n.id > 0 || !!tocados[n.id])
   const telefonos = numeros.filter(n => n.tipo === 'Teléfono').length
   const whatsapps = numeros.filter(n => n.tipo === 'WhatsApp').length
   const agregarNumero = (tipo: TipoNumero) => {
@@ -73,7 +75,10 @@ export function Contactos({
                 <Telefono
                   paisId={n.paisId}
                   numero={n.numero}
-                  error={!n.numero.trim()}
+                  error={errorVacio(n)}
+                  requerido
+                  ariaLabel={n.tipo}
+                  onBlur={() => setTocados(actual => ({ ...actual, [n.id]: true }))}
                   onPais={(paisId) => onNumeros(numeros.map((x, j) => (j === i ? { ...x, paisId } : x)))}
                   onNumero={(numero) => onNumeros(numeros.map((x, j) => (j === i ? { ...x, numero } : x)))}
                 />
@@ -95,6 +100,7 @@ export function Contactos({
               </div>
             )
           })}
+          {numeros.some(errorVacio) && <span className="msg-error">Complete el número o quite la fila vacía.</span>}
           {numeros.length === 0 && <span className="vacio">Sin números registrados.</span>}
         </div>
         <p className="ayuda">Teléfonos: {telefonos}/{MAX_TELEFONOS} · WhatsApp: {whatsapps}/{MAX_WHATSAPP}.</p>
@@ -295,5 +301,6 @@ export function Comentarios({
     </TarjetaSeccion>
   )
 }
+
 
 
