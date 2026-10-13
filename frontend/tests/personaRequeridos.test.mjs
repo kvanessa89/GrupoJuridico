@@ -114,6 +114,8 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     assert.equal(document.querySelectorAll('.familiar .error').length,0,'No muestra errores en contactos aún no editados')
     await act(async()=>props(document.querySelector('.volver')).onClick())
     assert.ok(document.querySelector('.familiar .telefono.error'),'Intentar salir muestra el contacto pendiente')
+    assert.equal(window.getComputedStyle(document.querySelector('.familiar .telefono-pais')).borderTopColor,'rgb(204, 204, 204)',
+      'El país del familiar tampoco se marca en rojo cuando falta el teléfono')
     assert.ok(document.querySelector('[role=alert]'),'La validación sí avisa cuando se intenta salir sin completar')
     await act(async()=>props(document.querySelector('.familiar input[aria-label="Teléfono"]')).onChange({target:{value:'88887777'}}))
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
