@@ -300,5 +300,6 @@ input[type='date']::-webkit-calendar-picker-indicator { filter: invert(0.8); cur
 @media (max-width: 760px) {
   .buscador { grid-column: auto; }
   .familiar { grid-template-columns: 1fr 1fr; }
-  .familiar input:first-child { grid-column: span 2; }
+  .familiar > label:first-child { grid-column: span 2; }
 }
+

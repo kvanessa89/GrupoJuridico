@@ -143,7 +143,17 @@ export function Contactos({
 
 type CampoFamiliar = 'nombreCompleto' | 'correoElectronico'
 
-export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[]; onCambiar: (f: FamiliarDto[]) => void }) {
+export function Familiares({ familiares, onCambiar, mostrarErrores = false }: {
+  familiares: FamiliarDto[]; onCambiar: (f: FamiliarDto[]) => void; mostrarErrores?: boolean
+}) {
+  const [tocados, setTocados] = useState<Record<number, Partial<Record<'nombre' | 'contacto' | 'correo', boolean>>>>({})
+  const tocar = (id: number, campo: 'nombre' | 'contacto' | 'correo') =>
+    setTocados(actual => ({ ...actual, [id]: { ...actual[id], [campo]: true, ...(campo === 'correo' ? { contacto: true } : {}) } }))
+  const visible = (f: FamiliarDto, campo: 'nombre' | 'contacto' | 'correo') =>
+    mostrarErrores || f.id > 0 || !!tocados[f.id]?.[campo]
+  const errorNombre = (f: FamiliarDto) => visible(f, 'nombre') && faltaNombreFamiliar(f)
+  const errorContacto = (f: FamiliarDto) => visible(f, 'contacto') && faltaContactoFamiliar(f)
+  const errorCorreo = (f: FamiliarDto) => visible(f, 'correo') && !correoValido(f.correoElectronico)
   const { catalogos } = useSesion()
   const parentescos = [{ v: '', l: 'Parentesco' }, ...(catalogos?.parentescos ?? []).map((p) => ({ v: String(p.id), l: p.nombre }))]
   return (
@@ -165,18 +175,33 @@ export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {familiares.map((f, i) => {
           const cambiar = (cambios: Partial<FamiliarDto>) => onCambiar(familiares.map((x, j) => (j === i ? { ...x, ...cambios } : x)))
-          const campo = (label: string, c: CampoFamiliar) => (
-            <input
-              value={f[c]}
-              placeholder={label}
-              aria-label={label}
-              className={(c === 'correoElectronico' ? (!correoValido(f[c]) || faltaContactoFamiliar(f)) : faltaNombreFamiliar(f)) ? 'error' : undefined}
-              title={c === 'correoElectronico' ? (faltaContactoFamiliar(f) ? MSG_CONTACTO_FAMILIAR : correoValido(f[c]) ? undefined : MSG_CORREO) : (faltaNombreFamiliar(f) ? MSG_NOMBRE_FAMILIAR : undefined)}
-              type={c === 'correoElectronico' ? 'email' : undefined}
-              maxLength={c === 'correoElectronico' ? MAX_CORREO : MAX_NOMBRE_FAMILIAR}
-              onChange={(e) => cambiar({ [c]: e.target.value })}
-            />
-          )
+          const campo = (label: string, c: CampoFamiliar) => {
+            const nombre = c === 'nombreCompleto'
+            const error = nombre ? errorNombre(f) : errorCorreo(f) || errorContacto(f)
+            const mensaje = nombre ? MSG_NOMBRE_FAMILIAR : errorContacto(f) ? MSG_CONTACTO_FAMILIAR : MSG_CORREO
+            return (
+              <label style={{ position: 'relative', minWidth: 0 }}>
+                <input
+                  value={f[c]}
+                  placeholder={label}
+                  aria-label={label}
+                  aria-required={nombre || undefined}
+                  aria-invalid={error || undefined}
+                  className={error ? 'error' : undefined}
+                  title={error ? mensaje : undefined}
+                  type={nombre ? undefined : 'email'}
+                  maxLength={nombre ? MAX_NOMBRE_FAMILIAR : MAX_CORREO}
+                  style={nombre ? { paddingRight: 28 } : undefined}
+                  onBlur={() => tocar(f.id, nombre ? 'nombre' : 'correo')}
+                  onChange={(e) => {
+                    tocar(f.id, nombre ? 'nombre' : 'correo')
+                    cambiar({ [c]: e.target.value })
+                  }}
+                />
+                {nombre && <span className="requerido" aria-hidden="true" style={{ position: 'absolute', right: 12, top: 14 }}>*</span>}
+              </label>
+            )
+          }
           return (
           <div key={i} className="familiar">
             {campo('Nombre completo', 'nombreCompleto')}
@@ -189,26 +214,29 @@ export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[
               chevronTamano={12}
               chevronDerecha={12}
             />
-            <Telefono
-              paisId={f.telefonoPaisId}
-              numero={f.telefono}
-              error={faltaContactoFamiliar(f)}
-              placeholder="Teléfono"
-              ariaLabel="Teléfono"
-              onPais={(telefonoPaisId) => cambiar({ telefonoPaisId })}
-              onNumero={(telefono) => cambiar({ telefono })}
-            />
+            <span style={{ minWidth: 0 }} onBlur={() => tocar(f.id, 'contacto')}>
+              <Telefono
+                paisId={f.telefonoPaisId}
+                numero={f.telefono}
+                error={errorContacto(f)}
+                placeholder="Teléfono"
+                ariaLabel="Teléfono"
+                onPais={(telefonoPaisId) => { tocar(f.id, 'contacto'); cambiar({ telefonoPaisId }) }}
+                onNumero={(telefono) => { tocar(f.id, 'contacto'); cambiar({ telefono }) }}
+              />
+            </span>
             {campo('Correo', 'correoElectronico')}
             <BotonEliminar titulo="Quitar familiar" onClick={() => onCambiar(familiares.filter((_, j) => j !== i))} />
           </div>
           )
         })}
+        <span className="ayuda">Nombre requerido. Ingrese al menos un teléfono o un correo por familiar.</span>
         <span className="ayuda">Familiares: {familiares.length}/{MAX_FAMILIARES}.</span>
         {limiteFamiliares(familiares) && <span className="msg-error">{limiteFamiliares(familiares)}</span>}
         {familiares.length === 0 && <span className="vacio">Sin familiares registrados.</span>}
-        {familiares.some(faltaContactoFamiliar) && <span className="msg-error">{MSG_CONTACTO_FAMILIAR}</span>}
-        {familiares.some(faltaNombreFamiliar) && <span className="msg-error">{MSG_NOMBRE_FAMILIAR}</span>}
-        {!familiares.every((f) => correoValido(f.correoElectronico)) && <span className="msg-error">{MSG_CORREO}</span>}
+        {familiares.some(errorContacto) && <span className="msg-error">{MSG_CONTACTO_FAMILIAR}</span>}
+        {familiares.some(errorNombre) && <span className="msg-error">{MSG_NOMBRE_FAMILIAR}</span>}
+        {familiares.some(errorCorreo) && <span className="msg-error">{MSG_CORREO}</span>}
       </div>
     </TarjetaSeccion>
   )
@@ -267,4 +295,5 @@ export function Comentarios({
     </TarjetaSeccion>
   )
 }
+
 

@@ -51,8 +51,28 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await act(async()=>props(correo).onChange({target:{value:'final@mail.cr'}}))
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
     assert.equal(enviados.length,2);assert.equal(enviados[1][1][0].correo,'final@mail.cr')
+    api.guardarFamiliares=async(_id,fs)=>{enviados.push(['familiares',fs]);return {data:fs.map((f,i)=>({...f,id:i+1})),version:'f2'}}
+    const boton=texto=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===texto)
+    await act(async()=>props(boton('Familiares')).onClick())
+    await act(async()=>props(boton('+ Agregar familiar')).onClick())
+    assert.equal(document.querySelectorAll('.familiar .error').length,0,'Una fila nueva no empieza en rojo')
+    assert.ok(document.querySelector('.familiar .requerido'))
+    assert.match(document.body.textContent,/al menos un teléfono o un correo por familiar/)
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,2,'La fila vacía permanece pendiente y no se guarda')
+    await act(async()=>props(document.querySelector('.familiar input[aria-label="Nombre completo"]')).onChange({target:{value:'Luis'}}))
+    assert.equal(document.querySelectorAll('.familiar .error').length,0,'No muestra errores en contactos aún no editados')
+    await act(async()=>props(document.querySelector('.volver')).onClick())
+    assert.ok(document.querySelector('.familiar .telefono.error'),'Intentar salir muestra el contacto pendiente')
+    await act(async()=>props(document.querySelector('.familiar input[aria-label="Teléfono"]')).onChange({target:{value:'88887777'}}))
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,3)
+    assert.equal(enviados[2][0],'familiares');assert.equal(enviados[2][1][0].telefono,'88887777')
+    assert.equal(document.querySelectorAll('.familiar .error').length,0)
+
   } finally {
     if(root) {const {act}=await import('react');await act(async()=>root.unmount())}
     await vite.close();dom.window.close()
   }
 })
+

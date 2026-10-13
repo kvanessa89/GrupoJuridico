@@ -557,7 +557,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         )}
         {en('ventas') && persona?.venta !== null && bloqueVenta}
         {en('ventas') && persona?.prima !== null && bloquePrima}
-        {en('familiares') && <Familiares familiares={form.familiares} onCambiar={(f) => cambiarLista('familiares', f)} />}
+        {en('familiares') && <Familiares familiares={form.familiares} mostrarErrores={volverIntento || crearIntento || blocker.state === 'blocked'} onCambiar={(f) => cambiarLista('familiares', f)} />}
         {!nuevo && en('actividad') && (
           <Comentarios
             comentarios={comentarios}
@@ -586,4 +586,5 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     </div>
   )
 }
+
 
