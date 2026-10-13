@@ -12,7 +12,7 @@ import { EditorSecciones, SeccionBloqueadaError, type SeccionVersion } from '../
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
 import { fFecha, fNumero, iniciales, num, origenEtiqueta, soloDigitos, vendedorEtiqueta } from '../../utils/formato'
 import {
-  correoValido, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
+  correoValido, ETIQUETAS, etiquetaDe, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
 import { Comentarios, Contactos, Familiares } from './Secciones'
@@ -159,7 +159,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     if (nuevo) return []
     const lista: { campo: string; pestana: Pestana }[] = []
     const agregar = (e: Record<string, string>, pestana: Pestana) =>
-      Object.entries(e).forEach(([campo, mensaje]) => lista.push({ campo: `${campo}: ${mensaje}`, pestana }))
+      Object.entries(e).forEach(([campo, mensaje]) => lista.push({ campo: `${etiquetaDe(campo)} ${mensaje}`, pestana }))
     agregar(erroresDatos(f, esCliente, catalogos?.paises), 'general')
     agregar(erroresVenta(f), 'ventas')
     agregar(erroresPrima(f), 'ventas')
@@ -354,14 +354,14 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const bloqueDatos = (
     <TarjetaSeccion titulo="Datos de la persona">
       <div className="grilla-campos">
-        <CampoTexto label="Nombres" valor={d.nombres} onChange={(v) => cambiar('datos', 'nombres', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('nombres')} />
-        <CampoTexto label="Apellidos" valor={d.apellidos} onChange={(v) => cambiar('datos', 'apellidos', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('apellidos')} />
-        <CampoTexto label="Cédula" valor={d.cedula} onChange={(v) => cambiar('datos', 'cedula', soloDigitos(v))} inputMode="numeric" maxLength={MAX_CEDULA} requerido={req} error={err('cedula')} />
-        <CampoTexto label="Número de finca" valor={d.finca} onChange={(v) => cambiar('datos', 'finca', v)} placeholder="12-12345" maxLength={MAX_FINCA} requerido={req} error={err('finca')} />
-        <CampoTexto label="Número de expediente" valor={d.expediente} onChange={(v) => cambiar('datos', 'expediente', v)} placeholder="12-123456-1234-AB" maxLength={MAX_EXPEDIENTE} error={err('expediente')} />
-        <CampoTexto label="Fecha de ingreso" tipo="date" valor={d.fechaIngreso} onChange={(v) => cambiar('datos', 'fechaIngreso', v)} requerido={req} error={err('fechaIngreso')} />
+        <CampoTexto label={ETIQUETAS.nombres} valor={d.nombres} onChange={(v) => cambiar('datos', 'nombres', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('nombres')} />
+        <CampoTexto label={ETIQUETAS.apellidos} valor={d.apellidos} onChange={(v) => cambiar('datos', 'apellidos', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('apellidos')} />
+        <CampoTexto label={ETIQUETAS.cedula} valor={d.cedula} onChange={(v) => cambiar('datos', 'cedula', soloDigitos(v))} inputMode="numeric" maxLength={MAX_CEDULA} requerido={req} error={err('cedula')} />
+        <CampoTexto label={ETIQUETAS.finca} valor={d.finca} onChange={(v) => cambiar('datos', 'finca', v)} placeholder="12-12345" maxLength={MAX_FINCA} requerido={req} error={err('finca')} />
+        <CampoTexto label={ETIQUETAS.expediente} valor={d.expediente} onChange={(v) => cambiar('datos', 'expediente', v)} placeholder="12-123456-1234-AB" maxLength={MAX_EXPEDIENTE} error={err('expediente')} />
+        <CampoTexto label={ETIQUETAS.fechaIngreso} tipo="date" valor={d.fechaIngreso} onChange={(v) => cambiar('datos', 'fechaIngreso', v)} requerido={req} error={err('fechaIngreso')} />
         <CampoSelect
-          label="Vendido por" valor={d.vendedorId} onChange={(v) => cambiar('datos', 'vendedorId', v)} requerido={req} error={err('vendedorId')}
+          label={ETIQUETAS.vendedorId} valor={d.vendedorId} onChange={(v) => cambiar('datos', 'vendedorId', v)} requerido={req} error={err('vendedorId')}
           opciones={sel('Seleccione…', (cats?.vendedores ?? []).map((x) => ({ v: String(x.id), l: vendedorEtiqueta(x) })))}
         />
         {esCliente && (
@@ -379,17 +379,17 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         {!esCliente && (
           <>
             <CampoTelefono
-              label="Teléfono principal" paisId={idONull(d.telefonoPrincipalPaisId)} numero={d.telefonoPrincipal}
+              label={ETIQUETAS.telefonoPrincipal} paisId={idONull(d.telefonoPrincipalPaisId)} numero={d.telefonoPrincipal}
               onPais={(v) => cambiar('datos', 'telefonoPrincipalPaisId', String(v))} onNumero={(v) => cambiar('datos', 'telefonoPrincipal', v)}
               requerido={req} error={err('telefonoPrincipal')}
             />
             <CampoTelefono
-              label="WhatsApp principal" paisId={idONull(d.whatsappPrincipalPaisId)} numero={d.whatsappPrincipal}
+              label={ETIQUETAS.whatsappPrincipal} paisId={idONull(d.whatsappPrincipalPaisId)} numero={d.whatsappPrincipal}
               onPais={(v) => cambiar('datos', 'whatsappPrincipalPaisId', String(v))} onNumero={(v) => cambiar('datos', 'whatsappPrincipal', v)}
               requerido={req} error={err('whatsappPrincipal')}
             />
             <CampoTexto
-              label="Correo electrónico principal" tipo="email" valor={d.correoPrincipal} maxLength={MAX_CORREO}
+              label={ETIQUETAS.correoPrincipal} tipo="email" valor={d.correoPrincipal} maxLength={MAX_CORREO}
               onChange={(v) => cambiar('datos', 'correoPrincipal', v)}
               error={correoValido(d.correoPrincipal) ? err('correoPrincipal') : MSG_CORREO}
             />
@@ -403,30 +403,30 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     <TarjetaSeccion titulo="Venta">
       <div className="grilla-campos">
         <CampoSelect
-          label="Procedencia de venta" valor={form.venta.procedenciaVentaId} onChange={(v) => cambiar('venta', 'procedenciaVentaId', v)}
+          label={ETIQUETAS.procedenciaVentaId} valor={form.venta.procedenciaVentaId} onChange={(v) => cambiar('venta', 'procedenciaVentaId', v)}
           requerido={req} error={err('procedenciaVentaId')}
           opciones={sel('Seleccione…', (cats?.procedencias ?? []).map((x) => ({ v: String(x.id), l: x.nombre })))}
         />
         <CampoSelect
-          label="Método de venta" valor={form.venta.metodoVentaId} onChange={(v) => cambiar('venta', 'metodoVentaId', v)}
+          label={ETIQUETAS.metodoVentaId} valor={form.venta.metodoVentaId} onChange={(v) => cambiar('venta', 'metodoVentaId', v)}
           requerido={req} error={err('metodoVentaId')}
           opciones={sel('Seleccione…', (cats?.metodos ?? []).map((x) => ({ v: String(x.id), l: x.nombre })))}
         />
-        <CampoMonto label="Monto de la venta" valor={form.venta.monto} onChange={(v) => cambiar('venta', 'monto', v)} requerido={req} error={err('montoVenta')} />
+        <CampoMonto label={ETIQUETAS.montoVenta} valor={form.venta.monto} onChange={(v) => cambiar('venta', 'monto', v)} requerido={req} error={err('montoVenta')} />
       </div>
-      <CampoNotas label="Notas de la venta" maxLength={MAX_NOTAS_VENTA} error={err('notasVenta')} valor={form.venta.notas} onChange={(v) => cambiar('venta', 'notas', v)} />
+      <CampoNotas label={ETIQUETAS.notasVenta} maxLength={MAX_NOTAS_VENTA} error={err('notasVenta')} valor={form.venta.notas} onChange={(v) => cambiar('venta', 'notas', v)} />
     </TarjetaSeccion>
   )
 
   const bloquePrima = (
     <TarjetaSeccion titulo="Prima">
       <div className="grilla-campos">
-        <CampoMonto label="Monto de prima" valor={form.prima.monto} onChange={(v) => cambiar('prima', 'monto', v)} requerido={req} error={err('montoPrima')} />
-        <CampoMonto label="Monto cancelado" valor={form.prima.montoCancelado} onChange={(v) => cambiar('prima', 'montoCancelado', v)} requerido error={err('montoCancelado')} />
+        <CampoMonto label={ETIQUETAS.montoPrima} valor={form.prima.monto} onChange={(v) => cambiar('prima', 'monto', v)} requerido={req} error={err('montoPrima')} />
+        <CampoMonto label={ETIQUETAS.montoCancelado} valor={form.prima.montoCancelado} onChange={(v) => cambiar('prima', 'montoCancelado', v)} requerido error={err('montoCancelado')} />
         <CampoTexto label="Saldo pendiente" valor={fNumero(prima.saldo)} soloLectura />
-        <CampoTexto label="Fecha estimada de pago" tipo="date" valor={form.prima.fechaEstimadaPago} onChange={(v) => cambiar('prima', 'fechaEstimadaPago', v)} />
+        <CampoTexto label={ETIQUETAS.fechaEstimadaPago} tipo="date" valor={form.prima.fechaEstimadaPago} onChange={(v) => cambiar('prima', 'fechaEstimadaPago', v)} />
         <CampoTexto
-          label="Fecha de pago" tipo="date" valor={form.prima.fechaPago} onChange={(v) => cambiar('prima', 'fechaPago', v)}
+          label={ETIQUETAS.fechaPago} tipo="date" valor={form.prima.fechaPago} onChange={(v) => cambiar('prima', 'fechaPago', v)}
           requerido={fechaReq} error={fechaFalta ? 'Requerida cuando la prima está pagada.' : err('fechaPago')}
         />
         <CampoTexto label="Estado de prima" valor={nombrePrima} soloLectura />

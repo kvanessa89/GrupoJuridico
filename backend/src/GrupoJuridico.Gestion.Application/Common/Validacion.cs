@@ -36,7 +36,7 @@ public static class Validacion
         if (Vacio(numero)) return;
         var largo = SoloDigitos(codigoPais) switch { "506" => 8, _ => 0 };
         if (largo > 0 && SoloDigitos(numero).Length != largo)
-            throw new ValidacionException(campo, $"El número debe tener {largo} dígitos, sin el prefijo del país.");
+            throw new ValidacionException(campo, $"El número debe estar conformado por {largo} dígitos.");
     }
 
     /// <summary>Correo con forma usuario@dominio.ext, sin espacios. Vacío se considera válido (es opcional).</summary>
