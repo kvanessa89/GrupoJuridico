@@ -974,7 +974,7 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Vendedor", "Vendedor")
                         .WithMany()
                         .HasForeignKey("VendedorId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Cliente");
 
@@ -1035,7 +1035,7 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.MetodoVenta", "MetodoVenta")
                         .WithMany()
                         .HasForeignKey("MetodoVentaId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Persona", "Persona")
                         .WithMany("Ventas")
@@ -1046,7 +1046,7 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.ProcedenciaVenta", "ProcedenciaVenta")
                         .WithMany()
                         .HasForeignKey("ProcedenciaVentaId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("MetodoVenta");
 

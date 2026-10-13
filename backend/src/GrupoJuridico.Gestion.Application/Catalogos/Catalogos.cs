@@ -148,22 +148,24 @@ public class CatalogosService
             case "vendedores":
             {
                 var v = await _db.Vendedores.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Vendedor", id);
-                // Las personas vendidas por este vendedor quedan sin vendedor.
-                await _db.Personas.Where(p => p.VendedorId == id).ExecuteUpdateAsync(s => s.SetProperty(p => p.VendedorId, (int?)null), ct);
+                var enUso = await _db.Personas.CountAsync(p => p.VendedorId == id, ct);
+                if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} persona(s) tienen este vendedor.");
                 _db.Vendedores.Remove(v);
                 break;
             }
             case "procedencias":
             {
                 var x = await _db.ProcedenciasVenta.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Procedencia", id);
-                await _db.Ventas.Where(v => v.ProcedenciaVentaId == id).ExecuteUpdateAsync(s => s.SetProperty(v => v.ProcedenciaVentaId, (int?)null), ct);
+                var enUso = await _db.Ventas.CountAsync(v => v.ProcedenciaVentaId == id, ct);
+                if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} venta(s) tienen esta procedencia.");
                 _db.ProcedenciasVenta.Remove(x);
                 break;
             }
             case "metodos":
             {
                 var x = await _db.MetodosVenta.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Método", id);
-                await _db.Ventas.Where(v => v.MetodoVentaId == id).ExecuteUpdateAsync(s => s.SetProperty(v => v.MetodoVentaId, (int?)null), ct);
+                var enUso = await _db.Ventas.CountAsync(v => v.MetodoVentaId == id, ct);
+                if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} venta(s) tienen este método.");
                 _db.MetodosVenta.Remove(x);
                 break;
             }

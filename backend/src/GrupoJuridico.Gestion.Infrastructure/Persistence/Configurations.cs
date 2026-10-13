@@ -94,7 +94,7 @@ internal class PersonaConfig : IEntityTypeConfiguration<Persona>
         b.HasIndex(x => x.ClienteId).IsUnique();
 
         b.HasOne(x => x.Cliente).WithOne(c => c.Persona).HasForeignKey<Persona>(x => x.ClienteId).OnDelete(DeleteBehavior.SetNull);
-        b.HasOne(x => x.Vendedor).WithMany().HasForeignKey(x => x.VendedorId).OnDelete(DeleteBehavior.SetNull);
+        b.HasOne(x => x.Vendedor).WithMany().HasForeignKey(x => x.VendedorId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasMany(x => x.Ventas).WithOne(v => v.Persona).HasForeignKey(v => v.PersonaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(x => x.Numeros).WithOne().HasForeignKey(n => n.PersonaId).OnDelete(DeleteBehavior.Cascade);
@@ -130,8 +130,8 @@ internal class VentaConfig : IEntityTypeConfiguration<Venta>
         b.ToTable("Ventas");
         b.Property(x => x.Monto).HasPrecision(14, 2);
         b.Property(x => x.Notas).HasMaxLength(4000);
-        b.HasOne(x => x.ProcedenciaVenta).WithMany().HasForeignKey(x => x.ProcedenciaVentaId).OnDelete(DeleteBehavior.SetNull);
-        b.HasOne(x => x.MetodoVenta).WithMany().HasForeignKey(x => x.MetodoVentaId).OnDelete(DeleteBehavior.SetNull);
+        b.HasOne(x => x.ProcedenciaVenta).WithMany().HasForeignKey(x => x.ProcedenciaVentaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.MetodoVenta).WithMany().HasForeignKey(x => x.MetodoVentaId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Prima).WithOne(p => p.Venta).HasForeignKey<Prima>(p => p.VentaId).OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -380,6 +380,33 @@ public class PersonasAccesoTests
         Assert.Null(await db.Paises.FindAsync(nuevo.Id));
     }
 
+    [Theory]
+    [InlineData("vendedores")]
+    [InlineData("procedencias")]
+    [InlineData("metodos")]
+    public async Task Catalogo_de_venta_no_se_elimina_si_esta_en_uso(string tipo)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var catalogos = new Catalogos.CatalogosService(db, new IdentityPrueba());
+        var usado = await catalogos.CrearAsync(tipo, new Catalogos.GuardarCatalogoItemRequest("Usado", null, null));
+        var libre = await catalogos.CrearAsync(tipo, new Catalogos.GuardarCatalogoItemRequest("Libre", null, null));
+        var persona = await db.Personas.Include(p => p.Ventas).SingleAsync(p => p.Id == id);
+        switch (tipo)
+        {
+            case "vendedores": persona.VendedorId = usado.Id; break;
+            case "procedencias": persona.Ventas[0].ProcedenciaVentaId = usado.Id; break;
+            case "metodos": persona.Ventas[0].MetodoVentaId = usado.Id; break;
+        }
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<ValidacionException>(() => catalogos.EliminarAsync(tipo, usado.Id));
+        await catalogos.EliminarAsync(tipo, libre.Id);
+
+        IQueryable<Domain.Common.Catalogo> items = tipo == "vendedores" ? db.Vendedores : tipo == "procedencias" ? db.ProcedenciasVenta : db.MetodosVenta;
+        Assert.Equal(new[] { "Usado" }, await items.Select(x => x.Nombre).ToListAsync());
+    }
+
     [Fact]
     public async Task Carrera_real_revierte_todos_los_cambios_del_segundo_guardado()
     {
