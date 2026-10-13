@@ -6,6 +6,7 @@ import type { ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, PersonaDetalle }
 import { useSesion } from '../../auth/Sesion'
 import { EtiquetaEstadoGrande, EtiquetaPrimaGrande } from '../../components/Chips'
 import { CampoMonto, CampoNotas, CampoSelect, CampoTelefono, CampoTexto, Select, TarjetaSeccion, type Opcion } from '../../components/Controles'
+import { Cargando } from '../../components/Cargando'
 import { Atras, Check } from '../../components/Iconos'
 import { EditorSecciones, SeccionBloqueadaError, type SeccionVersion } from '../../hooks/EditorSecciones'
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
@@ -333,7 +334,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       </div>
     )
   }
-  if (!nuevo && !persona) return <div className="contenedor-ficha" />
+  if (!nuevo && !persona) return <div className="contenedor-ficha"><Cargando pantalla texto="Cargando ficha…" /></div>
 
   const cats = catalogos
   const d = form.datos

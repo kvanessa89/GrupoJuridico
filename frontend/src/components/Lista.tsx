@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { FiltrosLista } from '../api/tipos'
+import { Cargando } from './Cargando'
 import { Adelante, Atras, Basurero, Chevron, Lupa } from './Iconos'
 import type { Opcion } from './Controles'
 import { enlaceTel } from '../utils/formato'
@@ -129,6 +130,7 @@ export function Tabla({
           </tbody>
         </table>
       </div>
+      {cargando && filas.length === 0 && <Cargando />}
       {!cargando && filas.length === 0 && <div className="sin-resultados">No hay registros que coincidan con los filtros.</div>}
     </div>
   )
