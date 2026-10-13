@@ -8,6 +8,10 @@ namespace GrupoJuridico.Gestion.Domain.Entities;
 /// </summary>
 public class Persona : BaseEntity
 {
+    public const int MaxTelefonos = 2;
+    public const int MaxWhatsApp = 2;
+    public const int MaxCorreos = 3;
+    public const int MaxFamiliares = 4;
     /// <summary>Largo máximo de Nombres y de Apellidos (regla de negocio; la columna admite más).</summary>
     public const int MaxNombre = 20;
     /// <summary>Largo máximo de la cédula (solo dígitos).</summary>

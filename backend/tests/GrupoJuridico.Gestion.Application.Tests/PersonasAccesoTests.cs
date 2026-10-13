@@ -595,7 +595,7 @@ public class PersonasAccesoTests
         Task Guardar((int Id, string Valor)[] filas, Guid version) => tipo switch
         {
             "numeros" => servicio.ReemplazarNumerosAsync(id,
-                filas.Select(x => new NumeroItem(x.Id, x.Valor, "Teléfono", true)).ToArray(), version: version),
+                filas.Select((x, i) => new NumeroItem(x.Id, x.Valor, i == 2 ? "WhatsApp" : "Teléfono", true)).ToArray(), version: version),
             "correos" => servicio.ReemplazarCorreosAsync(id,
                 filas.Select(x => new CorreoItem(x.Id, x.Valor, true)).ToArray(), version: version),
             _ => servicio.ReemplazarFamiliaresAsync(id,
@@ -624,6 +624,93 @@ public class PersonasAccesoTests
             tipo == "correos" ? despues.Correos.Single(x => x.Id == propio).Correo :
             despues.Familiares.Single(x => x.Id == propio).NombreCompleto;
         Assert.Equal(valores[1], valorEditado);
+    }
+
+    [Theory]
+    [InlineData("telefonos", 2)]
+    [InlineData("whatsapp", 2)]
+    [InlineData("correos", 3)]
+    [InlineData("familiares", 4)]
+    public async Task Listas_aceptan_maximo_y_rechazan_exceso_sin_cambiar_datos_ni_version(string tipo, int maximo)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var seccion = tipo == "familiares" ? "familiares" : "datos";
+        Task Guardar(int cantidad, Guid version) => tipo switch
+        {
+            "telefonos" or "whatsapp" => servicio.ReemplazarNumerosAsync(id, Enumerable.Range(0, cantidad)
+                .Select(i => new NumeroItem(-i, "8888000" + i, tipo == "telefonos" ? "Teléfono" : "WhatsApp", i == 0)).ToArray(), version: version),
+            "correos" => servicio.ReemplazarCorreosAsync(id, Enumerable.Range(0, cantidad)
+                .Select(i => new CorreoItem(-i, "correo" + i + "@mail.cr", i == 0)).ToArray(), version: version),
+            _ => servicio.ReemplazarFamiliaresAsync(id, Enumerable.Range(0, cantidad)
+                .Select(i => new FamiliarItem(-i, "Familiar " + i, null, "", "", "")).ToArray(), version: version)
+        };
+        string Lista(PersonaDetalleDto ficha) => tipo switch
+        {
+            "telefonos" or "whatsapp" => System.Text.Json.JsonSerializer.Serialize(ficha.Numeros),
+            "correos" => System.Text.Json.JsonSerializer.Serialize(ficha.Correos),
+            _ => System.Text.Json.JsonSerializer.Serialize(ficha.Familiares)
+        };
+        await Guardar(maximo, (await servicio.ObtenerAsync(id)).Versiones[seccion]);
+        var antes = await servicio.ObtenerAsync(id);
+        var guardados = db.Guardados;
+        var error = await Assert.ThrowsAsync<ValidacionException>(() => Guardar(maximo + 1, antes.Versiones[seccion]));
+        Assert.Contains(tipo == "telefonos" || tipo == "whatsapp" ? "numeros" : tipo, error.Errores.Keys);
+        Assert.Equal(guardados, db.Guardados);
+        Assert.DoesNotContain(db.ChangeTracker.Entries(), e =>
+            e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted);
+        db.ChangeTracker.Clear();
+        var despues = await servicio.ObtenerAsync(id);
+        Assert.Equal(Lista(antes), Lista(despues));
+        Assert.Equal(antes.Versiones[seccion], despues.Versiones[seccion]);
+        // El mismo token sigue sirviendo después del rechazo y permite reducir la lista.
+        await Guardar(maximo - 1, antes.Versiones[seccion]);
+    }
+
+    [Fact]
+    public async Task Telefonos_y_whatsapp_tienen_cupos_separados_y_el_cambio_de_tipo_respeta_el_maximo()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var items = new[]
+        {
+            new NumeroItem(0, "11111111", "Teléfono", true),
+            new NumeroItem(-1, "22222222", "Teléfono", false),
+            new NumeroItem(-2, "33333333", "WhatsApp", true),
+            new NumeroItem(-3, "44444444", "WhatsApp", false)
+        };
+        var resultado = await servicio.ReemplazarNumerosAsync(id, items,
+            version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        Assert.Equal(4, resultado.Count);
+        var antes = await servicio.ObtenerAsync(id);
+        var cambio = resultado.Select((x, i) => new NumeroItem(x.Id, x.Numero, i == 0 ? "WhatsApp" : x.Tipo, x.Principal, x.PaisId)).ToArray();
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarNumerosAsync(id, cambio, version: antes.Versiones["datos"]));
+        Assert.Equal(2, (await servicio.ObtenerAsync(id)).Numeros.Count(x => x.Tipo == "Teléfono"));
+        Assert.Equal(2, (await servicio.ObtenerAsync(id)).Numeros.Count(x => x.Tipo == "WhatsApp"));
+    }
+
+    [Fact]
+    public async Task Crear_prospecto_admite_cuatro_familiares_y_rechaza_cinco_sin_crear_persona()
+    {
+        using var db = CrearDb();
+        var vendedor = new Vendedor { Codigo = "30", Nombre = "Marta" };
+        var procedencia = new ProcedenciaVenta { Nombre = "Feria" };
+        var metodo = new MetodoVenta { Nombre = "Llamada" };
+        db.AddRange(vendedor, procedencia, metodo, new Pais { Codigo = "+506", Nombre = "Costa Rica" });
+        await db.SaveChangesAsync();
+        var servicio = CrearServicio(db, Roles.Administrador);
+        CrearProspectoRequest Request(int cantidad) => new(
+            "Ana", "Vargas", "123", "Finca", "", new DateOnly(2026, 10, 9), vendedor.Id,
+            "88888888", "", "", procedencia.Id, metodo.Id, 1000m, "", 100m, 0m, null, null,
+            Enumerable.Range(0, cantidad).Select(i => new FamiliarItem(-i, "Familiar " + i, null, "", "", "")).ToArray());
+        var guardados = db.Guardados;
+        await Assert.ThrowsAsync<ValidacionException>(() => servicio.CrearProspectoAsync(Request(5)));
+        Assert.Equal(guardados, db.Guardados);
+        Assert.Empty(await db.Personas.ToListAsync());
+        var creada = await servicio.CrearProspectoAsync(Request(4));
+        Assert.Equal(4, creada.Familiares.Count);
     }
 
     private static TestDb CrearDb() => new(new DbContextOptionsBuilder<TestDb>()

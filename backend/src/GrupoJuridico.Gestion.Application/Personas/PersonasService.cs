@@ -89,6 +89,12 @@ public class PersonasService
     private static FamiliarDto FamiliarDe(PersonaFamiliar f) =>
         new(f.Id, f.NombreCompleto, f.ParentescoId, f.Telefono, f.CorreoElectronico, f.Whatsapp, f.TelefonoPaisId, f.WhatsappPaisId);
 
+    private static void ValidarCantidad(int cantidad, int maximo, string campo, string etiqueta)
+    {
+        if (cantidad > maximo)
+            throw new ValidacionException(campo, $"Se permiten como máximo {maximo} {etiqueta} por persona.");
+    }
+
     /// <summary>Un ID positivo identifica una fila existente de esta persona; nunca es un alta implícita.</summary>
     private static void ValidarIdsPropios(IEnumerable<int> ids, IEnumerable<int> propios, string campo)
     {
@@ -169,6 +175,7 @@ public class PersonasService
     public async Task<PersonaDetalleDto> CrearProspectoAsync(CrearProspectoRequest r, CancellationToken ct = default)
     {
         await _crearValidator.ValidarAsync(r, ct);
+        ValidarCantidad((r.Familiares ?? Array.Empty<FamiliarItem>()).Count(f => !FamiliarVacio(f)), Persona.MaxFamiliares, "familiares", "familiares");
         await ValidarParentescosAsync(r.Familiares ?? Array.Empty<FamiliarItem>(), ct);
         await ValidarCatalogoAsync(_db.Vendedores, r.VendedorId, nameof(r.VendedorId), "El vendedor seleccionado ya no existe. Recargue la página y elija otro.", ct);
         await ValidarCatalogoAsync(_db.ProcedenciasVenta, r.ProcedenciaVentaId, nameof(r.ProcedenciaVentaId), "La procedencia seleccionada ya no existe. Recargue la página y elija otra.", ct);
@@ -313,6 +320,8 @@ public class PersonasService
     {
         var p = await CargarAsync(id, ct);
         ValidarIdsPropios(items.Select(i => i.Id), p.Numeros.Select(x => x.Id), "numeros");
+        ValidarCantidad(items.Count(i => TipoDesde(i.Tipo) == TipoNumero.Telefono), Persona.MaxTelefonos, "numeros", "teléfonos");
+        ValidarCantidad(items.Count(i => TipoDesde(i.Tipo) == TipoNumero.WhatsApp), Persona.MaxWhatsApp, "numeros", "números de WhatsApp");
         await PrepararVersionAsync(p, "datos", version);
         var pais = await PaisesAsync(ct);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
@@ -339,6 +348,7 @@ public class PersonasService
         foreach (var i in items) Validacion.Correo(i.Correo, nameof(i.Correo), Persona.MaxCorreo);
         var p = await CargarAsync(id, ct);
         ValidarIdsPropios(items.Select(i => i.Id), p.Correos.Select(x => x.Id), "correos");
+        ValidarCantidad(items.Count, Persona.MaxCorreos, "correos", "correos");
         await PrepararVersionAsync(p, "datos", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Correos.RemoveRange(p.Correos.Where(c => !conservar.Contains(c.Id)));
@@ -372,6 +382,7 @@ public class PersonasService
         await ValidarParentescosAsync(items, ct);
         var p = await CargarAsync(id, ct);
         ValidarIdsPropios(items.Select(i => i.Id), p.Familiares.Select(x => x.Id), "familiares");
+        ValidarCantidad(items.Count, Persona.MaxFamiliares, "familiares", "familiares");
         await PrepararVersionAsync(p, "familiares", version);
         var pais = await PaisesAsync(ct);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();

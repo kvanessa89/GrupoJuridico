@@ -8,6 +8,8 @@ import { colorAutor } from '../../utils/colores'
 import { fFecha, iniciales } from '../../utils/formato'
 import { correoValido, faltaNombreFamiliar, MAX_CORREO, MAX_NOMBRE_FAMILIAR, MSG_CORREO, MSG_NOMBRE_FAMILIAR } from './formulario'
 
+import { MAX_TELEFONOS, MAX_WHATSAPP, MAX_CORREOS, MAX_FAMILIARES, limiteNumeros, limiteCorreos, limiteFamiliares } from './limitesContactos'
+
 function BotonEliminar({ onClick, titulo = 'Eliminar' }: { onClick: () => void; titulo?: string }) {
   return (
     <button className="btn-icono" title={titulo} aria-label={titulo} onClick={onClick}>
@@ -20,7 +22,14 @@ function BotonEliminar({ onClick, titulo = 'Eliminar' }: { onClick: () => void; 
 export function Contactos({
   numeros, correos, onNumeros, onCorreos,
 }: { numeros: NumeroDto[]; correos: CorreoDto[]; onNumeros: (n: NumeroDto[]) => void; onCorreos: (c: CorreoDto[]) => void }) {
+  const telefonos = numeros.filter(n => n.tipo === 'Teléfono').length
+  const whatsapps = numeros.filter(n => n.tipo === 'WhatsApp').length
+  const agregarNumero = (tipo: TipoNumero) => {
+    if ((tipo === 'Teléfono' ? telefonos >= MAX_TELEFONOS : whatsapps >= MAX_WHATSAPP)) return
+    onNumeros([...numeros, { id: siguienteIdLocal--, numero: '', tipo, principal: !numeros.some(x => x.tipo === tipo && x.principal), paisId: null }])
+  }
   const cambiarTipo = (i: number, tipo: TipoNumero) => {
+    if (numeros[i].tipo !== tipo && (tipo === 'Teléfono' ? telefonos >= MAX_TELEFONOS : whatsapps >= MAX_WHATSAPP)) return
     const hay = numeros.some((x, j) => j !== i && x.tipo === tipo && x.principal)
     onNumeros(numeros.map((x, j) => (j === i ? { ...x, tipo, principal: !hay } : x)))
   }
@@ -49,12 +58,10 @@ export function Contactos({
       <TarjetaSeccion
         titulo="Teléfonos"
         accion={
-          <button
-            className="btn-enlace"
-            onClick={() => onNumeros([...numeros, { id: siguienteIdLocal--, numero: '', tipo: 'Teléfono', principal: !numeros.some((x) => x.tipo === 'Teléfono' && x.principal), paisId: null }])}
-          >
-            + Agregar
-          </button>
+          <span style={{ display: 'flex', gap: 12 }}>
+            <button className="btn-enlace" disabled={telefonos >= MAX_TELEFONOS} onClick={() => agregarNumero('Teléfono')}>+ Teléfono</button>
+            <button className="btn-enlace" disabled={whatsapps >= MAX_WHATSAPP} onClick={() => agregarNumero('WhatsApp')}>+ WhatsApp</button>
+          </span>
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -72,7 +79,7 @@ export function Contactos({
                   <Select
                     valor={n.tipo}
                     onChange={(v) => cambiarTipo(i, v as TipoNumero)}
-                    opciones={[{ v: 'Teléfono', l: 'Teléfono' }, { v: 'WhatsApp', l: 'WhatsApp' }]}
+                    opciones={[{ v: 'Teléfono', l: 'Teléfono' }, { v: 'WhatsApp', l: 'WhatsApp' }].filter(o => o.v === n.tipo || (o.v === 'Teléfono' ? telefonos < MAX_TELEFONOS : whatsapps < MAX_WHATSAPP))}
                     className="tipo-numero"
                     ariaLabel="Tipo de número"
                     chevronTamano={12}
@@ -88,13 +95,15 @@ export function Contactos({
           })}
           {numeros.length === 0 && <span className="vacio">Sin números registrados.</span>}
         </div>
+        <p className="ayuda">Teléfonos: {telefonos}/{MAX_TELEFONOS} · WhatsApp: {whatsapps}/{MAX_WHATSAPP}.</p>
+        {limiteNumeros(numeros) && <span className="msg-error">{limiteNumeros(numeros)}</span>}
         <p className="ayuda">La estrella marca el principal de cada tipo: un teléfono y un WhatsApp.</p>
       </TarjetaSeccion>
 
       <TarjetaSeccion
         titulo="Correos electrónicos"
         accion={
-          <button className="btn-enlace" onClick={() => onCorreos([...correos, { id: siguienteIdLocal--, correo: '', principal: !correos.some((x) => x.principal) }])}>
+          <button className="btn-enlace" disabled={correos.length >= MAX_CORREOS} onClick={() => correos.length < MAX_CORREOS && onCorreos([...correos, { id: siguienteIdLocal--, correo: '', principal: !correos.some((x) => x.principal) }])}>
             + Agregar
           </button>
         }
@@ -120,6 +129,8 @@ export function Contactos({
               </div>
             )
           })}
+          <span className="ayuda">Correos: {correos.length}/{MAX_CORREOS}.</span>
+          {limiteCorreos(correos) && <span className="msg-error">{limiteCorreos(correos)}</span>}
           {correos.length === 0 && <span className="vacio">Sin correos registrados.</span>}
           {!correos.every((c) => correoValido(c.correo)) && <span className="msg-error">{MSG_CORREO}</span>}
         </div>
@@ -139,7 +150,8 @@ export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[
       accion={
         <button
           className="btn-enlace"
-          onClick={() => onCambiar([...familiares, {
+          disabled={familiares.length >= MAX_FAMILIARES}
+          onClick={() => familiares.length < MAX_FAMILIARES && onCambiar([...familiares, {
             id: siguienteIdLocal--, nombreCompleto: '', parentescoId: null, telefono: '', correoElectronico: '', whatsapp: '',
             telefonoPaisId: null, whatsappPaisId: null,
           }])}
@@ -188,6 +200,8 @@ export function Familiares({ familiares, onCambiar }: { familiares: FamiliarDto[
           </div>
           )
         })}
+        <span className="ayuda">Familiares: {familiares.length}/{MAX_FAMILIARES}.</span>
+        {limiteFamiliares(familiares) && <span className="msg-error">{limiteFamiliares(familiares)}</span>}
         {familiares.length === 0 && <span className="vacio">Sin familiares registrados.</span>}
         {familiares.some(faltaNombreFamiliar) && <span className="msg-error">{MSG_NOMBRE_FAMILIAR}</span>}
         {!familiares.every((f) => correoValido(f.correoElectronico)) && <span className="msg-error">{MSG_CORREO}</span>}
