@@ -55,14 +55,32 @@ public class PersonasService
     /// Resuelve el país de un teléfono: valida el id recibido o, si viene nulo,
     /// toma el país por defecto (el primero del catálogo).
     /// </summary>
-    private async Task<Func<int?, string, int>> PaisesAsync(CancellationToken ct)
+    private async Task<Func<int?, string, string?, string, int>> PaisesAsync(CancellationToken ct)
     {
-        var ids = await _db.Paises.OrderBy(x => x.Id).Select(x => x.Id).ToListAsync(ct);
-        return (id, campo) =>
+        var paises = await _db.Paises.OrderBy(x => x.Id).Select(x => new { x.Id, x.Codigo }).ToListAsync(ct);
+        return (id, campoPais, numero, campoNumero) =>
         {
-            if (id is > 0) return ids.Contains(id.Value) ? id.Value : throw new ValidacionException(campo, "El país seleccionado ya no existe. Recargue la página y elija otro.");
-            return ids.Count > 0 ? ids[0] : throw new ValidacionException(campo, "No hay países configurados.");
+            var pais = id is > 0 ? paises.FirstOrDefault(p => p.Id == id.Value) : paises.FirstOrDefault();
+            if (pais == null)
+                throw new ValidacionException(campoPais, id is > 0
+                    ? "El país seleccionado ya no existe. Recargue la página y elija otro."
+                    : "No hay países configurados.");
+            Validacion.Telefono(numero, pais.Codigo, campoNumero);
+            return pais.Id;
         };
+    }
+
+    private static void ValidarTelefonosFamiliares(IEnumerable<FamiliarItem> items, Func<int?, string, string?, string, int> pais)
+    {
+        var indice = 0;
+        foreach (var i in items)
+        {
+            if (!Validacion.Vacio(i.Telefono))
+                pais(i.TelefonoPaisId, $"familiares[{indice}].telefonoPaisId", i.Telefono, $"familiares[{indice}].telefono");
+            if (!Validacion.Vacio(i.Whatsapp))
+                pais(i.WhatsappPaisId, $"familiares[{indice}].whatsappPaisId", i.Whatsapp, $"familiares[{indice}].whatsapp");
+            indice++;
+        }
     }
 
     /// <summary>Cada familiar con parentesco debe usar uno del catálogo.</summary>
@@ -182,6 +200,11 @@ public class PersonasService
         await ValidarCatalogoAsync(_db.ProcedenciasVenta, r.ProcedenciaVentaId, nameof(r.ProcedenciaVentaId), "La procedencia seleccionada ya no existe. Recargue la página y elija otra.", ct);
         await ValidarCatalogoAsync(_db.MetodosVenta, r.MetodoVentaId, nameof(r.MetodoVentaId), "El método seleccionado ya no existe. Recargue la página y elija otro.", ct);
         var pais = await PaisesAsync(ct);
+        if (!Validacion.Vacio(r.TelefonoPrincipal))
+            pais(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId), r.TelefonoPrincipal, nameof(r.TelefonoPrincipal));
+        if (!Validacion.Vacio(r.WhatsappPrincipal))
+            pais(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId), r.WhatsappPrincipal, nameof(r.WhatsappPrincipal));
+        ValidarTelefonosFamiliares(r.Familiares ?? Array.Empty<FamiliarItem>(), pais);
         var persona = new Persona
         {
             Nombres = r.Nombres!.Trim(),
@@ -196,9 +219,9 @@ public class PersonasService
         var telefono = Validacion.SoloDigitos(r.TelefonoPrincipal);
         var whatsapp = Validacion.SoloDigitos(r.WhatsappPrincipal);
         if (telefono.Length > 0)
-            persona.Numeros.Add(new Numero { PaisId = pais(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId)), Valor = telefono, Tipo = TipoNumero.Telefono, Principal = true });
+            persona.Numeros.Add(new Numero { PaisId = pais(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId), r.TelefonoPrincipal, nameof(r.TelefonoPrincipal)), Valor = telefono, Tipo = TipoNumero.Telefono, Principal = true });
         if (whatsapp.Length > 0)
-            persona.Numeros.Add(new Numero { PaisId = pais(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId)), Valor = whatsapp, Tipo = TipoNumero.WhatsApp, Principal = true });
+            persona.Numeros.Add(new Numero { PaisId = pais(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId), r.WhatsappPrincipal, nameof(r.WhatsappPrincipal)), Valor = whatsapp, Tipo = TipoNumero.WhatsApp, Principal = true });
         if (!Validacion.Vacio(r.CorreoPrincipal))
             persona.Correos.Add(new CorreoElectronico { Correo = r.CorreoPrincipal!.Trim(), Principal = true });
         foreach (var f in (r.Familiares ?? Array.Empty<FamiliarItem>()).Where(f => !FamiliarVacio(f)))
@@ -250,6 +273,11 @@ public class PersonasService
         var correo = r.CorreoPrincipal == null ? null : Validacion.Correo(r.CorreoPrincipal, nameof(r.CorreoPrincipal), Persona.MaxCorreo);
         // Después del control de acceso y antes de tomar la versión.
         await ValidarCatalogoAsync(_db.Vendedores, r.VendedorId, nameof(r.VendedorId), "El vendedor seleccionado ya no existe. Recargue la página y elija otro.", ct);
+        var pais = await PaisesAsync(ct);
+        if (r.TelefonoPrincipal != null)
+            pais(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId), r.TelefonoPrincipal, nameof(r.TelefonoPrincipal));
+        if (r.WhatsappPrincipal != null)
+            pais(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId), r.WhatsappPrincipal, nameof(r.WhatsappPrincipal));
         await PrepararVersionAsync(p, "datos", version);
         p.Nombres = nombres;
         p.Apellidos = apellidos;
@@ -265,11 +293,10 @@ public class PersonasService
 
         if (r.TelefonoPrincipal != null || r.WhatsappPrincipal != null)
         {
-            var pais = await PaisesAsync(ct);
             if (r.TelefonoPrincipal != null)
-                FijarNumeroPrincipal(p, TipoNumero.Telefono, r.TelefonoPrincipal, pais(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId)));
+                FijarNumeroPrincipal(p, TipoNumero.Telefono, r.TelefonoPrincipal, pais(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId), r.TelefonoPrincipal, nameof(r.TelefonoPrincipal)));
             if (r.WhatsappPrincipal != null)
-                FijarNumeroPrincipal(p, TipoNumero.WhatsApp, r.WhatsappPrincipal, pais(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId)));
+                FijarNumeroPrincipal(p, TipoNumero.WhatsApp, r.WhatsappPrincipal, pais(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId), r.WhatsappPrincipal, nameof(r.WhatsappPrincipal)));
         }
         if (correo != null) FijarCorreoPrincipal(p, correo);
 
@@ -334,8 +361,10 @@ public class PersonasService
             throw new ValidacionException("numeros", CrearProspectoValidator.MensajeContacto);
         if (items.Any(i => Validacion.SoloDigitos(i.Numero).Length == 0))
             throw new ValidacionException("numeros", "Complete el número o quite la fila vacía.");
-        await PrepararVersionAsync(p, "datos", version);
         var pais = await PaisesAsync(ct);
+        for (var indice = 0; indice < items.Count; indice++)
+            pais(items[indice].PaisId, $"numeros[{indice}].paisId", items[indice].Numero, $"numeros[{indice}].numero");
+        await PrepararVersionAsync(p, "datos", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Numeros.RemoveRange(p.Numeros.Where(n => !conservar.Contains(n.Id)));
         var resultado = new List<Numero>();
@@ -343,7 +372,7 @@ public class PersonasService
         {
             var n = i.Id > 0 ? p.Numeros.FirstOrDefault(x => x.Id == i.Id) : null;
             if (n == null) { n = new Numero { PersonaId = p.Id }; _db.Numeros.Add(n); }
-            n.PaisId = pais(i.PaisId, nameof(i.PaisId));
+            n.PaisId = pais(i.PaisId, nameof(i.PaisId), i.Numero, nameof(i.Numero));
             n.Valor = Validacion.SoloDigitos(i.Numero);
             n.Tipo = TipoDesde(i.Tipo);
             n.Principal = i.Principal;
@@ -396,8 +425,9 @@ public class PersonasService
         var p = await CargarAsync(id, ct);
         ValidarIdsPropios(items.Select(i => i.Id), p.Familiares.Select(x => x.Id), "familiares");
         ValidarCantidad(items.Count, Persona.MaxFamiliares, "familiares", "familiares");
-        await PrepararVersionAsync(p, "familiares", version);
         var pais = await PaisesAsync(ct);
+        ValidarTelefonosFamiliares(items, pais);
+        await PrepararVersionAsync(p, "familiares", version);
         var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
         _db.Familiares.RemoveRange(p.Familiares.Where(f => !conservar.Contains(f.Id)));
         var resultado = new List<PersonaFamiliar>();
@@ -494,7 +524,7 @@ public class PersonasService
         Validacion.Vacio(f.NombreCompleto) && f.ParentescoId is not > 0 && Validacion.Vacio(f.Telefono)
         && Validacion.Vacio(f.CorreoElectronico) && Validacion.Vacio(f.Whatsapp);
 
-    private static PersonaFamiliar NuevoFamiliar(FamiliarItem i, Func<int?, string, int> pais)
+    private static PersonaFamiliar NuevoFamiliar(FamiliarItem i, Func<int?, string, string?, string, int> pais)
     {
         var f = new PersonaFamiliar();
         CopiarFamiliar(i, f, pais);
@@ -502,15 +532,16 @@ public class PersonasService
     }
 
     /// <summary>El país solo se guarda si hay número.</summary>
-    private static void CopiarFamiliar(FamiliarItem i, PersonaFamiliar f, Func<int?, string, int> pais)
+    private static void CopiarFamiliar(FamiliarItem i, PersonaFamiliar f, Func<int?, string, string?, string, int> pais)
     {
         f.NombreCompleto = i.NombreCompleto?.Trim() ?? "";
         f.ParentescoId = i.ParentescoId is > 0 ? i.ParentescoId : null;
         f.Telefono = Validacion.SoloDigitos(i.Telefono);
-        f.TelefonoPaisId = f.Telefono.Length > 0 ? pais(i.TelefonoPaisId, nameof(i.TelefonoPaisId)) : null;
+        f.TelefonoPaisId = f.Telefono.Length > 0 ? pais(i.TelefonoPaisId, nameof(i.TelefonoPaisId), i.Telefono, nameof(i.Telefono)) : null;
         f.CorreoElectronico = i.CorreoElectronico?.Trim() ?? "";
         f.Whatsapp = Validacion.SoloDigitos(i.Whatsapp);
-        f.WhatsappPaisId = f.Whatsapp.Length > 0 ? pais(i.WhatsappPaisId, nameof(i.WhatsappPaisId)) : null;
+        f.WhatsappPaisId = f.Whatsapp.Length > 0 ? pais(i.WhatsappPaisId, nameof(i.WhatsappPaisId), i.Whatsapp, nameof(i.Whatsapp)) : null;
     }
 }
+
 

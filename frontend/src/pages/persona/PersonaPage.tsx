@@ -160,16 +160,16 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     const lista: { campo: string; pestana: Pestana }[] = []
     const agregar = (e: Record<string, string>, pestana: Pestana) =>
       Object.entries(e).forEach(([campo, mensaje]) => lista.push({ campo: `${campo}: ${mensaje}`, pestana }))
-    agregar(erroresDatos(f, esCliente), 'general')
+    agregar(erroresDatos(f, esCliente, catalogos?.paises), 'general')
     agregar(erroresVenta(f), 'ventas')
     agregar(erroresPrima(f), 'ventas')
     if (esCliente) {
-      const numeros = errorNumeros(f.numeros)
+      const numeros = errorNumeros(f.numeros, catalogos?.paises)
       const correos = errorCorreos(f.correos)
       if (numeros) lista.push({ campo: numeros, pestana: 'general' })
       if (correos) lista.push({ campo: correos, pestana: 'general' })
     }
-    const familiares = errorFamiliares(f.familiares)
+    const familiares = errorFamiliares(f.familiares, catalogos?.paises)
     if (familiares) lista.push({ campo: familiares, pestana: 'familiares' })
     return lista
   }
@@ -234,8 +234,8 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     sucias.current.add(parte)
     pendientesRef.current = pendientesDe(f)
     if (nuevo) return
-    const grupoDatosValido = !Object.keys(erroresDatos(f, esCliente)).length &&
-      (!esCliente || (!errorNumeros(f.numeros) && !errorCorreos(f.correos)))
+    const grupoDatosValido = !Object.keys(erroresDatos(f, esCliente, catalogos?.paises)).length &&
+      (!esCliente || (!errorNumeros(f.numeros, catalogos?.paises) && !errorCorreos(f.correos)))
     if (['datos', 'numeros', 'correos'].includes(parte)) {
       if (!grupoDatosValido) [gDatos, gNumeros, gCorreos].forEach(g => g.suspender())
       else {
@@ -253,7 +253,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       else if (sucias.current.has('prima')) gPrima.programar(f)
     }
     if (parte === 'familiares') {
-      if (errorFamiliares(f.familiares)) gFamiliares.suspender()
+      if (errorFamiliares(f.familiares, catalogos?.paises)) gFamiliares.suspender()
       else if (sucias.current.has('familiares')) gFamiliares.programar(f.familiares)
     }
   }
@@ -278,8 +278,8 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const prima = primaCalculada(form)
   const fechaReq = prima.estado === 3
   const fechaFalta = (!nuevo || crearIntento) && faltaFechaPago(form)
-  const errores = nuevo ? { ...faltantesNuevo(form), ...(crearIntento ? erroresServidor : {}) } :
-    { ...erroresDatos(form, esCliente), ...erroresVenta(form), ...erroresPrima(form) }
+  const errores = nuevo ? { ...faltantesNuevo(form, catalogos?.paises), ...(crearIntento ? erroresServidor : {}) } :
+    { ...erroresDatos(form, esCliente, catalogos?.paises), ...erroresVenta(form), ...erroresPrima(form) }
   const err = (k: string) => (!nuevo || crearIntento ? errores[k] : undefined)
   const req = true
 
@@ -292,7 +292,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const crear = async () => {
     setCrearIntento(true)
     setErroresServidor({})
-    if (Object.keys(faltantesNuevo(form)).length) return
+    if (Object.keys(faltantesNuevo(form, catalogos?.paises)).length) return
     setCreando(true)
     try {
       const p = await api.crearProspecto(payloadCrear(form))
@@ -587,5 +587,6 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     </div>
   )
 }
+
 
 

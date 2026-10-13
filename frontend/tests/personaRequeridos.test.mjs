@@ -20,10 +20,11 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     const {api}=await vite.ssrLoadModule('/src/api/endpoints.ts')
     const cat={id:1,nombre:'Opción',codigo:'1'}
     api.yo=async()=>({id:1,nombre:'Admin',rol:'Administrador'})
-    api.catalogos=async()=>({vendedores:[cat],procedencias:[cat],metodos:[cat],estadosCliente:[cat],origenes:[cat],estadosPrima:[{id:1,nombre:'Pendiente'}],paises:[{id:1,codigo:'+506',nombre:'Costa Rica'}],parentescos:[]})
+    api.catalogos=async()=>({vendedores:[cat],procedencias:[cat],metodos:[cat],estadosCliente:[cat],origenes:[cat],estadosPrima:[{id:1,nombre:'Pendiente'}],paises:[{id:1,codigo:'+506',nombre:'Costa Rica'},{id:2,codigo:'+1',nombre:'Estados Unidos'}],parentescos:[]})
     api.persona=async()=>({id:1,esCliente:true,nombres:'Ana',apellidos:'Vargas',cedula:'123',finca:'Finca',expediente:'',fechaIngreso:'2026-10-13',vendedorId:1,telefonoPrincipal:'88888888',whatsappPrincipal:'',correoPrincipal:'',venta:{id:1,procedenciaVentaId:1,metodoVentaId:1,monto:1000,notas:''},prima:{id:1,monto:100,montoCancelado:0,fechaEstimadaPago:null,fechaPago:null},cliente:{id:1,estadoClienteId:1,origenClienteId:1},numeros:[{id:1,numero:'88888888',tipo:'Teléfono',principal:true,paisId:1}],correos:[{id:1,correo:'ana@mail.cr',principal:true}],familiares:[],comentarios:[],versiones:{datos:'d1',venta:'v1',prima:'p1',familiares:'f1'}})
     const enviados=[]
     api.guardarDatos=async(_id,d)=>{enviados.push(['datos',d]);return {data:null,version:'d2'}}
+    api.guardarNumeros=async(_id,n)=>{enviados.push(['numeros',n]);return {data:n,version:'d4'}}
     api.guardarCorreos=async(_id,c)=>{enviados.push(['correos',c]);return {data:c,version:'d3'}}
     const router=createMemoryRouter([{path:'/gestion/clientes/:id',element:createElement(SesionProvider,null,createElement(PersonaPage,{seccion:'clientes'}))}],{initialEntries:['/gestion/clientes/1']})
     root=createRoot(document.getElementById('root'))
@@ -51,6 +52,26 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await act(async()=>props(correo).onChange({target:{value:'final@mail.cr'}}))
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
     assert.equal(enviados.length,2);assert.equal(enviados[1][1][0].correo,'final@mail.cr')
+    const numero=()=>document.querySelector('.fila-contacto input[inputmode="numeric"]')
+    const paisNumero=()=>document.querySelector('.fila-contacto .telefono-pais')
+    await act(async()=>props(numero()).onChange({target:{value:'8888777'}}))
+    assert.ok(document.querySelector('.fila-contacto .telefono.error'))
+    assert.match(document.body.textContent,/8 dígitos/)
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,2,'No guarda un número de Costa Rica incompleto')
+    await act(async()=>props(paisNumero()).onChange({target:{value:'2'}}))
+    assert.match(document.body.textContent,/10 dígitos/)
+    await act(async()=>props(numero()).onChange({target:{value:'3055550100'}}))
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,3);assert.equal(enviados[2][1][0].paisId,2)
+    await act(async()=>props(paisNumero()).onChange({target:{value:'1'}}))
+    assert.match(document.body.textContent,/8 dígitos/)
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,3,'Cambiar país también bloquea el guardado si cambia la longitud requerida')
+    await act(async()=>props(numero()).onChange({target:{value:'88887777'}}))
+    await act(async()=>{await new Promise(r=>setTimeout(r,650))})
+    assert.equal(enviados.length,4)
+    const antesFamiliares=enviados.length
     api.guardarFamiliares=async(_id,fs)=>{enviados.push(['familiares',fs]);return {data:fs.map((f,i)=>({...f,id:i+1})),version:'f2'}}
     const boton=texto=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===texto)
     await act(async()=>props(boton('Familiares')).onClick())
@@ -60,7 +81,7 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     assert.ok(document.querySelector('.familiar .requerido'))
     assert.match(document.body.textContent,/al menos un teléfono o un correo por familiar/)
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
-    assert.equal(enviados.length,2,'La fila vacía permanece pendiente y no se guarda')
+    assert.equal(enviados.length,antesFamiliares,'La fila vacía permanece pendiente y no se guarda')
     assert.equal(document.querySelectorAll('.alerta').length,0,'Esperar el autoguardado de una fila nueva tampoco muestra avisos')
     await act(async()=>props(document.querySelector('.familiar input[aria-label="Nombre completo"]')).onChange({target:{value:'Luis'}}))
     assert.equal(document.querySelectorAll('.familiar .error').length,0,'No muestra errores en contactos aún no editados')
@@ -69,8 +90,8 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     assert.ok(document.querySelector('[role=alert]'),'La validación sí avisa cuando se intenta salir sin completar')
     await act(async()=>props(document.querySelector('.familiar input[aria-label="Teléfono"]')).onChange({target:{value:'88887777'}}))
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
-    assert.equal(enviados.length,3)
-    assert.equal(enviados[2][0],'familiares');assert.equal(enviados[2][1][0].telefono,'88887777')
+    assert.equal(enviados.length,antesFamiliares+1)
+    assert.equal(enviados[antesFamiliares][0],'familiares');assert.equal(enviados[antesFamiliares][1][0].telefono,'88887777')
     assert.equal(document.querySelectorAll('.familiar .error').length,0)
     await act(async()=>props(boton('+ Agregar familiar')).onClick())
     assert.equal(document.querySelectorAll('.alerta, .familiar .error, .familiar .msg-error').length,0,
@@ -82,4 +103,5 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await vite.close();dom.window.close()
   }
 })
+
 

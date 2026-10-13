@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { errorTelefono } from '../utils/telefonos'
 import { useSesion } from '../auth/Sesion'
 import { enlaceTel, formatearMonto, limpiarMonto, paisPorDefecto, soloDigitos } from '../utils/formato'
 import { Chevron, Llamar, Ojo } from './Iconos'
@@ -133,13 +134,14 @@ export function CampoSelect({
 
 /** Número de teléfono con su país: prefijo del catálogo de países + número. */
 export function Telefono({
-  paisId, numero, onPais, onNumero, error, placeholder = 'Número', ariaLabel,
+  paisId, numero, onPais, onNumero, error, placeholder = 'Número', ariaLabel, mostrarError = true,
 }: {
   paisId: number | null
   numero: string
   onPais: (id: number) => void
   onNumero: (v: string) => void
   error?: boolean
+  mostrarError?: boolean
   placeholder?: string
   ariaLabel?: string
 }) {
@@ -147,32 +149,37 @@ export function Telefono({
   const paises = catalogos?.paises ?? []
   const actual = paisId ?? paisPorDefecto(paises)
   const prefijo = paises.find((p) => p.id === actual)?.codigo ?? ''
+  const mensaje = errorTelefono(numero, actual, paises)
   return (
-    <span className={'telefono' + (error ? ' error' : '')}>
-      <span title={paises.find((p) => p.id === actual)?.nombre}>
-        <Select
-          valor={actual == null ? '' : String(actual)}
-          onChange={(v) => onPais(Number(v))}
-          opciones={paises.map((p) => ({ v: String(p.id), l: p.codigo }))}
-          className="telefono-pais"
-          ariaLabel="País"
-          chevronTamano={10}
-          chevronDerecha={6}
+    <span style={{ display: 'block', minWidth: 0, flex: 1 }}>
+      <span className={'telefono' + (error || mensaje ? ' error' : '')}>
+        <span title={paises.find((p) => p.id === actual)?.nombre}>
+          <Select
+            valor={actual == null ? '' : String(actual)}
+            onChange={(v) => onPais(Number(v))}
+            opciones={paises.map((p) => ({ v: String(p.id), l: p.codigo }))}
+            className="telefono-pais"
+            ariaLabel="País"
+            chevronTamano={10}
+            chevronDerecha={6}
+          />
+        </span>
+        <input
+          className="campo"
+          value={numero}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          inputMode="numeric"
+          aria-invalid={error || !!mensaje || undefined}
+          onChange={(e) => onNumero(soloDigitos(e.target.value))}
         />
+        {numero && (
+          <a className="btn-llamar" href={enlaceTel(prefijo + numero)} title={`Llamar al ${prefijo} ${numero}`} aria-label={`Llamar al ${prefijo} ${numero}`}>
+            <Llamar />
+          </a>
+        )}
       </span>
-      <input
-        className="campo"
-        value={numero}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        inputMode="numeric"
-        onChange={(e) => onNumero(soloDigitos(e.target.value))}
-      />
-      {numero && (
-        <a className="btn-llamar" href={enlaceTel(prefijo + numero)} title={`Llamar al ${prefijo} ${numero}`} aria-label={`Llamar al ${prefijo} ${numero}`}>
-          <Llamar />
-        </a>
-      )}
+      {mostrarError && mensaje && <span className="msg-error">{mensaje}</span>}
     </span>
   )
 }
@@ -183,7 +190,7 @@ export function CampoTelefono({
   return (
     <label style={{ display: 'block', minWidth: 0, gridColumn: span ? `span ${span}` : undefined }}>
       <Etiqueta label={label} requerido={requerido} />
-      <Telefono paisId={paisId} numero={numero} onPais={onPais} onNumero={onNumero} error={!!error} ariaLabel={label} />
+      <Telefono paisId={paisId} numero={numero} onPais={onPais} onNumero={onNumero} error={!!error} mostrarError={!error} ariaLabel={label} />
       {error && <span className="msg-error">{error}</span>}
     </label>
   )
@@ -255,3 +262,4 @@ export function Modal({
     </div>
   )
 }
+

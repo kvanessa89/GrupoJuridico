@@ -21,6 +21,15 @@ public static class Validacion
     /// <summary>Los teléfonos se guardan solo con dígitos; el prefijo va en el país.</summary>
     public static string SoloDigitos(string? s) => new((s ?? "").Where(char.IsAsciiDigit).ToArray());
 
+    /// <summary>Valida el número local (el prefijo se guarda aparte). Vacío permite contactos opcionales.</summary>
+    public static void Telefono(string? numero, string codigoPais, string campo)
+    {
+        if (Vacio(numero)) return;
+        var largo = SoloDigitos(codigoPais) switch { "506" => 8, "1" => 10, _ => 0 };
+        if (largo > 0 && SoloDigitos(numero).Length != largo)
+            throw new ValidacionException(campo, $"El número debe tener {largo} dígitos, sin el prefijo del país.");
+    }
+
     /// <summary>Correo con forma usuario@dominio.ext, sin espacios. Vacío se considera válido (es opcional).</summary>
     public static bool CorreoValido(string? s) =>
         Vacio(s) || System.Text.RegularExpressions.Regex.IsMatch(s!.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$");
@@ -40,3 +49,4 @@ public static class Validacion
     public static string CamelCase(string nombre) =>
         string.IsNullOrEmpty(nombre) ? nombre : char.ToLowerInvariant(nombre[0]) + nombre[1..];
 }
+
