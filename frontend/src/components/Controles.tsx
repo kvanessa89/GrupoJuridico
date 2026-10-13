@@ -134,7 +134,7 @@ export function CampoSelect({
 
 /** Número de teléfono con su país: prefijo del catálogo de países + número. */
 export function Telefono({
-  paisId, numero, onPais, onNumero, error, placeholder = 'Número', ariaLabel, mostrarError = true,
+  paisId, numero, onPais, onNumero, error, placeholder = 'Número', ariaLabel, mostrarError = true, requerido, onBlur,
 }: {
   paisId: number | null
   numero: string
@@ -142,6 +142,8 @@ export function Telefono({
   onNumero: (v: string) => void
   error?: boolean
   mostrarError?: boolean
+  requerido?: boolean
+  onBlur?: () => void
   placeholder?: string
   ariaLabel?: string
 }) {
@@ -152,7 +154,7 @@ export function Telefono({
   const mensaje = errorTelefono(numero, actual, paises)
   return (
     <span style={{ display: 'block', minWidth: 0, flex: 1 }}>
-      <span className={'telefono' + (error || mensaje ? ' error' : '')}>
+      <span className={'telefono' + (error || mensaje ? ' error' : '')} style={{ position: 'relative' }}>
         <span title={paises.find((p) => p.id === actual)?.nombre}>
           <Select
             valor={actual == null ? '' : String(actual)}
@@ -171,8 +173,12 @@ export function Telefono({
           aria-label={ariaLabel}
           inputMode="numeric"
           aria-invalid={error || !!mensaje || undefined}
+          aria-required={requerido || undefined}
+          style={requerido ? { paddingRight: 28 } : undefined}
+          onBlur={onBlur}
           onChange={(e) => onNumero(soloDigitos(e.target.value))}
         />
+        {requerido && <span className="requerido" aria-hidden="true" style={{ position: 'absolute', right: numero ? 60 : 12, top: 14 }}>*</span>}
         {numero && (
           <a className="btn-llamar" href={enlaceTel(prefijo + numero)} title={`Llamar al ${prefijo} ${numero}`} aria-label={`Llamar al ${prefijo} ${numero}`}>
             <Llamar />
@@ -262,4 +268,5 @@ export function Modal({
     </div>
   )
 }
+
 
