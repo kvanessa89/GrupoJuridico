@@ -4,7 +4,7 @@ import { formVacio, payloadDatos, erroresDatos, erroresVenta, erroresPrima, erro
 
 function valido() {
   const f = formVacio()
-  Object.assign(f.datos, { nombres:'Ana', apellidos:'Vargas', cedula:'123', finca:'Finca', vendedorId:'1', telefonoPrincipal:'88888888' })
+  Object.assign(f.datos, { nombres:'Ana', apellidos:'Vargas', cedula:'123', finca:'01-20013', vendedorId:'1', telefonoPrincipal:'88888888' })
   Object.assign(f.venta, { procedenciaVentaId:'1', metodoVentaId:'1', monto:'1000' })
   Object.assign(f.prima, { monto:'100', montoCancelado:'0' })
   return f
@@ -58,11 +58,12 @@ test('contactos requieren un número y nunca guardan una fila numérica vacía',
 })
 test('cada campo que puede dar error tiene etiqueta visible para el aviso de pendientes', () => {
   const f=formVacio()
-  Object.assign(f.datos,{ fechaIngreso:'', correoPrincipal:'ana@' })
+  Object.assign(f.datos,{ fechaIngreso:'', correoPrincipal:'ana@', expediente:'123' })
+  f.venta.notas='x'.repeat(1001)
   Object.assign(f.prima,{ montoCancelado:'', fechaEstimadaPago:'2026-13-40' })
   const claves=new Set([...Object.keys(erroresDatos(f,false)),...Object.keys(erroresVenta(f)),...Object.keys(erroresPrima(f))])
   f.prima.monto='100';f.prima.montoCancelado='100';f.prima.fechaPago=''
   for (const k of Object.keys(erroresPrima(f))) claves.add(k)
-  assert.ok(claves.size>=14)
+  assert.ok(claves.size>=18)
   for (const k of claves) assert.notEqual(etiquetaDe(k),k,`falta etiqueta para ${k}`)
 })

@@ -31,12 +31,15 @@ public class CrearProspectoValidator : AbstractValidator<CrearProspectoRequest>
         RuleForEach(x => x.Familiares).Must(f =>
                 Validacion.SoloDigitos(f.Telefono).Length > 0 || !Validacion.Vacio(f.CorreoElectronico))
             .WithMessage("Ingrese un teléfono o un correo del familiar.");
-        RuleFor(x => x.Finca).NotEmpty().WithMessage("Campo requerido.");
+        RuleFor(x => x.Finca).Cascade(CascadeMode.Stop).NotEmpty().WithMessage("Campo requerido.")
+            .Must(Validacion.FincaValida).WithMessage(Validacion.MensajeFinca);
+        RuleFor(x => x.Expediente).Must(Validacion.ExpedienteValido).WithMessage(Validacion.MensajeExpediente);
         RuleFor(x => x.FechaIngreso).Must(d => d.HasValue && d.Value != default).WithMessage("Campo requerido.");
         RuleFor(x => x.VendedorId).Must(v => v is > 0).WithMessage("Campo requerido.");
         RuleFor(x => x.ProcedenciaVentaId).Must(v => v is > 0).WithMessage("Campo requerido.");
         RuleFor(x => x.MetodoVentaId).Must(v => v is > 0).WithMessage("Campo requerido.");
         RuleFor(x => x.MontoVenta).GreaterThan(0).WithMessage("Campo requerido.");
+        RuleFor(x => x.NotasVenta).MaximumLength(Validacion.MaxNotasVenta).WithMessage("Máximo 1000 caracteres.");
         RuleFor(x => x.MontoPrima).GreaterThan(0).WithMessage("Campo requerido.");
         RuleFor(x => x.MontoCancelado).GreaterThanOrEqualTo(0);
         // Los teléfonos se guardan solo con dígitos: "abc" cuenta como vacío.
@@ -62,7 +65,9 @@ public class ActualizarDatosValidator : AbstractValidator<ActualizarDatosRequest
         RuleFor(x => x.Nombres).NotEmpty().WithMessage("Campo requerido.");
         RuleFor(x => x.Apellidos).NotEmpty().WithMessage("Campo requerido.");
         RuleFor(x => x.Cedula).Must(c => Validacion.SoloDigitos(c).Length > 0).WithMessage("Campo requerido.");
-        RuleFor(x => x.Finca).NotEmpty().WithMessage("Campo requerido.");
+        RuleFor(x => x.Finca).Cascade(CascadeMode.Stop).NotEmpty().WithMessage("Campo requerido.")
+            .Must(Validacion.FincaValida).WithMessage(Validacion.MensajeFinca);
+        RuleFor(x => x.Expediente).Must(Validacion.ExpedienteValido).WithMessage(Validacion.MensajeExpediente);
         RuleFor(x => x.FechaIngreso).NotEqual(default(DateOnly)).WithMessage("Campo requerido.");
         RuleFor(x => x.VendedorId).Must(v => v is > 0).WithMessage("Campo requerido.");
     }
@@ -75,6 +80,7 @@ public class ActualizarVentaValidator : AbstractValidator<ActualizarVentaRequest
         RuleFor(x => x.ProcedenciaVentaId).Must(v => v is > 0).WithMessage("Campo requerido.");
         RuleFor(x => x.MetodoVentaId).Must(v => v is > 0).WithMessage("Campo requerido.");
         RuleFor(x => x.Monto).GreaterThan(0).WithMessage("Debe ser mayor que cero.");
+        RuleFor(x => x.Notas).MaximumLength(Validacion.MaxNotasVenta).WithMessage("Máximo 1000 caracteres.");
     }
 }
 
@@ -95,6 +101,7 @@ public class ConvertirClienteValidator : AbstractValidator<ConvertirClienteReque
 {
     public ConvertirClienteValidator()
     {
+        RuleFor(x => x.Expediente).Must(Validacion.ExpedienteValido).WithMessage(Validacion.MensajeExpediente);
         RuleFor(x => x.OrigenClienteId).Must(v => v is > 0).WithMessage("El origen del cliente es requerido.");
     }
 }
@@ -106,4 +113,5 @@ public class ComentarioValidator : AbstractValidator<ComentarioRequest>
         RuleFor(x => x.Texto).NotEmpty().WithMessage("Escriba un comentario.").MaximumLength(4000);
     }
 }
+
 
