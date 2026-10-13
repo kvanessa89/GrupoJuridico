@@ -1,4 +1,5 @@
 import type { CorreoDto, CrearProspecto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
+import { limiteFamiliares } from './limitesContactos'
 import { estadoDePrima, hoyIso, num } from '../../utils/formato'
 
 /** Estado editable de la ficha. Los montos y selects se guardan como texto, igual que en los campos. */
@@ -158,6 +159,8 @@ export function faltantesNuevo(f: FormPersona): Record<string, string> {
   if (vacio(d.cedula)) e.cedula = 'Campo requerido.'
   if (!correoValido(d.correoPrincipal)) e.correoPrincipal = MSG_CORREO
   if (!correosValidos.familiares(f)) e.familiares = MSG_NOMBRE_FAMILIAR
+  const excesoFamiliares = limiteFamiliares(f.familiares.filter(x => !familiarVacio(x)))
+  if (excesoFamiliares) e.familiares = excesoFamiliares
   if (vacio(d.finca)) e.finca = 'Campo requerido.'
   if (vacio(d.fechaIngreso)) e.fechaIngreso = 'Campo requerido.'
   if (!idONull(d.vendedorId)) e.vendedorId = 'Campo requerido.'

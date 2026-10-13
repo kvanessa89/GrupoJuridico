@@ -14,6 +14,7 @@ import {
   correoValido, correosValidos, faltaFechaPago, faltaNombreFamiliar, faltantesNuevo, familiarVacio, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
+import { limiteNumeros, limiteCorreos, limiteFamiliares } from './limitesContactos'
 import { Comentarios, Contactos, Familiares } from './Secciones'
 
 type Pestana = 'general' | 'ventas' | 'familiares' | 'actividad'
@@ -77,10 +78,11 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     }
   }, [personaId, nuevo])
 
+  const pendientesRef = useRef<{ campo: string; pestana: Pestana }[]>([])
   const guardadoresRef = useRef<{ hayPendientes: () => boolean }[]>([])
   const esCliente = !!persona?.esCliente
   const ok = useCallback(() => {
-    window.setTimeout(() => setGuardado(guardadoresRef.current.every(g => !g.hayPendientes())), 0)
+    window.setTimeout(() => setGuardado(!pendientesRef.current.length && guardadoresRef.current.every(g => !g.hayPendientes())), 0)
   }, [])
   const fallo = (seccion: SeccionVersion) => (e: unknown) => {
     setGuardado(false)
@@ -148,10 +150,12 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     if (nuevo) return []
     const lista: { campo: string; pestana: Pestana }[] = []
     if (faltaFechaPago(f)) lista.push({ campo: 'Fecha de pago', pestana: 'ventas' })
+    if (limiteNumeros(f.numeros)) lista.push({ campo: limiteNumeros(f.numeros)!, pestana: 'general' })
+    if (limiteCorreos(f.correos)) lista.push({ campo: limiteCorreos(f.correos)!, pestana: 'general' })
+    if (limiteFamiliares(f.familiares)) lista.push({ campo: limiteFamiliares(f.familiares)!, pestana: 'familiares' })
     if (f.familiares.some(faltaNombreFamiliar)) lista.push({ campo: 'Nombre familiar', pestana: 'familiares' })
     return lista
   }
-  const pendientesRef = useRef<{ campo: string; pestana: Pestana }[]>([])
   useEffect(() => { pendientesRef.current = pendientesDe(form) })
   /** Muestra el aviso y lleva a la pestaña del primer campo pendiente. Devuelve si había alguno. */
   const avisarPendientes = (lista: { pestana: Pestana }[]) => {
@@ -220,6 +224,14 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     setGuardado(false)
     setForm((f) => ({ ...f, [lista]: valor }))
     if (nuevo) return
+    const exceso = lista === 'numeros' ? limiteNumeros(valor as NumeroDto[]) :
+      lista === 'correos' ? limiteCorreos(valor) : limiteFamiliares(valor)
+    if (exceso) {
+      if (lista === 'numeros') gNumeros.cancelar()
+      else if (lista === 'correos') gCorreos.cancelar()
+      else gFamiliares.cancelar()
+      return
+    }
     const conLista = { ...form, [lista]: valor }
     if (lista === 'correos' && !correosValidos.correos(conLista)) return
     if (lista === 'familiares' && !correosValidos.familiares(conLista)) return
