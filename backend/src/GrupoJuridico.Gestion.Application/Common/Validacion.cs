@@ -6,12 +6,12 @@ namespace GrupoJuridico.Gestion.Application.Common;
 public static class Validacion
 {
     /// <summary>Ejecuta el validador y lanza <see cref="ValidacionException"/> con los errores agrupados por campo.</summary>
-    public static async Task ValidarAsync<T>(this IValidator<T> validador, T instancia, CancellationToken ct = default)
+    public static async Task ValidarAsync<T>(this IValidator<T> validador, T instancia, CancellationToken ct = default, string? prefijo = null)
     {
         var resultado = await validador.ValidateAsync(instancia, ct);
         if (resultado.IsValid) return;
         var errores = resultado.Errors
-            .GroupBy(e => CamelCase(e.PropertyName))
+            .GroupBy(e => CamelCase(prefijo == null ? e.PropertyName : $"{prefijo}.{e.PropertyName}"))
             .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).Distinct().ToArray());
         throw new ValidacionException(errores);
     }
@@ -56,7 +56,9 @@ public static class Validacion
 
     /// <summary>Las claves de error siguen el nombre JSON del campo (camelCase).</summary>
     public static string CamelCase(string nombre) =>
-        string.IsNullOrEmpty(nombre) ? nombre : char.ToLowerInvariant(nombre[0]) + nombre[1..];
+        System.Text.RegularExpressions.Regex.Replace(nombre ?? "", @"(^|\.)([A-Z])", m =>
+            m.Groups[1].Value + m.Groups[2].Value.ToLowerInvariant());
 }
+
 
 

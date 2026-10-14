@@ -562,6 +562,40 @@ public class PersonasAccesoTests
     }
 
     [Theory]
+    [InlineData("correos", "correos[1].correo")]
+    [InlineData("familiares", "familiares[1].correoElectronico")]
+    [InlineData("parentesco", "familiares[1].parentescoId")]
+    [InlineData("numeros", "numeros[1].numero")]
+    public async Task Error_de_segunda_fila_conserva_lista_y_version(string tipo, string campo)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var antes = await servicio.ObtenerAsync(id);
+        Task Guardar() => tipo switch
+        {
+            "correos" => servicio.ReemplazarCorreosAsync(id,
+                new[] { new CorreoItem(0, "uno@mail.cr", true), new CorreoItem(0, "incorrecto", false) },
+                version: antes.Versiones["datos"]),
+            "numeros" => servicio.ReemplazarNumerosAsync(id,
+                new[] { new NumeroItem(0, "88887777", "Teléfono", true), new NumeroItem(0, "", "WhatsApp", true) },
+                version: antes.Versiones["datos"]),
+            _ => servicio.ReemplazarFamiliaresAsync(id,
+                new[] { new FamiliarItem(0, "Uno", null, "", "uno@mail.cr", ""),
+                    new FamiliarItem(0, "Dos", tipo == "parentesco" ? 999999 : null, "",
+                        tipo == "familiares" ? "incorrecto" : "dos@mail.cr", "") },
+                version: antes.Versiones["familiares"])
+        };
+        var error = await Assert.ThrowsAsync<ValidacionException>(Guardar);
+        Assert.Contains(campo, error.Errores.Keys);
+        var despues = await servicio.ObtenerAsync(id);
+        Assert.Equal(antes.Versiones.OrderBy(x => x.Key), despues.Versiones.OrderBy(x => x.Key));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(antes.Numeros), System.Text.Json.JsonSerializer.Serialize(despues.Numeros));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(antes.Correos), System.Text.Json.JsonSerializer.Serialize(despues.Correos));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(antes.Familiares), System.Text.Json.JsonSerializer.Serialize(despues.Familiares));
+    }
+
+    [Theory]
     [InlineData("numeros", true)]
     [InlineData("numeros", false)]
     [InlineData("correos", true)]
@@ -1234,6 +1268,7 @@ public class PersonasAccesoTests
         }
     }
 }
+
 
 
 

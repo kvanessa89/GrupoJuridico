@@ -23,6 +23,7 @@ public class PersonasService
     private readonly ActualizarPrimaValidator _primaValidator = new();
     private readonly ConvertirClienteValidator _convertirValidator = new();
     private readonly ComentarioValidator _comentarioValidator = new();
+    private readonly FamiliarItemValidator _familiarValidator = new();
 
     public PersonasService(IApplicationDbContext db, IUsuarioActual usuario, IIdentityService identity, IFechaActual fecha)
     {
@@ -102,8 +103,14 @@ public class PersonasService
         }
         var usados = items.Where(i => i.ParentescoId is > 0).Select(i => i.ParentescoId!.Value).Distinct().ToList();
         if (usados.Count == 0) return;
-        var existentes = await _db.Parentescos.CountAsync(x => usados.Contains(x.Id), ct);
-        if (existentes != usados.Count) throw new ValidacionException(nameof(FamiliarItem.ParentescoId), "El parentesco seleccionado ya no existe. Recargue la página y elija otro.");
+        var existentes = (await _db.Parentescos.Where(x => usados.Contains(x.Id)).Select(x => x.Id).ToListAsync(ct)).ToHashSet();
+        indice = 0;
+        foreach (var i in items)
+        {
+            if (i.ParentescoId is > 0 && !existentes.Contains(i.ParentescoId.Value))
+                throw new ValidacionException($"familiares[{indice}].parentescoId", "El parentesco seleccionado ya no existe. Recargue la página y elija otro.");
+            indice++;
+        }
     }
 
     /// <summary>
@@ -393,8 +400,9 @@ public class PersonasService
         ValidarCantidad(items.Count(i => TipoDesde(i.Tipo) == TipoNumero.WhatsApp), Persona.MaxWhatsApp, "numeros", "números de WhatsApp");
         if (!items.Any(i => Validacion.SoloDigitos(i.Numero).Length > 0))
             throw new ValidacionException("numeros", CrearProspectoValidator.MensajeContacto);
-        if (items.Any(i => Validacion.SoloDigitos(i.Numero).Length == 0))
-            throw new ValidacionException("numeros", "Complete el número o quite la fila vacía.");
+        for (var indice = 0; indice < items.Count; indice++)
+            if (Validacion.SoloDigitos(items[indice].Numero).Length == 0)
+                throw new ValidacionException($"numeros[{indice}].numero", "Complete el número o quite la fila vacía.");
         var pais = await PaisesAsync(ct);
         for (var indice = 0; indice < items.Count; indice++)
             pais(items[indice].PaisId, $"numeros[{indice}].paisId", items[indice].Numero, $"numeros[{indice}].numero");
@@ -420,7 +428,8 @@ public class PersonasService
 
     public async Task<IReadOnlyList<CorreoDto>> ReemplazarCorreosAsync(int id, IReadOnlyList<CorreoItem> items, CancellationToken ct = default, Guid? version = null)
     {
-        foreach (var i in items) Validacion.Correo(i.Correo, nameof(i.Correo), Persona.MaxCorreo);
+        for (var indice = 0; indice < items.Count; indice++)
+            Validacion.Correo(items[indice].Correo, $"correos[{indice}].correo", Persona.MaxCorreo);
         var p = await CargarAsync(id, ct);
         ValidarIdsPropios(items.Select(i => i.Id), p.Correos.Select(x => x.Id), "correos");
         ValidarCantidad(items.Count, Persona.MaxCorreos, "correos", "correos");
@@ -443,18 +452,9 @@ public class PersonasService
 
     public async Task<IReadOnlyList<FamiliarDto>> ReemplazarFamiliaresAsync(int id, IReadOnlyList<FamiliarItem> items, CancellationToken ct = default, Guid? version = null)
     {
-        // Cada fila enviada necesita nombre y teléfono o correo; para quitarla debe omitirse.
-        foreach (var i in items)
-        {
-            if (Validacion.Vacio(i.NombreCompleto))
-                throw new ValidacionException(nameof(i.NombreCompleto), "El nombre del familiar es requerido.");
-            if ((i.NombreCompleto?.Trim().Length ?? 0) > PersonaFamiliar.MaxNombreCompleto)
-                throw new ValidacionException(nameof(i.NombreCompleto),
-                    $"El nombre del familiar admite como máximo {PersonaFamiliar.MaxNombreCompleto} caracteres.");
-            Validacion.Correo(i.CorreoElectronico, nameof(i.CorreoElectronico), Persona.MaxCorreo);
-            if (Validacion.SoloDigitos(i.Telefono).Length == 0 && Validacion.Vacio(i.CorreoElectronico))
-                throw new ValidacionException(nameof(i.Telefono), "Ingrese un teléfono o un correo del familiar.");
-        }
+        // La validación conserva la ruta de cada fila de la solicitud.
+        for (var indice = 0; indice < items.Count; indice++)
+            await _familiarValidator.ValidarAsync(items[indice], ct, $"familiares[{indice}]");
         await ValidarParentescosAsync(items, ct);
         var p = await CargarAsync(id, ct);
         ValidarIdsPropios(items.Select(i => i.Id), p.Familiares.Select(x => x.Id), "familiares");
@@ -577,6 +577,7 @@ public class PersonasService
         f.WhatsappPaisId = f.Whatsapp.Length > 0 ? pais(i.WhatsappPaisId, nameof(i.WhatsappPaisId), i.Whatsapp, nameof(i.Whatsapp)) : null;
     }
 }
+
 
 
 
