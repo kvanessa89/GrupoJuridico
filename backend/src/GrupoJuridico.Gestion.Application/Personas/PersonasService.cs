@@ -118,12 +118,16 @@ public class PersonasService
     private static void ValidarIdsPropios(IEnumerable<int> ids, IEnumerable<int> propios, string campo)
     {
         var permitidos = propios.ToHashSet();
+        var vistos = new HashSet<int>();
         var indice = 0;
         foreach (var id in ids)
         {
             if (id > 0 && !permitidos.Contains(id))
                 throw new ValidacionException($"{campo}[{indice}].id",
                     "El registro indicado no existe entre los contactos de esta persona. Recargá la sección antes de guardar.");
+            if (id > 0 && !vistos.Add(id))
+                throw new ValidacionException($"{campo}[{indice}].id",
+                    "El mismo registro no puede aparecer más de una vez en la lista.");
             indice++;
         }
     }
@@ -543,5 +547,6 @@ public class PersonasService
         f.WhatsappPaisId = f.Whatsapp.Length > 0 ? pais(i.WhatsappPaisId, nameof(i.WhatsappPaisId), i.Whatsapp, nameof(i.Whatsapp)) : null;
     }
 }
+
 
 

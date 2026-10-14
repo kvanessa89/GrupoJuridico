@@ -522,6 +522,17 @@ public class PersonasAccesoTests
         var longitudConservada = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
         Assert.Equal(actual.Versiones["datos"], longitudConservada!.Versiones["datos"]);
         Assert.Equal("88888888", longitudConservada.Numeros[0].Numero);
+        var repetido = await http.PutAsJsonAsync(ruta, new[]
+        {
+            new NumeroItem(actual.Numeros[0].Id, "11111111", "Teléfono", true),
+            new NumeroItem(actual.Numeros[0].Id, "22222222", "Teléfono", false)
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, repetido.StatusCode);
+        var erroresRepetido = await repetido.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.True(erroresRepetido.GetProperty("errors").TryGetProperty("numeros[1].id", out _));
+        var despuesRepetido = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
+        Assert.Equal(actual.Versiones["datos"], despuesRepetido!.Versiones["datos"]);
+        Assert.Equal("88888888", Assert.Single(despuesRepetido.Numeros).Numero);
         // Validación HTTP: no se pierde el último contacto ni cambia la versión.
         var vacio = await http.PutAsJsonAsync(ruta, Array.Empty<NumeroItem>());
         Assert.Equal(HttpStatusCode.BadRequest, vacio.StatusCode);
@@ -947,6 +958,61 @@ public class PersonasAccesoTests
         Assert.Equal(antes.Versiones["venta"], despues.Versiones["venta"]);
     }
 
+    [Theory]
+    [InlineData("numeros", true)]
+    [InlineData("numeros", false)]
+    [InlineData("correos", true)]
+    [InlineData("correos", false)]
+    [InlineData("familiares", true)]
+    [InlineData("familiares", false)]
+    public async Task Id_positivo_repetido_rechaza_lista_sin_modificar_datos_o_version(string tipo, bool distinto)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var seccion = tipo == "familiares" ? "familiares" : "datos";
+        Task Guardar((int Id, string Valor)[] filas, Guid version) => tipo switch
+        {
+            "numeros" => servicio.ReemplazarNumerosAsync(id, filas.Select((x, i) =>
+                new NumeroItem(x.Id, x.Valor, i == 2 ? "WhatsApp" : "Teléfono", true)).ToArray(), version: version),
+            "correos" => servicio.ReemplazarCorreosAsync(id, filas.Select(x => new CorreoItem(x.Id, x.Valor, true)).ToArray(), version: version),
+            _ => servicio.ReemplazarFamiliaresAsync(id, filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "88887777", "", "")).ToArray(), version: version)
+        };
+        int[] Ids(PersonaDetalleDto p) => tipo switch
+        {
+            "numeros" => p.Numeros.Select(x => x.Id).ToArray(),
+            "correos" => p.Correos.Select(x => x.Id).ToArray(),
+            _ => p.Familiares.Select(x => x.Id).ToArray()
+        };
+        string Lista(PersonaDetalleDto p) => tipo switch
+        {
+            "numeros" => System.Text.Json.JsonSerializer.Serialize(p.Numeros),
+            "correos" => System.Text.Json.JsonSerializer.Serialize(p.Correos),
+            _ => System.Text.Json.JsonSerializer.Serialize(p.Familiares)
+        };
+        var a = tipo == "numeros" ? "11111111" : tipo == "correos" ? "uno@mail.cr" : "Uno";
+        var b = tipo == "numeros" ? "22222222" : tipo == "correos" ? "dos@mail.cr" : "Dos";
+        // IDs temporales repetidos se tratan como altas independientes.
+        await Guardar(new[] { (0, a), (0, b) }, (await servicio.ObtenerAsync(id)).Versiones[seccion]);
+        var antes = await servicio.ObtenerAsync(id);
+        Assert.Equal(2, Ids(antes).Distinct().Count());
+        var propio = Ids(antes)[0];
+        var guardados = db.Guardados;
+        var error = await Assert.ThrowsAsync<ValidacionException>(() => Guardar(
+            new[] { (propio, a), (propio, distinto ? b : a), (-1, b) }, antes.Versiones[seccion]));
+        Assert.Contains(tipo + "[1].id", error.Errores.Keys);
+        Assert.Equal(guardados, db.Guardados);
+        Assert.DoesNotContain(db.ChangeTracker.Entries(), e =>
+            e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted);
+        db.ChangeTracker.Clear();
+        var despues = await servicio.ObtenerAsync(id);
+        Assert.Equal(Lista(antes), Lista(despues));
+        Assert.Equal(antes.Versiones[seccion], despues.Versiones[seccion]);
+        // El rechazo no consume la versión y las altas negativas siguen permitidas.
+        await Guardar(new[] { (-1, a), (-1, b) }, antes.Versiones[seccion]);
+        Assert.Equal(2, Ids(await servicio.ObtenerAsync(id)).Distinct().Count());
+    }
+
     private static PersonasService CrearServicio(TestDb db, string rol) =>
         new(db, new UsuarioPrueba(rol), new IdentityPrueba(), new FechaPrueba());
 
@@ -1030,6 +1096,7 @@ public class PersonasAccesoTests
         }
     }
 }
+
 
 
 
