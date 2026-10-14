@@ -147,6 +147,13 @@ export const ETIQUETAS = {
 /** Etiqueta del campo; si la clave no está en el mapa, la clave tal cual. */
 export const etiquetaDe = (clave: string): string => (ETIQUETAS as Record<string, string>)[clave] ?? clave
 
+/**
+ * Texto del aviso de pendientes: "Procedencia de venta, campo requerido.". El mensaje va en
+ * minúscula porque sigue a la etiqueta; debajo de cada input se muestra tal cual, con mayúscula.
+ */
+export const avisoPendiente = (clave: string, mensaje: string): string =>
+  `${etiquetaDe(clave)}, ${mensaje.charAt(0).toLowerCase()}${mensaje.slice(1)}`
+
 /** Largos máximos (iguales a Persona.MaxNombre / MaxCedula / MaxCorreo en el backend). */
 export const MAX_FINCA = 8
 export const MAX_EXPEDIENTE = 17
