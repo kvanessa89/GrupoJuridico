@@ -533,6 +533,17 @@ public class PersonasAccesoTests
         var despuesRepetido = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
         Assert.Equal(actual.Versiones["datos"], despuesRepetido!.Versiones["datos"]);
         Assert.Equal("88888888", Assert.Single(despuesRepetido.Numeros).Numero);
+        foreach (var item in new[]
+        {
+            new NumeroItem(actual.Numeros[0].Id, "88888888", "Otro", true),
+            new NumeroItem(actual.Numeros[0].Id, "88888888", "Teléfono", true, -1)
+        })
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await http.PutAsJsonAsync(ruta, new[] { item })).StatusCode);
+            var despuesInvalido = await http.GetFromJsonAsync<PersonaDetalleDto>($"/api/personas/{id}");
+            Assert.Equal(actual.Versiones["datos"], despuesInvalido!.Versiones["datos"]);
+            Assert.Equal("88888888", Assert.Single(despuesInvalido.Numeros).Numero);
+        }
         // Validación HTTP: no se pierde el último contacto ni cambia la versión.
         var vacio = await http.PutAsJsonAsync(ruta, Array.Empty<NumeroItem>());
         Assert.Equal(HttpStatusCode.BadRequest, vacio.StatusCode);
@@ -1013,6 +1024,133 @@ public class PersonasAccesoTests
         Assert.Equal(2, Ids(await servicio.ObtenerAsync(id)).Distinct().Count());
     }
 
+    [Theory]
+    [InlineData("crear", "telefonoPrincipalPaisId")]
+    [InlineData("crear", "whatsappPrincipalPaisId")]
+    [InlineData("crear", "vendedorId")]
+    [InlineData("crear", "procedenciaVentaId")]
+    [InlineData("crear", "metodoVentaId")]
+    [InlineData("datos", "telefonoPrincipalPaisId")]
+    [InlineData("datos", "whatsappPrincipalPaisId")]
+    [InlineData("datos", "vendedorId")]
+    [InlineData("datos", "estadoClienteId")]
+    [InlineData("datos", "origenClienteId")]
+    [InlineData("venta", "procedenciaVentaId")]
+    [InlineData("venta", "metodoVentaId")]
+    [InlineData("convertir", "estadoClienteId")]
+    [InlineData("convertir", "origenClienteId")]
+    [InlineData("numeros", "numeros[0].paisId")]
+    [InlineData("familiares", "familiares[0].parentescoId")]
+    [InlineData("familiares", "familiares[0].telefonoPaisId")]
+    [InlineData("familiares", "familiares[0].whatsappPaisId")]
+    [InlineData("crear-familiar", "familiares[0].parentescoId")]
+    [InlineData("crear-familiar", "familiares[0].telefonoPaisId")]
+    [InlineData("crear-familiar", "familiares[0].whatsappPaisId")]
+    public async Task Ids_negativos_de_catalogos_rechazan_sin_escrituras(string operacion, string campo)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var origen = new OrigenCliente { Codigo = "OR", Nombre = "Referido" };
+        db.OrigenesCliente.Add(origen);
+        await db.SaveChangesAsync();
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var antes = await servicio.ObtenerAsync(id);
+        var guardados = db.Guardados;
+        var crear = new CrearProspectoRequest("Ana", "Vargas", "123", "12-12345", "", new DateOnly(2026, 10, 13), 1,
+            "88887777", "", "", 1, 1, 1000m, "", 100m, 0m, null, null, null);
+        var datos = new ActualizarDatosRequest("Cambio", "Vargas", "123", "12-12345", "", new DateOnly(2026, 10, 13), 1,
+            "88887777", "", "", null, null);
+        // Países explícitos se rechazan incluso con teléfono/WhatsApp vacío y correo válido.
+        var familiar = new FamiliarItem(0, "Luis", campo.EndsWith("parentescoId") ? -1 : null, "", "luis@mail.cr", "",
+            campo.EndsWith("telefonoPaisId") ? -1 : null, campo.EndsWith("whatsappPaisId") ? -1 : null);
+        Task Guardar() => operacion switch
+        {
+            "crear" => servicio.CrearProspectoAsync(campo switch
+            {
+                "vendedorId" => crear with { VendedorId = -1 },
+                "procedenciaVentaId" => crear with { ProcedenciaVentaId = -1 },
+                "metodoVentaId" => crear with { MetodoVentaId = -1 },
+                "telefonoPrincipalPaisId" => crear with { TelefonoPrincipalPaisId = -1 },
+                _ => crear with { WhatsappPrincipalPaisId = -1 }
+            }),
+            "crear-familiar" => servicio.CrearProspectoAsync(crear with { Familiares = new[] { familiar } }),
+            "datos" => servicio.ActualizarDatosAsync(id, campo switch
+            {
+                "vendedorId" => datos with { VendedorId = -1 },
+                "estadoClienteId" => datos with { EstadoClienteId = -1 },
+                "origenClienteId" => datos with { OrigenClienteId = -1 },
+                "telefonoPrincipalPaisId" => datos with { TelefonoPrincipalPaisId = -1 },
+                _ => datos with { WhatsappPrincipalPaisId = -1 }
+            }, version: antes.Versiones["datos"]),
+            "venta" => servicio.ActualizarVentaAsync(id, new ActualizarVentaRequest(
+                campo == "procedenciaVentaId" ? -1 : 1, campo == "metodoVentaId" ? -1 : 1, 1000m, ""), version: antes.Versiones["venta"]),
+            "convertir" => servicio.ConvertirEnClienteAsync(id, new ConvertirClienteRequest("",
+                campo == "origenClienteId" ? -1 : origen.Id, campo == "estadoClienteId" ? -1 : null), version: antes.Versiones["datos"]),
+            "numeros" => servicio.ReemplazarNumerosAsync(id, new[] { new NumeroItem(0, "88887777", "Teléfono", true, -1) }, version: antes.Versiones["datos"]),
+            _ => servicio.ReemplazarFamiliaresAsync(id, new[] { familiar }, version: antes.Versiones["familiares"])
+        };
+        var error = await Assert.ThrowsAsync<ValidacionException>(Guardar);
+        Assert.Contains(campo, error.Errores.Keys);
+        Assert.Equal(guardados, db.Guardados);
+        Assert.DoesNotContain(db.ChangeTracker.Entries(), e =>
+            e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted);
+        db.ChangeTracker.Clear();
+        var despues = await servicio.ObtenerAsync(id);
+        Assert.Equal(antes.Nombres, despues.Nombres);
+        Assert.Equal(antes.EsCliente, despues.EsCliente);
+        Assert.Equal(antes.Versiones.OrderBy(x => x.Key), despues.Versiones.OrderBy(x => x.Key));
+        Assert.Empty(despues.Numeros);
+        Assert.Empty(despues.Familiares);
+    }
+
+    [Theory]
+    [InlineData("Otro")]
+    [InlineData("Telefono")]
+    [InlineData("")]
+    [InlineData(null)]
+    public async Task Tipo_desconocido_no_se_convierte_en_telefono(string? tipo)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var antes = await servicio.ObtenerAsync(id);
+        var guardados = db.Guardados;
+        var error = await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarNumerosAsync(id,
+            new[] { new NumeroItem(0, "88887777", tipo!, true) }, version: antes.Versiones["datos"]));
+        Assert.Contains("numeros[0].tipo", error.Errores.Keys);
+        Assert.Equal(guardados, db.Guardados);
+        Assert.Equal(antes.Versiones["datos"], (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        Assert.Empty(await db.Numeros.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public async Task Opcionales_nulos_o_cero_conservan_predeterminados(int? opcional)
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var origen = new OrigenCliente { Codigo = "OR", Nombre = "Referido" };
+        db.OrigenesCliente.Add(origen);
+        await db.SaveChangesAsync();
+        var servicio = CrearServicio(db, Roles.Administrador);
+        var numeros = await servicio.ReemplazarNumerosAsync(id,
+            new[] { new NumeroItem(0, "88887777", "teléfono", true, opcional) }, version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        Assert.Equal(await db.Paises.OrderBy(p => p.Id).Select(p => p.Id).FirstAsync(), numeros[0].PaisId);
+        var familiares = await servicio.ReemplazarFamiliaresAsync(id,
+            new[] { new FamiliarItem(-1, "Luis", opcional, "88887777", "", "", opcional, opcional) },
+            version: (await servicio.ObtenerAsync(id)).Versiones["familiares"]);
+        Assert.Null(familiares[0].ParentescoId);
+        Assert.Equal(numeros[0].PaisId, familiares[0].TelefonoPaisId);
+        var cliente = await servicio.ConvertirEnClienteAsync(id, new ConvertirClienteRequest("", origen.Id, opcional),
+            version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        Assert.Equal(EstadoCliente.AlDia, cliente.Cliente!.EstadoClienteId);
+        await servicio.ActualizarDatosAsync(id, new ActualizarDatosRequest("Ana", "Vargas", "123", "12-12345", "",
+            new DateOnly(2026, 10, 13), 1, null, null, null, opcional, opcional), version: cliente.Versiones["datos"]);
+        var despues = await servicio.ObtenerAsync(id);
+        Assert.Equal(cliente.Cliente, despues.Cliente);
+    }
+
     private static PersonasService CrearServicio(TestDb db, string rol) =>
         new(db, new UsuarioPrueba(rol), new IdentityPrueba(), new FechaPrueba());
 
@@ -1096,6 +1234,7 @@ public class PersonasAccesoTests
         }
     }
 }
+
 
 
 
