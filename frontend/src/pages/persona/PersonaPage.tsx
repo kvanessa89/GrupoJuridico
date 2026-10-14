@@ -12,7 +12,7 @@ import { EditorSecciones, SeccionBloqueadaError, type SeccionVersion } from '../
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
 import { fFecha, fNumero, iniciales, num, origenEtiqueta, soloDigitos, vendedorEtiqueta } from '../../utils/formato'
 import {
-  correoValido, ETIQUETAS, etiquetaDe, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
+  correoValido, avisoPendiente, ETIQUETAS, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
 import { Comentarios, Contactos, Familiares } from './Secciones'
@@ -159,7 +159,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     if (nuevo) return []
     const lista: { campo: string; pestana: Pestana }[] = []
     const agregar = (e: Record<string, string>, pestana: Pestana) =>
-      Object.entries(e).forEach(([campo, mensaje]) => lista.push({ campo: `${etiquetaDe(campo)} ${mensaje}`, pestana }))
+      Object.entries(e).forEach(([campo, mensaje]) => lista.push({ campo: avisoPendiente(campo, mensaje), pestana }))
     agregar(erroresDatos(f, esCliente, catalogos?.paises), 'general')
     agregar(erroresVenta(f), 'ventas')
     agregar(erroresPrima(f), 'ventas')

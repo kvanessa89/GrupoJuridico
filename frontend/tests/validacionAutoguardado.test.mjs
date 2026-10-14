@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { formVacio, payloadDatos, erroresDatos, erroresVenta, erroresPrima, errorMonto, errorNumeros, errorFamiliares, errorCorreos, faltantesNuevo, etiquetaDe } from '../src/pages/persona/formulario.ts'
+import { formVacio, payloadDatos, erroresDatos, erroresVenta, erroresPrima, errorMonto, errorNumeros, errorFamiliares, errorCorreos, faltantesNuevo, etiquetaDe, avisoPendiente } from '../src/pages/persona/formulario.ts'
 
 function valido() {
   const f = formVacio()
@@ -66,4 +66,9 @@ test('cada campo que puede dar error tiene etiqueta visible para el aviso de pen
   for (const k of Object.keys(erroresPrima(f))) claves.add(k)
   assert.ok(claves.size>=18)
   for (const k of claves) assert.notEqual(etiquetaDe(k),k,`falta etiqueta para ${k}`)
+})
+test('el aviso de pendientes une etiqueta y mensaje en minúscula sin tocar el mensaje original', () => {
+  assert.equal(avisoPendiente('procedenciaVentaId','Campo requerido.'),'Procedencia de venta, campo requerido.')
+  assert.equal(avisoPendiente('fechaIngreso','Ingrese una fecha válida.'),'Fecha de ingreso, ingrese una fecha válida.')
+  assert.equal(erroresVenta(formVacio()).procedenciaVentaId,'Campo requerido.')
 })
