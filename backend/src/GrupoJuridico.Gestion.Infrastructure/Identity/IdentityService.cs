@@ -65,8 +65,8 @@ public class IdentityService : IIdentityService
         if (await _users.FindByNameAsync(r.Usuario) != null)
             throw new ValidacionException(nameof(r.Usuario), "Ese usuario ya existe.");
         var u = new Usuario { UserName = r.Usuario, NombreCompleto = r.Nombre };
-        Verificar(await _users.CreateAsync(u, r.Contrasena!));
-        Verificar(await _users.AddToRoleAsync(u, r.Rol));
+        Verificar(await _users.CreateAsync(u, r.Contrasena!), "usuario");
+        Verificar(await _users.AddToRoleAsync(u, r.Rol), "rol");
         return await MapAsync(u);
     }
 
@@ -78,13 +78,13 @@ public class IdentityService : IIdentityService
 
         u.NombreCompleto = r.Nombre;
         if (!string.Equals(u.UserName, r.Usuario, StringComparison.Ordinal))
-            Verificar(await _users.SetUserNameAsync(u, r.Usuario));
+            Verificar(await _users.SetUserNameAsync(u, r.Usuario), "usuario");
         Verificar(await _users.UpdateAsync(u));
 
         if (!string.IsNullOrEmpty(r.Contrasena))
         {
             var token = await _users.GeneratePasswordResetTokenAsync(u);
-            Verificar(await _users.ResetPasswordAsync(u, token, r.Contrasena));
+            Verificar(await _users.ResetPasswordAsync(u, token, r.Contrasena), "contrasena");
         }
 
         var actuales = await _users.GetRolesAsync(u);
@@ -92,8 +92,8 @@ public class IdentityService : IIdentityService
         {
             // Revoca los tokens previos antes de modificar roles, incluso si luego falla la asignación.
             Verificar(await _users.UpdateSecurityStampAsync(u));
-            if (actuales.Count > 0) Verificar(await _users.RemoveFromRolesAsync(u, actuales));
-            Verificar(await _users.AddToRoleAsync(u, r.Rol));
+            if (actuales.Count > 0) Verificar(await _users.RemoveFromRolesAsync(u, actuales), "rol");
+            Verificar(await _users.AddToRoleAsync(u, r.Rol), "rol");
         }
         return await MapAsync(u);
     }
@@ -113,12 +113,14 @@ public class IdentityService : IIdentityService
         return new UsuarioDto(u.Id, u.NombreCompleto, u.UserName ?? "", roles.FirstOrDefault() ?? Domain.Constants.Roles.AsistenteVentas);
     }
 
-    private static void Verificar(IdentityResult resultado)
+    private static void Verificar(IdentityResult resultado, string campo = "general")
     {
         if (resultado.Succeeded) return;
-        throw new ValidacionException(new Dictionary<string, string[]>
-        {
-            ["usuario"] = resultado.Errors.Select(e => e.Description).ToArray()
-        });
+        string Campo(IdentityError e) => e.Code.StartsWith("Password", StringComparison.Ordinal) ? "contrasena"
+            : e.Code.Contains("UserName", StringComparison.Ordinal) ? "usuario"
+            : e.Code.Contains("Role", StringComparison.Ordinal) ? "rol"
+            : e.Code is "ConcurrencyFailure" or "InvalidToken" ? "general" : campo;
+        throw new ValidacionException(resultado.Errors.GroupBy(Campo)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.Description).ToArray()));
     }
 }
