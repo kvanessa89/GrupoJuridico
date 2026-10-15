@@ -348,6 +348,8 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const conTabs = esCliente
   const en = (k: Pestana) => !conTabs || pestana === k
   const nombre = (d.nombres + ' ' + d.apellidos).trim()
+  // El título identifica a la persona por expediente y nombre; al registrar una nueva solo se ve el nombre.
+  const titulo = nuevo ? nombre || 'Nueva persona' : (d.expediente.trim() || 'Sin expediente') + ' | ' + (nombre || 'Sin nombre')
   const estadoCliente = cats?.estadosCliente.find((x) => String(x.id) === d.estadoClienteId)
   const nombrePrima = cats?.estadosPrima.find((x) => x.id === prima.estado)?.nombre ?? ''
 
@@ -457,7 +459,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         <div className="ficha-identidad">
           <span className="ficha-avatar">{iniciales(d.nombres, d.apellidos) || '··'}</span>
           <div style={{ minWidth: 0 }}>
-            <h1>{nombre || 'Nueva persona'}</h1>
+            <h1>{titulo}</h1>
             <div className="ficha-meta">
               <span
                 className="chip"
@@ -469,7 +471,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
               >
                 {esCliente ? 'Cliente oficial' : 'Prospecto'}
               </span>
-              <span>{(d.expediente ? d.expediente + ' · ' : '') + 'Ingreso ' + fFecha(d.fechaIngreso)}</span>
+              <span>{'Fecha de Ingreso: ' + fFecha(d.fechaIngreso)}</span>
             </div>
           </div>
         </div>
