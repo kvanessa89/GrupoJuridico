@@ -2,6 +2,7 @@ using System.Globalization;
 using FluentValidation;
 using GrupoJuridico.Gestion.Application.Auth;
 using GrupoJuridico.Gestion.Application.Catalogos;
+using GrupoJuridico.Gestion.Application.Cobros;
 using GrupoJuridico.Gestion.Application.Personas;
 using GrupoJuridico.Gestion.Application.Usuarios;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<CatalogosService>();
         services.AddScoped<ListasService>();
         services.AddScoped<PersonasService>();
+        services.AddScoped<CobrosService>();
         return services;
     }
 }

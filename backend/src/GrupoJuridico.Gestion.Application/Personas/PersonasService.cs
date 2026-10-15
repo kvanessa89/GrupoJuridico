@@ -183,10 +183,13 @@ public class PersonasService
 
     private void VerificarAcceso(Persona persona)
     {
-        if (_usuario.Rol == Roles.AsistenteVentas &&
-            persona.Prima?.EstadoPrimaId == EstadoPrima.Pagada)
+        if (!AccesoPermitido(_usuario.Rol, persona))
             throw new ProhibidoException("No tiene permiso para acceder a esta persona.");
     }
+
+    /// <summary>El Asistente de Ventas no accede a personas con la prima pagada (requiere la prima cargada).</summary>
+    public static bool AccesoPermitido(string? rol, Persona persona) =>
+        !(rol == Roles.AsistenteVentas && persona.Prima?.EstadoPrimaId == EstadoPrima.Pagada);
 
     public async Task<PersonaDetalleDto> ObtenerAsync(int id, CancellationToken ct = default)
     {

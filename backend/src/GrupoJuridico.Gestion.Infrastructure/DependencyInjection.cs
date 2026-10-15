@@ -43,10 +43,12 @@ public static class DependencyInjection
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.Seccion));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.Seccion));
+        services.Configure<AlmacenArchivosOptions>(configuration.GetSection(AlmacenArchivosOptions.Seccion));
 
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddSingleton<IFechaActual, FechaActual>();
+        services.AddSingleton<IAlmacenArchivos, AlmacenArchivosLocal>();
         services.AddScoped<DbSeeder>();
         return services;
     }
