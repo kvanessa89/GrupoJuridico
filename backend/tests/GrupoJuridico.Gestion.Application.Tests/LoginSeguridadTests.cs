@@ -104,6 +104,18 @@ public class LoginSeguridadTests
         Assert.True(new CrearUsuarioValidator().Validate(request with { Contrasena = Fixture.Password }).IsValid);
     }
 
+    [Theory]
+    [InlineData("ana", "corta", "contrasena")]
+    [InlineData("usuario invalido!", Fixture.Password, "usuario")]
+    public async Task Error_de_identity_identifica_el_campo(string usuario, string password, string campo)
+    {
+        using var fixture = new Fixture();
+        var error = await Assert.ThrowsAsync<GrupoJuridico.Gestion.Application.Common.Exceptions.ValidacionException>(() =>
+            fixture.Login.CrearAsync(new GuardarUsuarioRequest("Ana", usuario, password, "Administrador")));
+        Assert.Contains(campo, error.Errores.Keys);
+        Assert.Single(error.Errores);
+    }
+
     private sealed class Fixture : IDisposable
     {
         public const string Password = "una frase larga";
@@ -147,3 +159,4 @@ public class LoginSeguridadTests
         }
     }
 }
+

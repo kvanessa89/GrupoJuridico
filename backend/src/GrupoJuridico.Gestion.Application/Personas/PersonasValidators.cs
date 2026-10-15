@@ -22,15 +22,7 @@ public class CrearProspectoValidator : AbstractValidator<CrearProspectoRequest>
         RuleFor(x => x.CorreoPrincipal)
             .Must(c => (c?.Trim().Length ?? 0) <= Persona.MaxCorreo).WithMessage($"Máximo {Persona.MaxCorreo} caracteres.")
             .Must(Validacion.CorreoValido).WithMessage("Correo electrónico no válido.");
-        RuleForEach(x => x.Familiares).Must(f => Validacion.CorreoValido(f.CorreoElectronico) && (f.CorreoElectronico?.Trim().Length ?? 0) <= Persona.MaxCorreo)
-            .WithMessage("El correo de un familiar no es válido.");
-        RuleForEach(x => x.Familiares).Must(f => !Validacion.Vacio(f.NombreCompleto))
-            .WithMessage("El nombre del familiar es requerido.");
-        RuleForEach(x => x.Familiares).Must(f => (f.NombreCompleto?.Trim().Length ?? 0) <= PersonaFamiliar.MaxNombreCompleto)
-            .WithMessage($"El nombre de un familiar admite como máximo {PersonaFamiliar.MaxNombreCompleto} caracteres.");
-        RuleForEach(x => x.Familiares).Must(f =>
-                Validacion.SoloDigitos(f.Telefono).Length > 0 || !Validacion.Vacio(f.CorreoElectronico))
-            .WithMessage("Ingrese un teléfono o un correo del familiar.");
+        RuleForEach(x => x.Familiares).SetValidator(new FamiliarItemValidator());
         RuleFor(x => x.Finca).Cascade(CascadeMode.Stop).NotEmpty().WithMessage("Campo requerido.")
             .Must(Validacion.FincaValida).WithMessage(Validacion.MensajeFinca);
         RuleFor(x => x.Expediente).Must(Validacion.ExpedienteValido).WithMessage(Validacion.MensajeExpediente);
@@ -115,3 +107,24 @@ public class ComentarioValidator : AbstractValidator<ComentarioRequest>
 }
 
 
+
+
+/// <summary>Reglas compartidas por alta y edición; las rutas incluyen el índice y el campo.</summary>
+public class FamiliarItemValidator : AbstractValidator<FamiliarItem>
+{
+    public FamiliarItemValidator()
+    {
+        RuleFor(x => x.NombreCompleto).NotEmpty().WithMessage("El nombre del familiar es requerido.")
+            .Must(n => (n?.Trim().Length ?? 0) <= PersonaFamiliar.MaxNombreCompleto)
+            .WithMessage($"El nombre del familiar admite como máximo {PersonaFamiliar.MaxNombreCompleto} caracteres.");
+        RuleFor(x => x.CorreoElectronico).Must(Validacion.CorreoValido).WithMessage("Correo electrónico no válido.")
+            .Must(c => (c?.Trim().Length ?? 0) <= Persona.MaxCorreo)
+            .WithMessage($"El correo admite como máximo {Persona.MaxCorreo} caracteres.");
+        RuleFor(x => x.Telefono).Must((f, _) => TieneContacto(f))
+            .WithMessage("Ingrese un teléfono o un correo del familiar.");
+        RuleFor(x => x.CorreoElectronico).Must((f, _) => TieneContacto(f))
+            .WithMessage("Ingrese un teléfono o un correo del familiar.");
+    }
+    private static bool TieneContacto(FamiliarItem f) =>
+        Validacion.SoloDigitos(f.Telefono).Length > 0 || !Validacion.Vacio(f.CorreoElectronico);
+}

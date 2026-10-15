@@ -23,6 +23,7 @@ public class PersonasService
     private readonly ActualizarPrimaValidator _primaValidator = new();
     private readonly ConvertirClienteValidator _convertirValidator = new();
     private readonly ComentarioValidator _comentarioValidator = new();
+    private readonly FamiliarItemValidator _familiarValidator = new();
 
     public PersonasService(IApplicationDbContext db, IUsuarioActual usuario, IIdentityService identity, IFechaActual fecha)
     {
@@ -51,6 +52,11 @@ public class PersonasService
         VersionGuardada = version.Version;
     }
 
+    private static void ValidarIdCatalogo(int? id, string campo)
+    {
+        if (id is < 0) throw new ValidacionException(campo, "El identificador no puede ser negativo.");
+    }
+
     /// <summary>
     /// Resuelve el país de un teléfono: valida el id recibido o, si viene nulo,
     /// toma el país por defecto (el primero del catálogo).
@@ -60,6 +66,7 @@ public class PersonasService
         var paises = await _db.Paises.OrderBy(x => x.Id).Select(x => new { x.Id, x.Codigo }).ToListAsync(ct);
         return (id, campoPais, numero, campoNumero) =>
         {
+            ValidarIdCatalogo(id, campoPais);
             var pais = id is > 0 ? paises.FirstOrDefault(p => p.Id == id.Value) : paises.FirstOrDefault();
             if (pais == null)
                 throw new ValidacionException(campoPais, id is > 0
@@ -86,10 +93,24 @@ public class PersonasService
     /// <summary>Cada familiar con parentesco debe usar uno del catálogo.</summary>
     private async Task ValidarParentescosAsync(IEnumerable<FamiliarItem> items, CancellationToken ct)
     {
+        var indice = 0;
+        foreach (var i in items)
+        {
+            ValidarIdCatalogo(i.ParentescoId, $"familiares[{indice}].parentescoId");
+            ValidarIdCatalogo(i.TelefonoPaisId, $"familiares[{indice}].telefonoPaisId");
+            ValidarIdCatalogo(i.WhatsappPaisId, $"familiares[{indice}].whatsappPaisId");
+            indice++;
+        }
         var usados = items.Where(i => i.ParentescoId is > 0).Select(i => i.ParentescoId!.Value).Distinct().ToList();
         if (usados.Count == 0) return;
-        var existentes = await _db.Parentescos.CountAsync(x => usados.Contains(x.Id), ct);
-        if (existentes != usados.Count) throw new ValidacionException(nameof(FamiliarItem.ParentescoId), "El parentesco seleccionado ya no existe. Recargue la página y elija otro.");
+        var existentes = (await _db.Parentescos.Where(x => usados.Contains(x.Id)).Select(x => x.Id).ToListAsync(ct)).ToHashSet();
+        indice = 0;
+        foreach (var i in items)
+        {
+            if (i.ParentescoId is > 0 && !existentes.Contains(i.ParentescoId.Value))
+                throw new ValidacionException($"familiares[{indice}].parentescoId", "El parentesco seleccionado ya no existe. Recargue la página y elija otro.");
+            indice++;
+        }
     }
 
     /// <summary>
@@ -99,6 +120,7 @@ public class PersonasService
     private async Task ValidarCatalogoAsync<T>(IQueryable<T> catalogo, int? id, string campo, string mensaje, CancellationToken ct)
         where T : Catalogo
     {
+        ValidarIdCatalogo(id, campo);
         if (id is > 0 && !await catalogo.AnyAsync(x => x.Id == id, ct))
             throw new ValidacionException(campo, mensaje);
     }
@@ -133,8 +155,12 @@ public class PersonasService
     }
 
     public static string TipoTexto(TipoNumero t) => t == TipoNumero.WhatsApp ? "WhatsApp" : "Teléfono";
-    public static TipoNumero TipoDesde(string? t) =>
-        string.Equals(t, "WhatsApp", StringComparison.OrdinalIgnoreCase) ? TipoNumero.WhatsApp : TipoNumero.Telefono;
+    public static TipoNumero TipoDesde(string? t, string campo = "tipo")
+    {
+        if (string.Equals(t?.Trim(), "WhatsApp", StringComparison.OrdinalIgnoreCase)) return TipoNumero.WhatsApp;
+        if (string.Equals(t?.Trim(), "Teléfono", StringComparison.OrdinalIgnoreCase)) return TipoNumero.Telefono;
+        throw new ValidacionException(campo, "Seleccione Teléfono o WhatsApp.");
+    }
 
     private async Task<Persona> CargarAsync(int id, CancellationToken ct)
     {
@@ -198,6 +224,8 @@ public class PersonasService
     public async Task<PersonaDetalleDto> CrearProspectoAsync(CrearProspectoRequest r, CancellationToken ct = default)
     {
         await _crearValidator.ValidarAsync(r, ct);
+        ValidarIdCatalogo(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId));
+        ValidarIdCatalogo(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId));
         ValidarCantidad((r.Familiares ?? Array.Empty<FamiliarItem>()).Count(f => !FamiliarVacio(f)), Persona.MaxFamiliares, "familiares", "familiares");
         await ValidarParentescosAsync(r.Familiares ?? Array.Empty<FamiliarItem>(), ct);
         await ValidarCatalogoAsync(_db.Vendedores, r.VendedorId, nameof(r.VendedorId), "El vendedor seleccionado ya no existe. Recargue la página y elija otro.", ct);
@@ -259,6 +287,10 @@ public class PersonasService
     {
         var p = await CargarAsync(id, ct);
         await _datosValidator.ValidarAsync(r, ct);
+        ValidarIdCatalogo(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId));
+        ValidarIdCatalogo(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId));
+        ValidarIdCatalogo(r.EstadoClienteId, nameof(r.EstadoClienteId));
+        ValidarIdCatalogo(r.OrigenClienteId, nameof(r.OrigenClienteId));
         // Nulos conservan contactos existentes; cadenas vacías solicitan quitarlos.
         var telefono = r.TelefonoPrincipal == null ? p.NumeroPrincipal(TipoNumero.Telefono)?.Valor : r.TelefonoPrincipal;
         var whatsapp = r.WhatsappPrincipal == null ? p.NumeroPrincipal(TipoNumero.WhatsApp)?.Valor : r.WhatsappPrincipal;
@@ -359,12 +391,18 @@ public class PersonasService
     {
         var p = await CargarAsync(id, ct);
         ValidarIdsPropios(items.Select(i => i.Id), p.Numeros.Select(x => x.Id), "numeros");
+        for (var indice = 0; indice < items.Count; indice++)
+        {
+            TipoDesde(items[indice].Tipo, $"numeros[{indice}].tipo");
+            ValidarIdCatalogo(items[indice].PaisId, $"numeros[{indice}].paisId");
+        }
         ValidarCantidad(items.Count(i => TipoDesde(i.Tipo) == TipoNumero.Telefono), Persona.MaxTelefonos, "numeros", "teléfonos");
         ValidarCantidad(items.Count(i => TipoDesde(i.Tipo) == TipoNumero.WhatsApp), Persona.MaxWhatsApp, "numeros", "números de WhatsApp");
         if (!items.Any(i => Validacion.SoloDigitos(i.Numero).Length > 0))
             throw new ValidacionException("numeros", CrearProspectoValidator.MensajeContacto);
-        if (items.Any(i => Validacion.SoloDigitos(i.Numero).Length == 0))
-            throw new ValidacionException("numeros", "Complete el número o quite la fila vacía.");
+        for (var indice = 0; indice < items.Count; indice++)
+            if (Validacion.SoloDigitos(items[indice].Numero).Length == 0)
+                throw new ValidacionException($"numeros[{indice}].numero", "Complete el número o quite la fila vacía.");
         var pais = await PaisesAsync(ct);
         for (var indice = 0; indice < items.Count; indice++)
             pais(items[indice].PaisId, $"numeros[{indice}].paisId", items[indice].Numero, $"numeros[{indice}].numero");
@@ -390,7 +428,8 @@ public class PersonasService
 
     public async Task<IReadOnlyList<CorreoDto>> ReemplazarCorreosAsync(int id, IReadOnlyList<CorreoItem> items, CancellationToken ct = default, Guid? version = null)
     {
-        foreach (var i in items) Validacion.Correo(i.Correo, nameof(i.Correo), Persona.MaxCorreo);
+        for (var indice = 0; indice < items.Count; indice++)
+            Validacion.Correo(items[indice].Correo, $"correos[{indice}].correo", Persona.MaxCorreo);
         var p = await CargarAsync(id, ct);
         ValidarIdsPropios(items.Select(i => i.Id), p.Correos.Select(x => x.Id), "correos");
         ValidarCantidad(items.Count, Persona.MaxCorreos, "correos", "correos");
@@ -413,18 +452,9 @@ public class PersonasService
 
     public async Task<IReadOnlyList<FamiliarDto>> ReemplazarFamiliaresAsync(int id, IReadOnlyList<FamiliarItem> items, CancellationToken ct = default, Guid? version = null)
     {
-        // Cada fila enviada necesita nombre y teléfono o correo; para quitarla debe omitirse.
-        foreach (var i in items)
-        {
-            if (Validacion.Vacio(i.NombreCompleto))
-                throw new ValidacionException(nameof(i.NombreCompleto), "El nombre del familiar es requerido.");
-            if ((i.NombreCompleto?.Trim().Length ?? 0) > PersonaFamiliar.MaxNombreCompleto)
-                throw new ValidacionException(nameof(i.NombreCompleto),
-                    $"El nombre del familiar admite como máximo {PersonaFamiliar.MaxNombreCompleto} caracteres.");
-            Validacion.Correo(i.CorreoElectronico, nameof(i.CorreoElectronico), Persona.MaxCorreo);
-            if (Validacion.SoloDigitos(i.Telefono).Length == 0 && Validacion.Vacio(i.CorreoElectronico))
-                throw new ValidacionException(nameof(i.Telefono), "Ingrese un teléfono o un correo del familiar.");
-        }
+        // La validación conserva la ruta de cada fila de la solicitud.
+        for (var indice = 0; indice < items.Count; indice++)
+            await _familiarValidator.ValidarAsync(items[indice], ct, $"familiares[{indice}]");
         await ValidarParentescosAsync(items, ct);
         var p = await CargarAsync(id, ct);
         ValidarIdsPropios(items.Select(i => i.Id), p.Familiares.Select(x => x.Id), "familiares");
@@ -547,6 +577,8 @@ public class PersonasService
         f.WhatsappPaisId = f.Whatsapp.Length > 0 ? pais(i.WhatsappPaisId, nameof(i.WhatsappPaisId), i.Whatsapp, nameof(i.Whatsapp)) : null;
     }
 }
+
+
 
 
 

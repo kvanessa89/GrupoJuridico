@@ -203,3 +203,25 @@ public class FormatosPersonaTests
         Assert.Equal(valido, new ActualizarVentaValidator().Validate(new ActualizarVentaRequest(1, 1, 1000m, notas)).IsValid);
     }
 }
+
+
+public class RutasValidacionTests
+{
+    [Theory]
+    [InlineData("Familiares[2].CorreoElectronico", "familiares[2].correoElectronico")]
+    [InlineData("Numeros[1].PaisId", "numeros[1].paisId")]
+    [InlineData("Nombre", "nombre")]
+    public void Normaliza_cada_segmento(string ruta, string esperado) =>
+        Assert.Equal(esperado, GrupoJuridico.Gestion.Application.Common.Validacion.CamelCase(ruta));
+
+    [Fact]
+    public async Task Familiar_invalido_identifica_fila_y_campos()
+    {
+        var error = await Assert.ThrowsAsync<GrupoJuridico.Gestion.Application.Common.Exceptions.ValidacionException>(() =>
+            GrupoJuridico.Gestion.Application.Common.Validacion.ValidarAsync(new FamiliarItemValidator(),
+                new FamiliarItem(0, "", null, "", "", ""), prefijo: "familiares[2]"));
+        Assert.Contains("familiares[2].nombreCompleto", error.Errores.Keys);
+        Assert.Contains("familiares[2].telefono", error.Errores.Keys);
+        Assert.Contains("familiares[2].correoElectronico", error.Errores.Keys);
+    }
+}
