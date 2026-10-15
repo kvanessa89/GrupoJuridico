@@ -1,6 +1,8 @@
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic']
 const MESES_LARGOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+
 /** País por defecto de un teléfono nuevo: el primero del catálogo (Costa Rica). */
 export function paisPorDefecto(paises: { id: number }[] | undefined): number | null {
   return paises?.[0]?.id ?? null
@@ -39,6 +41,18 @@ export function fFecha(iso?: string | null): string {
   const p = iso.slice(0, 10).split('-')
   if (p.length < 3) return iso
   return Number(p[2]) + ' ' + MESES[Number(p[1]) - 1] + ' ' + p[0]
+}
+
+/** 2026-10-16 → "viernes 16 oct" */
+export function fDiaLargo(iso?: string | null): string {
+  if (!iso) return '—'
+  const [a, m, d] = iso.slice(0, 10).split('-').map(Number)
+  return DIAS[new Date(Date.UTC(a, m - 1, d)).getUTCDay()] + ' ' + d + ' ' + MESES[m - 1]
+}
+
+/** "1 día" / "3 días" (y lo mismo para cuotas, pagos, etc.). */
+export function plural(n: number, singular: string, pluralTexto = singular + 's'): string {
+  return n + ' ' + (n === 1 ? singular : pluralTexto)
 }
 
 /** 2026-04-12 → "12/04/26" */

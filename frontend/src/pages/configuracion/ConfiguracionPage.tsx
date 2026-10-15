@@ -6,8 +6,10 @@ import { useSesion } from '../../auth/Sesion'
 import { BasureroFino, Chevron, Mas } from '../../components/Iconos'
 
 interface DefCatalogo {
-  tipo: TipoCatalogo | 'roles'
+  /** Null en los catálogos de solo lectura que no se editan desde aquí. */
+  tipo: TipoCatalogo | null
   clave: 'vendedores' | 'procedencias' | 'metodos' | 'estadosPrima' | 'origenes' | 'estadosCliente' | 'paises' | 'parentescos' | 'roles'
+    | 'estadosCuotaPago' | 'estadosCuotaVencimiento' | 'estadosPromesa'
   titulo: string
   sing: string
   plur: string
@@ -40,6 +42,14 @@ const GRUPOS: { titulo: string; interes?: boolean; catalogos: DefCatalogo[] }[] 
     ],
   },
   {
+    titulo: 'Cobros',
+    catalogos: [
+      { tipo: null, clave: 'estadosCuotaPago', titulo: 'Estado de pago de la cuota', sing: 'estado', plur: 'estados', soloLectura: true },
+      { tipo: null, clave: 'estadosCuotaVencimiento', titulo: 'Estado de vencimiento de la cuota', sing: 'estado', plur: 'estados', soloLectura: true },
+      { tipo: null, clave: 'estadosPromesa', titulo: 'Estado de la promesa de pago', sing: 'estado', plur: 'estados', soloLectura: true },
+    ],
+  },
+  {
     titulo: 'Familiares',
     catalogos: [
       { tipo: 'parentescos', clave: 'parentescos', titulo: 'Parentescos', sing: 'parentesco', plur: 'parentescos', agregar: 'Agregar parentesco' },
@@ -53,7 +63,7 @@ const GRUPOS: { titulo: string; interes?: boolean; catalogos: DefCatalogo[] }[] 
   },
   {
     titulo: 'Usuarios',
-    catalogos: [{ tipo: 'roles', clave: 'roles', titulo: 'Roles', sing: 'rol', plur: 'roles', soloLectura: true }],
+    catalogos: [{ tipo: null, clave: 'roles', titulo: 'Roles', sing: 'rol', plur: 'roles', soloLectura: true }],
   },
 ]
 

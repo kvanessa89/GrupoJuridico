@@ -3,6 +3,8 @@ import type { Rol } from './api/tipos'
 import { useSesion } from './auth/Sesion'
 import { AppLayout } from './layout/AppLayout'
 import { ClientesPage } from './pages/clientes/ClientesPage'
+import { CobrosPage } from './pages/cobros/CobrosPage'
+import { PlanPagoPage } from './pages/cobros/PlanPagoPage'
 import { ConfiguracionPage } from './pages/configuracion/ConfiguracionPage'
 import { Inicio } from './pages/Inicio'
 import { Login } from './pages/Login'
@@ -22,6 +24,12 @@ function Ficha({ seccion }: { seccion: 'ventas' | 'clientes' }) {
   return <PersonaPage key={seccion + id} seccion={seccion} />
 }
 
+/** El plan de pago también se monta de nuevo por persona. */
+function Plan({ desde }: { desde: 'cobros' | 'ficha' }) {
+  const { id } = useParams()
+  return <PlanPagoPage key={desde + id} desde={desde} />
+}
+
 export function App() {
   return (
     <Routes>
@@ -35,6 +43,9 @@ export function App() {
         <Route element={<SoloRoles roles={['Administrador', 'Cobros']} />}>
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="clientes/:id" element={<Ficha seccion="clientes" />} />
+          <Route path="clientes/:id/plan" element={<Plan desde="ficha" />} />
+          <Route path="cobros" element={<CobrosPage />} />
+          <Route path="cobros/:id" element={<Plan desde="cobros" />} />
         </Route>
         <Route element={<SoloRoles roles={['Administrador']} />}>
           <Route path="configuracion" element={<ConfiguracionPage />} />
