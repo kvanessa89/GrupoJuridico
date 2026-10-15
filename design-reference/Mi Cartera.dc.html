@@ -194,6 +194,12 @@
                                 </sc-if>
                               </span>
                             </sc-if>
+                            <sc-if value="{{ cd.esLink }}" hint-placeholder-val="{{ false }}">
+                              <span style="display: block;">
+                                <button onClick="{{ cd.onLink }}" style="display: block; background: none; border: none; padding: 0; text-align: left; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; color: {{ gold }}; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: break-word;">{{ cd.t }}</button>
+                                <sc-if value="{{ cd.s }}" hint-placeholder-val="{{ false }}"><span style="{{ cd.sEstilo }}">{{ cd.s }}</span></sc-if>
+                              </span>
+                            </sc-if>
                             <sc-if value="{{ cd.esTexto }}" hint-placeholder-val="{{ true }}">
                               <span style="display: block;">
                                 <span style="{{ cd.estilo }}">{{ cd.t }}</span>
@@ -326,6 +332,15 @@
 
           <sc-if value="{{ esGestiones }}" hint-placeholder-val="{{ false }}">
           <div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 14px; margin-bottom: 16px;">
+              <sc-for list="{{ gTotales }}" as="t" hint-placeholder-count="4">
+                <div onClick="{{ t.onClick }}" style="background: {{ surf }}; border: 1px solid {{ t.borde }}; box-shadow: {{ t.sombra }}; cursor: pointer; border-radius: 14px; padding: 18px 20px; transition: border-color .15s, box-shadow .15s;">
+                  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: {{ ink3 }}; margin-bottom: 8px;">{{ t.label }}</div>
+                  <div style="font-size: clamp(21px, 3vw, 26px); font-weight: 800; letter-spacing: -0.02em; color: {{ head }};">{{ t.valor }}</div>
+                  <div style="font-size: 11.5px; color: {{ ink3 }}; margin-top: 5px;">{{ t.nota }}</div>
+                </div>
+              </sc-for>
+            </div>
             <div style="background: {{ surf }}; border: 1px solid {{ line }}; border-radius: 14px; padding: 14px; margin-bottom: 16px;">
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 195px), 1fr)); gap: 10px;">
                 <div style="position: relative; grid-column: span 2; min-width: 0;">
@@ -345,12 +360,16 @@
                   </select>
                 </label>
                 <label style="display: block; min-width: 0; position: relative;">
-                  <span style="position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 600; color: {{ ink3 }}; pointer-events: none;">Desde</span>
-                  <input type="date" value="{{ gDesde }}" onChange="{{ onGDesde }}" style="width: 100%; padding: 10px 13px 10px 62px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }};" />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 13px; top: 50%; transform: translateY(-50%); pointer-events: none;"><path d="m6 9 6 6 6-6"/></svg>
+                  <select value="{{ gAsig }}" onChange="{{ onGAsig }}" style="width: 100%; padding: 10px 32px 10px 13px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; cursor: pointer;">
+                    <sc-for list="{{ gAsigOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.l }}</option></sc-for>
+                  </select>
                 </label>
                 <label style="display: block; min-width: 0; position: relative;">
-                  <span style="position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 600; color: {{ ink3 }}; pointer-events: none;">Hasta</span>
-                  <input type="date" value="{{ gHasta }}" onChange="{{ onGHasta }}" style="width: 100%; padding: 10px 13px 10px 62px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }};" />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 13px; top: 50%; transform: translateY(-50%); pointer-events: none;"><path d="m6 9 6 6 6-6"/></svg>
+                  <select value="{{ gVista }}" onChange="{{ onGVista }}" style="width: 100%; padding: 10px 32px 10px 13px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; cursor: pointer;">
+                    <sc-for list="{{ gVistaOpts }}" as="o" hint-placeholder-count="3"><option value="{{ o.v }}">{{ o.l }}</option></sc-for>
+                  </select>
                 </label>
               </div>
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap;">
@@ -373,12 +392,12 @@
                     <sc-for list="{{ gFilas }}" as="g" hint-placeholder-count="6">
                       <tr onClick="{{ g.onOpen }}" style="border-bottom: 1px solid {{ surf2 }}; cursor: pointer;" style-hover="background: {{ surf2 }};">
                         <td style="padding: 12px 10px; vertical-align: middle;"><button onClick="{{ g.onCliente }}" style="display: block; background: none; border: none; padding: 0; text-align: left; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; color: {{ gold }}; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: break-word;">{{ g.expediente }}</button><span style="display: block; font-size: 11px; color: {{ ink3 }}; margin-top: 2px; white-space: nowrap;">{{ g.nombre }}</span></td>
-                        <td style="padding: 12px 10px; vertical-align: middle; font-variant-numeric: tabular-nums;">{{ g.vence }}</td>
-                        <td style="padding: 12px 10px; vertical-align: middle;"><span style="display: block; font-weight: 600; color: {{ head }};">{{ g.titulo }}</span><span style="display: block; font-size: 11.5px; color: {{ ink3 }}; margin-top: 2px;">{{ g.tipo }}</span></td>
+                        <td style="padding: 12px 10px; vertical-align: middle;"><span style="display: block; font-weight: 600; color: {{ head }};">{{ g.titulo }}</span></td>
+                        <td style="padding: 12px 10px; vertical-align: middle; color: {{ ink2 }}; text-wrap: pretty;">{{ g.descripcion }}</td>
+                        <td style="padding: 12px 10px; vertical-align: middle; font-variant-numeric: tabular-nums;"><span style="display: block; color: {{ g.venceColor }};">{{ g.vence }}</span><sc-if value="{{ g.vencida }}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; margin-top: 4px; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(220,38,38,0.14); color: #C2544A;">Vencida</span></sc-if></td>
+                        <td style="padding: 12px 10px; vertical-align: middle; color: {{ g.asigColor }}; overflow-wrap: break-word;">{{ g.asignado }}</td>
                         <td style="padding: 12px 10px; vertical-align: middle;"><span style="{{ g.prioEstilo }}">{{ g.prioridad }}</span></td>
                         <td style="padding: 12px 10px; vertical-align: middle;"><span style="{{ g.estEstilo }}">{{ g.estado }}</span></td>
-                        <td style="padding: 12px 10px; vertical-align: middle; color: {{ g.asigColor }}; overflow-wrap: break-word;">{{ g.asignado }}</td>
-                        <td style="padding: 12px 10px; vertical-align: middle; color: {{ ink2 }}; text-wrap: pretty;">{{ g.descripcion }}</td>
                       </tr>
                     </sc-for>
                   </tbody>
@@ -470,26 +489,27 @@
         <div style="max-width: 1060px; margin: 0 auto; padding: clamp(18px, 3vw, 26px) clamp(14px, 3vw, 26px) 80px; display: flex; flex-direction: column; gap: 18px;">
           <button onClick="{{ onVolverGestion }}" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 7px; background: none; border: none; padding: 0; font-size: 13.5px; font-weight: 600; color: {{ gold }}; cursor: pointer;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
-            <span>Volver a gestiones</span>
+            <span>{{ gdTextoVolver }}</span>
           </button>
           <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap;">
             <div style="min-width: 0; flex: 1 1 320px;">
               <div style="font-size: 11.5px; font-weight: 700; color: {{ gold }}; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px;">Gestión</div>
-              <h1 style="margin: 0 0 6px; font-size: clamp(22px, 4vw, 30px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; color: {{ head }}; text-wrap: pretty;">{{ gdTitulo }}</h1>
+              <h1 style="margin: 0 0 6px; font-size: clamp(15px, 2.4vw, 18px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; color: {{ head }}; text-wrap: pretty;">{{ gdTitulo }}</h1>
               <span style="font-size: 12.5px; color: {{ ink3 }};">{{ gdTipo }}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; flex: none;">
-              <span style="{{ gdPrioEstilo }}">{{ gdPrioridad }}</span>
+              <span style="{{ gdEstEstilo }}">{{ gdEstadoTexto }}</span>
+              <span style="{{ gdPrioEstilo }}">{{ gdPrioTexto }}</span>
             </div>
           </div>
 
           <div style="background: {{ surf }}; border: 1px solid {{ line }}; border-radius: 14px; padding: clamp(16px, 3vw, 22px);">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
-              <div style="min-width: 0;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Cliente</div><button onClick="{{ onVerCliente }}" style="display: block; background: none; border: none; padding: 0; text-align: left; cursor: pointer;"><span style="display: block; font-size: 13px; font-weight: 600; color: {{ gold }}; text-decoration: underline; text-underline-offset: 3px;">{{ gdExpediente }}</span><span style="display: block; font-size: 11px; color: {{ ink3 }}; margin-top: 2px;">{{ gdNombre }}</span></button></div>
-              <div style="min-width: 0;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Vencimiento</div><div style="font-size: 13.5px; font-weight: 600;">{{ gdVence }}</div></div>
-              <div style="min-width: 0;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Creada</div><div style="font-size: 13.5px; font-weight: 600;">{{ gdCreada }}</div></div>
-              <label style="display: block; min-width: 0;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Estado</div><span style="position: relative; display: block;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 13px; top: 50%; transform: translateY(-50%); pointer-events: none;"><path d="m6 9 6 6 6-6"></path></svg><select value="{{ gdEstado }}" onChange="{{ onGdEstado }}" style="width: 100%; min-width: 0; padding: 9px 13px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; font-size: 13.5px; font-weight: 600; padding-right: 36px; cursor: pointer;"><sc-for list="{{ gdEstadoOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></span></label>
-              <label style="display: block; min-width: 0;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Asignado a</div><span style="position: relative; display: block;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 13px; top: 50%; transform: translateY(-50%); pointer-events: none;"><path d="m6 9 6 6 6-6"></path></svg><select value="{{ gdAsignado }}" onChange="{{ onGdAsignado }}" style="width: 100%; min-width: 0; padding: 9px 13px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; font-size: 13.5px; font-weight: 600; padding-right: 36px; cursor: pointer;"><sc-for list="{{ gdAsignadoOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></span></label>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;">
+              <div style="min-width: 0; flex: 1 1 90px;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Cliente</div><button onClick="{{ onVerCliente }}" style="display: block; background: none; border: none; padding: 0; text-align: left; cursor: pointer;"><span style="display: block; font-size: 13px; font-weight: 600; color: {{ gold }}; text-decoration: underline; text-underline-offset: 3px;">{{ gdExpediente }}</span><span style="display: block; font-size: 11px; color: {{ ink3 }}; margin-top: 2px;">{{ gdNombre }}</span></button></div>
+              <div style="min-width: 0; flex: 1 1 90px;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Vencimiento</div><div style="font-size: 13.5px; font-weight: 600;">{{ gdVence }}</div></div>
+              <div style="min-width: 0; flex: 1 1 90px;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Creada</div><div style="font-size: 13.5px; font-weight: 600;">{{ gdCreada }}</div></div>
+              <label style="display: block; min-width: 110px; flex: 1 1 110px;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Estado</div><span style="position: relative; display: block;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none;"><path d="m6 9 6 6 6-6"></path></svg><select value="{{ gdEstado }}" onChange="{{ onGdEstado }}" style="width: 100%; min-width: 0; padding: 9px 30px 9px 11px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; font-size: 13px; font-weight: 600; cursor: pointer;"><sc-for list="{{ gdEstadoOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></span></label>
+              <label style="display: block; min-width: 120px; flex: 1.2 1 120px;"><div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Asignado a</div><span style="position: relative; display: block;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none;"><path d="m6 9 6 6 6-6"></path></svg><select value="{{ gdAsignado }}" onChange="{{ onGdAsignado }}" style="width: 100%; min-width: 0; padding: 9px 30px 9px 11px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; font-size: 13px; font-weight: 600; cursor: pointer;"><sc-for list="{{ gdAsignadoOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></span></label>
             </div>
             <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid {{ line }};">
               <div style="font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 4px;">Descripción</div>
@@ -543,9 +563,7 @@
                     </div>
                     <p style="margin: 4px 0 0; font-size: 13.5px; color: {{ ink2 }}; white-space: pre-wrap; overflow-wrap: anywhere;">{{ cm.texto }}</p>
                   </div>
-                  <sc-if value="{{ cm.puedeEliminar }}" hint-placeholder-val="{{ false }}">
-                    <button onClick="{{ cm.onEliminar }}" title="Eliminar comentario" aria-label="Eliminar comentario" style="width: 32px; height: 32px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid {{ line }}; border-radius: 9px; background: {{ surf }}; color: {{ ink3 }}; cursor: pointer;" style-hover="color: #C2544A;"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z"></path></svg></button>
-                  </sc-if>
+                  
                 </div>
               </sc-for>
               <sc-if value="{{ gdSinCom }}" hint-placeholder-val="{{ false }}"><span style="font-size: 12.5px; color: {{ ink3 }};">Sin comentarios todavía.</span></sc-if>
@@ -970,14 +988,17 @@
             <sc-if value="{{ verEventos }}" hint-placeholder-val="{{ false }}">
               <div style="background: {{ surf }}; border: 1px solid {{ line }}; border-radius: 14px; padding: clamp(16px, 3vw, 22px);">
                 <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px;">
-                  <span style="font-size: 11.5px; font-weight: 700; color: {{ gold }}; letter-spacing: 0.05em; text-transform: uppercase;">Eventos</span>
+                  <span style="font-size: 11.5px; font-weight: 700; color: {{ gold }}; letter-spacing: 0.05em; text-transform: uppercase;">Eventos del proceso</span>
                   <sc-if value="{{ evCerrado }}" hint-placeholder-val="{{ true }}"><button onClick="{{ onAbrirEvento }}" style="background: none; border: none; padding: 0; font-size: 12.5px; font-weight: 700; color: {{ gold }}; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; white-space: nowrap;">+ Registrar evento</button></sc-if>
                 </div>
                 <sc-if value="{{ evAbierto }}" hint-placeholder-val="{{ false }}">
                   <div style="border: 1px solid {{ line }}; border-radius: 12px; padding: 16px; background: {{ surf2 }};">
                     <label style="display: block; max-width: 360px;"><span style="display: block; font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 6px;">Tipo de evento</span><span style="position: relative; display: block;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 13px; top: 50%; transform: translateY(-50%); pointer-events: none;"><path d="m6 9 6 6 6-6"></path></svg><select value="{{ evTipo }}" onChange="{{ onEvTipo }}" style="width: 100%; min-width: 0; padding: 11px 13px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; font-size: 13.5px; padding-right: 36px; cursor: pointer;"><sc-for list="{{ evTipos }}" as="o" hint-placeholder-count="2"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></span></label>
-                    <sc-if value="{{ evNotif }}" hint-placeholder-val="{{ false }}">
-                      <label style="display: block; max-width: 220px; margin-top: 12px;"><span style="display: block; font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 6px;">Fecha de notificación</span><input type="date" value="{{ evFecha }}" onChange="{{ onEvFecha }}" style="width: 100%; min-width: 0; padding: 11px 13px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; font-size: 13.5px;" /></label>
+                    <sc-if value="{{ evConTipo }}" hint-placeholder-val="{{ false }}">
+                      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-top: 12px;">
+                        <sc-if value="{{ evNotif }}" hint-placeholder-val="{{ false }}"><label style="display: block; flex: 0 1 220px; min-width: 160px;"><span style="display: block; font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 6px;">Fecha de notificación</span><input type="date" value="{{ evFecha }}" onChange="{{ onEvFecha }}" style="width: 100%; min-width: 0; padding: 11px 13px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; font-size: 13.5px;" /></label></sc-if>
+                        <label style="display: block; flex: 0 1 320px; min-width: 200px;"><span style="display: block; font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 6px;">Asignado a</span><span style="position: relative; display: block;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 13px; top: 50%; transform: translateY(-50%); pointer-events: none;"><path d="m6 9 6 6 6-6"></path></svg><select value="{{ evAsig }}" onChange="{{ onEvAsig }}" style="width: 100%; min-width: 0; padding: 11px 13px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; font-size: 13.5px; padding-right: 36px; cursor: pointer;"><sc-for list="{{ evAsigOpts }}" as="o" hint-placeholder-count="3"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></span></label>
+                      </div>
                       <label style="display: block; margin-top: 12px;"><span style="display: block; font-size: 11.5px; font-weight: 600; color: {{ ink3 }}; margin-bottom: 6px;">Notas</span><textarea value="{{ evDesc }}" onChange="{{ onEvDesc }}" rows="3" style="width: 100%; min-width: 0; padding: 11px 13px; border: 1px solid {{ line }}; border-radius: 10px; background: {{ surf }}; font-size: 13.5px; resize: vertical; font-family: inherit;"></textarea></label>
                     </sc-if>
                     <sc-if value="{{ evError }}" hint-placeholder-val="{{ false }}"><p style="margin: 10px 0 0; font-size: 12.5px; font-weight: 600; color: #B42318;">{{ evError }}</p></sc-if>
@@ -998,15 +1019,15 @@
                       <div style="flex: 1; min-width: 0;">
                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                           <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.02em;">{{ ev.tipo }}</span>
-                          <span style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{ surf2 }}; color: {{ ink2 }};">{{ ev.origen }}</span>
+                          
                           <span style="font-size: 11.5px; color: {{ ink3 }};">{{ ev.fecha }}</span>
-                          <sc-if value="{{ ev.conGestion }}" hint-placeholder-val="{{ false }}"><span style="font-size: 11.5px; color: {{ ink3 }};">· {{ ev.gestion }}</span></sc-if>
+                          <sc-if value="{{ ev.conGestion }}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: {{ ink3 }};">· <button onClick="{{ ev.onGestion }}" style="background: none; border: none; padding: 0; font-family: inherit; font-size: 11.5px; font-weight: 700; color: {{ gold }}; text-decoration: underline; text-underline-offset: 3px; cursor: pointer;">{{ ev.gestion }}</button><span>{{ ev.asignado }}</span></span></sc-if>
                         </div>
                         <sc-if value="{{ ev.conNotif }}" hint-placeholder-val="{{ false }}"><p style="margin: 4px 0 0; font-size: 13px; font-weight: 600; color: {{ head }};">{{ ev.notif }}</p></sc-if>
                         <sc-if value="{{ ev.conDescripcion }}" hint-placeholder-val="{{ true }}"><p style="margin: 4px 0 0; font-size: 13.5px; color: {{ ink2 }}; white-space: pre-wrap; overflow-wrap: anywhere;">{{ ev.descripcion }}</p></sc-if>
-                        <sc-if value="{{ ev.conPlazo }}" hint-placeholder-val="{{ false }}"><p style="{{ ev.plazoEstilo }}">{{ ev.plazo }}</p></sc-if>
+                        
                       </div>
-                      <button onClick="{{ ev.onEliminar }}" title="Eliminar evento" aria-label="Eliminar evento" style="width: 32px; height: 32px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid {{ line }}; border-radius: 9px; background: {{ surf }}; color: {{ ink3 }}; cursor: pointer;" style-hover="color: #C2544A;"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z"></path></svg></button>
+                      
                     </div>
                     </div>
                   </sc-for>
@@ -1080,9 +1101,7 @@
                         </div>
                         <p style="margin: 4px 0 0; font-size: 13.5px; color: {{ ink2 }}; white-space: pre-wrap; overflow-wrap: anywhere;">{{ cm.texto }}</p>
                       </div>
-                      <sc-if value="{{ cm.puedeEliminar }}" hint-placeholder-val="{{ false }}">
-                        <button onClick="{{ cm.onEliminar }}" title="Eliminar comentario" aria-label="Eliminar comentario" style="width: 32px; height: 32px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid {{ line }}; border-radius: 9px; background: {{ surf }}; color: {{ ink3 }}; cursor: pointer;" style-hover="color: #C2544A;"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z"></path></svg></button>
-                      </sc-if>
+                      
                     </div>
                   </sc-for>
                   <sc-if value="{{ sinComentarios }}" hint-placeholder-val="{{ false }}"><span style="font-size: 12.5px; color: {{ ink3 }};">Sin comentarios todavía.</span></sc-if>
@@ -1292,7 +1311,7 @@ const origLabel = o => o.codigo + " - " + o.nombre;
 const PROC = [{ id: 1, codigo: "PV-1", nombre: "Presencial" }, { id: 2, codigo: "PV-2", nombre: "Virtual" }];
 const MET = [["MV-1","Edictos"],["MV-2","Whatsapp"],["MV-3","Brouchure"],["MV-4","Recomendados"],["MV-5","Arrendamiento"],["MV-6","Página Facebook"]].map((a, i) => ({ id: i + 1, codigo: a[0], nombre: a[1] }));
 const ESTCLI = ["Al Día", "Moroso", "Estrella", "Terminado", "Abandonado", "Sin Expediente"].map((n, i) => ({ id: i + 1, codigo: "EC-" + (i + 1), nombre: n }));
-const ROLES = ["Administrador", "Asistente de Ventas", "Cobros"].map((n, i) => ({ id: i + 1, nombre: n }));
+const ROLES = ["Administrador", "Asistente de Ventas", "Cobros", "Legal"].map((n, i) => ({ id: i + 1, nombre: n }));
 const TIPODOC = [{ id: 1, nombre: "Poderes" }, { id: 2, nombre: "Contrato" }, { id: 3, nombre: "Comprobantes de pago" }, { id: 4, nombre: "Gestión legal" }];
 const PERMDOC = { "4-1": { subir: true, ver: true }, "1-1": { subir: true, ver: true }, "2-1": { subir: true, ver: true }, "1-2": { subir: false, ver: true }, "2-2": { subir: true, ver: true }, "1-3": { subir: false, ver: false }, "2-3": { subir: false, ver: true }, "1-4": { subir: true, ver: true }, "2-4": { subir: true, ver: true }, "3-1": { subir: true, ver: true }, "3-2": { subir: false, ver: false }, "3-3": { subir: true, ver: true }, "3-4": { subir: false, ver: false } };
 const ESTP = [["EP-1","Prima Pendiente"],["EP-2","Prima Incompleta"],["EP-3","Prima Pagada"]].map((a, i) => ({ id: i + 1, codigo: a[0], estadoPrima: a[1] }));
@@ -1393,8 +1412,12 @@ function hoyIso() { const d = new Date(); return d.getFullYear() + "-" + String(
 function pIso(s) { const a = String(s).split("-").map(Number); return Date.UTC(a[0], a[1] - 1, a[2]); }
 function aIso(t) { return new Date(t).toISOString().slice(0, 10); }
 function addDias(s, n) { return aIso(pIso(s) + n * 864e5); }
-const TIPOEVENTO = [{ id: 1, codigo: "NOTIFICADO5DIAS", titulo: "Notificacion, dentro de los 5 días", descripcion: "El usuario a sido notificado y estamos dentro de los 5 días despues de notificado." }];
-const ESTADOGESTION = [["EG-1","Pendiente","gris"],["EG-2","En proceso","ambar"],["EG-3","Completada","verde"],["EG-4","Cancelada","rojo"]].map((a, i) => ({ id: i + 1, codigo: a[0], nombre: a[1], tono: a[2] }));
+const TIPOEVENTO = [
+  { id: 1, codigo: "NOTIFICADO5DIAS", titulo: "Cliente nuevo notificado dentro de los 5 días", descripcion: "El usuario a sido notificado y estamos dentro de los 5 días despues de notificado." },
+  { id: 2, codigo: "NOTIFICADOFUERA5DIAS", titulo: "Cliente nuevo notificado fuera de los 5 días", descripcion: "" },
+  { id: 3, codigo: "MALNOTIFICADO", titulo: "Cliente nuevo mal notificado", descripcion: "" }
+];
+const ESTADOGESTION = [["EG-1","Pendiente","amarillo"],["EG-2","En proceso","azul"],["EG-3","Completada","verde"],["EG-4","Cancelada","rojo"]].map((a, i) => ({ id: i + 1, codigo: a[0], nombre: a[1], tono: a[2] }));
 const PRIORIDADES = ["Urgente", "Alta", "Media", "Baja"].map((n, i) => ({ id: i + 1, nombre: n }));
 const TIPOREGLAPROGRAMADA = [{ id: 1, codigo: "REPORTEMENSUAL", titulo: "Reporte mensual", frecuencia: "Mensual" }];
 const FRECUENCIAS = ["Diaria", "Semanal", "Quincenal", "Mensual", "Anual"];
@@ -1415,13 +1438,13 @@ function fechasRegla(r) {
 function aplicarRegla(L, r, H) {
   let gid = nextId(L.gestiones);
   const gs = fechasRegla(r).map(f => ({ id: gid++, clienteId: r.clienteId, tipoEventoId: null, reglaProgramadaId: r.id, prioridadId: 3, estadoGestionId: 1, asignadoA: null, titulo: "Reporte " + r.frecuencia.toLowerCase(), fecha: H, fechaVencimiento: f, descripcion: r.tipoReglaProgramadaId === 1 ? "Enviar reporte mensual correspondiente" : "Reporte " + r.frecuencia.toLowerCase() + " del " + fCorta(f) }));
-  const ev = { id: nextId(L.eventos), clienteId: r.clienteId, tipoEventoId: null, fecha: H, origen: "Automático", gestionId: null, descripcion: "Regla programada " + r.frecuencia.toLowerCase() + " activada: " + gs.length + (gs.length === 1 ? " gestión" : " gestiones") + " del " + fCorta(r.fechaInicio) + " al " + fCorta(r.fechaFin) + "." };
+  const ev = { id: nextId(L.eventos), clienteId: r.clienteId, tipoEventoId: null, reglaProgramadaId: r.id, fechaCreacion: H, gestionId: null, descripcion: "Regla programada " + r.frecuencia.toLowerCase() + " activada: " + gs.length + (gs.length === 1 ? " gestión" : " gestiones") + " del " + fCorta(r.fechaInicio) + " al " + fCorta(r.fechaFin) + "." };
   return { eventos: L.eventos.concat([ev]), gestiones: L.gestiones.concat(gs) };
 }
-function registrarEvento(L, clienteId, tipoId, fechaNotif, notas, H) {
-  const desc = "El cliente fue notificado el día " + fFecha(fechaNotif) + (notas ? ". " + notas : "");
-  const g = { id: nextId(L.gestiones), clienteId, tipoEventoId: tipoId, reglaProgramadaId: null, prioridadId: 1, estadoGestionId: 1, asignadoA: null, titulo: "Cliente ha sido notificado, estamos dentro de los 5 días", fecha: H, fechaVencimiento: H, descripcion: desc };
-  const e = { id: nextId(L.eventos), clienteId, tipoEventoId: tipoId, fecha: H, fechaNotificacion: fechaNotif, origen: "Manual", gestionId: g.id, descripcion: notas || "" };
+function registrarEvento(L, clienteId, tipoId, fechaNotif, notas, H, asignadoA) {
+  const desc = fechaNotif ? "El cliente fue notificado el día " + fFecha(fechaNotif) + (notas ? ". " + notas : "") : (notas || "");
+  const g = { id: nextId(L.gestiones), clienteId, tipoEventoId: tipoId, reglaProgramadaId: null, prioridadId: tipoId === 1 ? 1 : 3, estadoGestionId: 1, asignadoA: asignadoA || null, titulo: (TIPOEVENTO.find(x => x.id === tipoId) || {}).titulo || "", fecha: H, fechaVencimiento: H, descripcion: desc };
+  const e = { id: nextId(L.eventos), clienteId, tipoEventoId: tipoId, reglaProgramadaId: null, fechaCreacion: H, fechaNotificacion: fechaNotif, gestionId: g.id, descripcion: notas || "" };
   return { eventos: L.eventos.concat([e]), gestiones: L.gestiones.concat([g]) };
 }
 function diaSem(s) { return new Date(pIso(s)).getUTCDay(); }
@@ -1499,12 +1522,14 @@ class Component extends DCLogic {
     q: "", fVendedor: "", fEstado: "", fProc: "", fOrigen: "", fEstCli: "", fAnio: "", fMes: new Date().toISOString().slice(0, 7),
     orden: "fechaEstimadaPago", asc: true, pagina: 1,
     guardado: 0, convAbierto: false, convExpediente: "", convOrigen: "", convError: "", elimId: null, volverIntento: false, crearIntento: false, nuevoComentario: "",
-    actTab: "comentarios", evAbierto: false, evTipo: "", evFecha: null, evDesc: "", evError: "", rgAbierto: false, rgTipo: "", rgFrec: "Mensual", rgIni: "", rgFin: "", rgDia: "", rgError: "", gestionAbierta: null, gdNuevoCom: "", gQ: "", gTipo: "", gPrio: "", gDesde: hoyIso(), gHasta: hoyIso(), gPagina: 1,
+    actTab: "comentarios", evAbierto: false, evTipo: "", evFecha: null, evDesc: "", evError: "", rgAbierto: false, rgTipo: "", rgFrec: "Mensual", rgIni: "", rgFin: "", rgDia: "", rgError: "", gestionAbierta: null, gdNuevoCom: "", gQ: "", gTipo: "", gPrio: "", gAsig: "", gEst: "", gVista: "hoy", gDesde: hoyIso(), gHasta: hoyIso(), gPagina: 1,
     vendedores: VEND.slice(), procedencias: PROC.slice(), metodos: MET.slice(), estadosPrima: ESTP.slice(), origenes: ORIG.slice(), estadosCliente: ESTCLI.slice(),
     usuarios: [
       { id: 1, nombre: "Natalia Ramírez", usuario: "admin", contrasena: "cartera2026", rolId: 1 },
       { id: 2, nombre: "Andrea Vargas", usuario: "ventas", contrasena: "ventas2026", rolId: 2 },
-      { id: 3, nombre: "Marcela Solís", usuario: "cobros", contrasena: "cobros2026", rolId: 3 }
+      { id: 3, nombre: "Marcela Solís", usuario: "cobros", contrasena: "cobros2026", rolId: 3 },
+      { id: 4, nombre: "Daniel Mora", usuario: "legal", contrasena: "legal2026", rolId: 4 },
+      { id: 5, nombre: "Sofía Castro", usuario: "legal2", contrasena: "legal2026", rolId: 4 }
     ],
     verPass: {}, cfgAbiertos: {}, nuNombre: "", nuUsuario: "", nuPass: "", nuRol: "1", nuVend: "", nuVer: false, nuError: "",
     roles: ROLES.slice(), tiposDocumento: TIPODOC.slice(), permisosDoc: Object.assign({}, PERMDOC), tipoSubida: "",
@@ -1722,8 +1747,12 @@ class Component extends DCLogic {
   esMoroso(p, R) { const cl = this.clienteDe(p); return !!(R && R.vencidas.length) || !!(cl && cl.estadoClienteId === 2); }
   esLetra(p, R, H) { if (!R || !R.info.length || !this.esMoroso(p, R) || R.saldo <= 0) return false; const ult = R.info[R.info.length - 1].c.fechaVencimiento; return (H || hoyIso()) > ult; }
   cuotaRecordatorio(R, H) { return R ? R.pendientes.find(i => i.c.fechaVencimiento > H && fechaRecordatorio(i.c.fechaVencimiento) === H) || null : null; }
+  usuariosLegal() {
+    const rl = this.state.roles.find(r => String(r.nombre).trim().toLowerCase() === "legal");
+    return rl ? this.state.usuarios.filter(u => u.rolId === rl.id) : [];
+  }
   bdg(tono) {
-    const m = { verde: ["rgba(22,163,74,0.14)", "#2E7D4F"], ambar: ["rgba(217,119,6,0.16)", "#B4780C"], rojo: ["rgba(220,38,38,0.14)", "#C2544A"], gris: ["rgba(168,162,158,0.18)", this.pal().ink2] }[tono] || ["rgba(168,162,158,0.18)", this.pal().ink2];
+    const m = { verde: ["rgba(22,163,74,0.14)", "#2E7D4F"], ambar: ["rgba(217,119,6,0.16)", "#B4780C"], rojo: ["rgba(220,38,38,0.14)", "#C2544A"], amarillo: ["rgba(234,179,8,0.2)", "#E8C158"], azul: ["rgba(37,99,235,0.18)", "#7AA2F7"], gris: ["rgba(168,162,158,0.18)", this.pal().ink2] }[tono] || ["rgba(168,162,158,0.18)", this.pal().ink2];
     return "display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; background: " + m[0] + "; color: " + m[1] + ";";
   }
   badgeEstCli(p) {
@@ -1786,7 +1815,7 @@ class Component extends DCLogic {
       { k: "vencido", label: "Monto vencido", valor: fMonto(mor.reduce((a, x) => a + (x.R ? x.R.montoVencido : 0), 0)), nota: "Saldo de cuotas vencidas" },
       { k: "recordatorios", label: "Recordatorios de hoy", valor: String(recs.length), nota: dest.length ? "Pagan el " + dest.map(fDiaLargo).join(" y el ") : "Hoy no se envían recordatorios" },
       { k: "promesas", label: "Promesas pendientes", valor: String(pend.length), nota: "Acuerdos de pago por vencer" },
-      { k: "letra", label: "Letra de cambio", valor: String(todos.filter(x => this.esLetra(x.p, x.R, H)).length), nota: "Plan vencido con saldo pendiente" }
+      { k: "letra", label: "Candidato a cobro judicial", valor: String(todos.filter(x => this.esLetra(x.p, x.R, H)).length), nota: "Plan vencido con saldo pendiente" }
     ].map(t => Object.assign(t, {
       borde: act === t.k ? P.gold : P.line, sombra: act === t.k ? "0 0 0 1px " + P.gold : "none", cursor: "pointer",
       onClick: () => { this.setState({ cobTab: t.k, pagina: 1, orden: t.k === "recordatorios" ? "expediente" : "atraso", asc: t.k === "recordatorios" }); this.irArriba(); }
@@ -1891,6 +1920,9 @@ class Component extends DCLogic {
       vals.gdTitulo = gd.titulo || "Gestión #" + gd.id;
       vals.gdPrioridad = pr ? pr.nombre : "Sin prioridad";
       vals.gdPrioEstilo = this.bdg({ 1: "rojo", 2: "ambar", 3: "verde", 4: "gris" }[gd.prioridadId] || "gris").replace("font-size: 10.5px", "font-size: 13.5px").replace("padding: 3px 8px; border-radius: 999px", "padding: 10px 16px; border-radius: 10px");
+      vals.gdEstEstilo = this.bdg((ESTADOGESTION.find(x => x.id === (gd.estadoGestionId || 1)) || {}).tono).replace("font-size: 10.5px", "font-size: 13.5px").replace("padding: 3px 8px; border-radius: 999px", "padding: 10px 16px; border-radius: 10px");
+      vals.gdEstadoTexto = "Estado: " + (ESTADOGESTION.find(x => x.id === (gd.estadoGestionId || 1)) || {}).nombre;
+      vals.gdPrioTexto = "Prioridad: " + vals.gdPrioridad;
       vals.gdTipo = t ? t.titulo : r ? "Regla programada " + r.frecuencia.toLowerCase() : "";
       vals.gdExpediente = per ? (per.expediente || "Sin expediente") : "Sin expediente";
       vals.gdNombre = per ? ((per.nombres + " " + per.apellidos).trim() || "Sin nombre") : "Cliente " + gd.clienteId;
@@ -1901,10 +1933,11 @@ class Component extends DCLogic {
       vals.gdEstadoOpts = ESTADOGESTION.map(x => ({ v: String(x.id), l: x.nombre }));
       vals.onGdEstado = e => updG({ estadoGestionId: Number(e.target.value) });
       vals.gdAsignado = gd.asignadoA ? String(gd.asignadoA) : "";
-      vals.gdAsignadoOpts = [{ v: "", l: "Sin asignar" }].concat(s.usuarios.map(u => ({ v: String(u.id), l: u.nombre })));
+      vals.gdAsignadoOpts = [{ v: "", l: "Sin asignar" }].concat(this.usuariosLegal().map(u => ({ v: String(u.id), l: u.nombre })));
       vals.onGdAsignado = e => updG({ asignadoA: e.target.value ? Number(e.target.value) : null });
       vals.gdDescripcion = gd.descripcion || "Sin descripción.";
-      vals.onVolverGestion = () => { this.setState({ vista: "lista", gestionAbierta: null }); this.irArriba(); };
+      vals.gdTextoVolver = s.gdDesde ? "Volver al expediente" : "Volver a gestiones";
+      vals.onVolverGestion = () => { if (s.gdDesde) this.setState({ vista: "persona", personaAbierta: s.gdDesde, nuevo: false, tabDe: s.gdDesde, gestionAbierta: null, gdDesde: null }); else this.setState({ vista: "lista", gestionAbierta: null }); this.irArriba(); };
       vals.onVerCliente = () => { if (!per) return; this.setState({ vista: "persona", personaAbierta: per.id, nuevo: false, tab: "general", tabDe: per.id, convAbierto: false, volverIntento: false, nuevoComentario: "" }); this.irArriba(); };
       const ga = s.archivos.filter(a => a.gestionId === gd.id);
       vals.gdSinArchivos = ga.length === 0;
@@ -1944,15 +1977,37 @@ class Component extends DCLogic {
     }
     if (vals.esGestiones) {
       let gs = s.gestiones.slice();
-      if (s.gTipo === "1") gs = gs.filter(g => g.tipoEventoId === 1);
-      else if (s.gTipo === "regla") gs = gs.filter(g => g.reglaProgramadaId);
+      const gt = String(s.gTipo || "");
+      if (gt.startsWith("ev:")) gs = gs.filter(g => g.tipoEventoId === Number(gt.slice(3)));
+      else if (gt.startsWith("rg:")) gs = gs.filter(g => { const r = g.reglaProgramadaId && s.reglas.find(x => x.id === g.reglaProgramadaId); return r && (r.tipoReglaProgramadaId || 1) === Number(gt.slice(3)); });
+      if (s.gAsig === "none") gs = gs.filter(g => !g.asignadoA); else if (s.gAsig) gs = gs.filter(g => String(g.asignadoA) === s.gAsig);
       const fv = g => g.fechaVencimiento || g.fecha;
       const perDe = g => s.personas.find(x => x.clienteid === g.clienteId);
       const qq = String(s.gQ || "").trim().toLowerCase();
       if (qq) gs = gs.filter(g => { const per = perDe(g); return [per && per.expediente, per && per.nombres + " " + per.apellidos, g.titulo].some(t => String(t || "").toLowerCase().includes(qq)); });
       if (s.gPrio) gs = gs.filter(g => String(g.prioridadId) === s.gPrio);
-      if (s.gDesde) gs = gs.filter(g => fv(g) >= s.gDesde);
-      if (s.gHasta) gs = gs.filter(g => fv(g) <= s.gHasta);
+      const hoyG = hoyIso(), abierta = g => [1, 2].includes(g.estadoGestionId || 1), vencida = g => fv(g) < hoyG && abierta(g), gv = s.gVista || "hoy";
+      {
+        const all = s.gestiones, ge = s.gEst || "";
+        const act = gv === "solohoy" && !ge && !s.gPrio ? "hoy" : gv === "vencidas" && !ge && !s.gPrio ? "vencidas" : gv === "todas" && s.gPrio === "1" && ge === "abiertas" ? "urgentes" : gv === "todas" && ge === "1" && !s.gPrio ? "pendientes" : "";
+        const base = { gQ: "", gTipo: "", gAsig: "", gPrio: "", gEst: "", gPagina: 1 };
+        vals.gTotales = [
+          { k: "hoy", label: "Gestiones de hoy", valor: String(all.filter(g => fv(g) === hoyG && abierta(g)).length), nota: "Vencen hoy", f: { gVista: "solohoy" } },
+          { k: "vencidas", label: "Gestiones vencidas", valor: String(all.filter(vencida).length), nota: "Fecha pasada y sin completar", f: { gVista: "vencidas" } },
+          { k: "urgentes", label: "Gestiones urgentes", valor: String(all.filter(g => g.prioridadId === 1 && abierta(g)).length), nota: "Prioridad urgente sin completar", f: { gVista: "todas", gPrio: "1", gEst: "abiertas" } },
+          { k: "pendientes", label: "Gestiones pendientes", valor: String(all.filter(g => (g.estadoGestionId || 1) === 1).length), nota: "Sin iniciar", f: { gVista: "todas", gEst: "1" } }
+        ].map(c => ({ label: c.label, valor: c.valor, nota: c.nota, borde: act === c.k ? P.gold : P.line, sombra: act === c.k ? "0 0 0 1px " + P.gold : "none",
+          onClick: () => this.setState(Object.assign({}, base, act === c.k ? { gVista: "hoy" } : c.f)) }));
+      }
+      if (s.gEst === "abiertas") gs = gs.filter(abierta); else if (s.gEst) gs = gs.filter(g => String(g.estadoGestionId || 1) === s.gEst);
+      if (gv === "hoy") gs = gs.filter(g => fv(g) === hoyG || vencida(g));
+      else if (gv === "vencidas") gs = gs.filter(vencida);
+      else if (gv === "solohoy") gs = gs.filter(g => fv(g) === hoyG);
+      else if (gv === "manana") gs = gs.filter(g => fv(g) === addDias(hoyG, 1));
+      else if (gv === "7dias") gs = gs.filter(g => fv(g) >= hoyG && fv(g) <= addDias(hoyG, 7));
+      vals.gVista = gv; vals.gEsRango = gv === "rango";
+      vals.gVistaOpts = [{ v: "hoy", l: "Vencidas + Hoy" }, { v: "solohoy", l: "Solo hoy" }, { v: "manana", l: "Mañana" }, { v: "7dias", l: "Próximos 7 días" }, { v: "vencidas", l: "Solo vencidas" }, { v: "todas", l: "Todas las fechas" }];
+      vals.onGVista = e => this.setState({ gVista: e.target.value, gPagina: 1 });
       gs.sort((a, b) => String(fv(b)).localeCompare(String(fv(a))) || b.id - a.id);
       const porPag = this.props.filasPorPagina ?? 10, totalG = gs.length, totPag = Math.max(1, Math.ceil(totalG / porPag)), pag = Math.min(s.gPagina || 1, totPag);
       vals.gConteo = totalG === 1 ? "1 gestión" : totalG + " gestiones";
@@ -1963,15 +2018,18 @@ class Component extends DCLogic {
         estilo: "min-width: 33px; height: 33px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid " + (n === pag ? P.btnBg : P.line) + "; background: " + (n === pag ? P.btnBg : P.surf) + "; color: " + (n === pag ? P.btnInk : P.ink2) + ";" }));
       vals.onGPrev = () => this.setState({ gPagina: Math.max(1, pag - 1) });
       vals.onGNext = () => this.setState({ gPagina: Math.min(totPag, pag + 1) });
-      vals.gColumnas = [["Expediente - Nombre", "19%"], ["Vencimiento", "10%"], ["Título", "19%"], ["Prioridad", "9%"], ["Estado", "10%"], ["Asignado a", "13%"], ["Descripción", "20%"]].map(c => ({ label: c[0],
+      vals.gColumnas = [["Expediente - Nombre", "19%"], ["Título", "19%"], ["Descripción", "20%"], ["Vencimiento", "10%"], ["Asignado a", "13%"], ["Prioridad", "9%"], ["Estado", "10%"]].map(c => ({ label: c[0],
         estilo: "padding: 12px 10px; text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.35; text-transform: uppercase; color: " + P.ink3 + "; width: " + c[1] + ";" }));
       vals.gQ = s.gQ; vals.gTipo = s.gTipo; vals.gDesde = s.gDesde; vals.gHasta = s.gHasta;
       vals.onGQ = e => this.setState({ gQ: e.target.value, gPagina: 1 });
-      vals.onGLimpiar = () => this.setState({ gestionAbierta: null, gdNuevoCom: "", gQ: "", gTipo: "", gPrio: "", gDesde: hoyIso(), gHasta: hoyIso(), gPagina: 1 });
+      vals.onGLimpiar = () => this.setState({ gestionAbierta: null, gdNuevoCom: "", gQ: "", gTipo: "", gPrio: "", gAsig: "", gEst: "", gVista: "hoy", gDesde: hoyIso(), gHasta: hoyIso(), gPagina: 1 });
       vals.gPrio = s.gPrio;
       vals.gPrioOpts = [{ v: "", l: "Prioridad: Todas" }].concat(PRIORIDADES.map(p => ({ v: String(p.id), l: p.nombre })));
-      vals.onGPrio = e => this.setState({ gPrio: e.target.value, gPagina: 1 });
-      vals.gTipoOpts = [{ v: "", l: "Tipo de evento: Todos" }].concat(TIPOEVENTO.map(t => ({ v: String(t.id), l: t.titulo }))).concat([ { v: "regla", l: "Reglas programadas" }]);
+      vals.onGPrio = e => this.setState({ gPrio: e.target.value, gEst: "", gPagina: 1 });
+      vals.gTipoOpts = [{ v: "", l: "Tipo gestión: Todos" }].concat(TIPOEVENTO.map(t => ({ v: "ev:" + t.id, l: t.titulo }))).concat(TIPOREGLAPROGRAMADA.map(t => ({ v: "rg:" + t.id, l: t.titulo })));
+      vals.gAsig = s.gAsig || "";
+      vals.gAsigOpts = [{ v: "", l: "Asignado a: Todos" }, { v: "none", l: "Sin asignar" }].concat(this.usuariosLegal().map(u => ({ v: String(u.id), l: u.nombre })));
+      vals.onGAsig = e => this.setState({ gAsig: e.target.value, gPagina: 1 });
       vals.onGTipo = e => this.setState({ gTipo: e.target.value, gPagina: 1 });
       vals.onGDesde = e => this.setState({ gDesde: e.target.value, gPagina: 1 });
       vals.onGHasta = e => this.setState({ gHasta: e.target.value, gPagina: 1 });
@@ -1981,13 +2039,13 @@ class Component extends DCLogic {
         const r = g.reglaProgramadaId ? s.reglas.find(x => x.id === g.reglaProgramadaId) : null;
         return {
           expediente: per ? (per.expediente || "Sin expediente") : "Sin expediente", nombre: per ? ((per.nombres + " " + per.apellidos).trim() || "Sin nombre") : "Cliente " + g.clienteId,
-          vence: fCorta(fv(g)), titulo: g.titulo || "—", tipo: t ? t.titulo : r ? "Regla " + r.frecuencia.toLowerCase() : "", descripcion: g.descripcion,
+          vence: fFecha(fv(g)), vencida: vencida(g), venceColor: vencida(g) ? "#C2544A" : P.ink2, titulo: g.titulo || "—", tipo: t ? t.titulo : r ? "Regla " + r.frecuencia.toLowerCase() : "", descripcion: g.descripcion,
           prioridad: (PRIORIDADES.find(x => x.id === g.prioridadId) || { nombre: "—" }).nombre,
           prioEstilo: this.bdg({ 1: "rojo", 2: "ambar", 3: "verde", 4: "gris" }[g.prioridadId] || "gris"),
           estado: (ESTADOGESTION.find(x => x.id === (g.estadoGestionId || 1)) || {}).nombre, estEstilo: this.bdg((ESTADOGESTION.find(x => x.id === (g.estadoGestionId || 1)) || {}).tono),
           asignado: (s.usuarios.find(u => u.id === g.asignadoA) || { nombre: "Sin asignar" }).nombre, asigColor: s.usuarios.find(u => u.id === g.asignadoA) ? P.ink2 : P.ink3,
           cliente: per ? (per.expediente ? per.expediente + " - " : "") + per.nombres + " " + per.apellidos : "Cliente " + g.clienteId,
-          onOpen: () => { this.setState({ vista: "gestion", gestionAbierta: g.id, gdNuevoCom: "" }); this.irArriba(); },
+          onOpen: () => { this.setState({ vista: "gestion", gestionAbierta: g.id, gdNuevoCom: "", gdDesde: null }); this.irArriba(); },
           onCliente: e => { e.stopPropagation(); if (!per) return; this.setState({ vista: "persona", personaAbierta: per.id, nuevo: false, tab: "general", tabDe: per.id, convAbierto: false, volverIntento: false, nuevoComentario: "" }); this.irArriba(); }
         };
       });
@@ -2046,7 +2104,7 @@ class Component extends DCLogic {
         promesas: "Clientes con una promesa de pago pendiente de cumplir.",
         letra: "Clientes morosos cuya última cuota del plan ya venció y todavía tienen saldo pendiente."
       }[s.cobTab] || "";
-      vals.cobVistaTitulo = { morosos: "Clientes morosos", vencido: "Monto vencido", recordatorios: "Recordatorios de hoy", promesas: "Promesas pendientes", letra: "Letra de cambio" }[s.cobTab] || "Clientes morosos";
+      vals.cobVistaTitulo = { morosos: "Clientes morosos", vencido: "Monto vencido", recordatorios: "Recordatorios de hoy", promesas: "Promesas pendientes", letra: "Candidato a cobro judicial" }[s.cobTab] || "Clientes morosos";
       vals.cobTabs = [["morosos", "Morosos"], ["recordatorios", "Recordatorios de pago"]].map(([k, l]) => ({
         label: l, conteo: cnt[k] ? "(" + cnt[k] + ")" : "", activa: s.cobTab === k,
         onClick: () => this.setState({ cobTab: k, pagina: 1, orden: k === "morosos" ? "atraso" : "expediente", asc: k !== "morosos" }),
@@ -2134,10 +2192,11 @@ class Component extends DCLogic {
         onOpen: () => { this.setState({ vista: s.seccion === "cobros" ? "plan" : "persona", personaAbierta: p.id, nuevo: false, cuotaAbierta: null, formModo: null, fmError: "", npTotal: null, npCuotas: null, npInicio: null, npDia: null, npError: "", convAbierto: false, volverIntento: false, nuevoComentario: "" }); this.irArriba(); },
         puedeEliminar: vals.colEliminar,
         onEliminar: e => { e.stopPropagation(); this.setState({ elimId: p.id }); },
-        celdas: celdas.map(c => ({
+        celdas: celdas.map((c, ci) => ({
+          esLink: ci === 0 && (s.seccion === "cobros" || (s.seccion === "ventas" && !!p.clienteid)), onLink: e => { e.stopPropagation(); this.setState({ vista: "persona", personaAbierta: p.id, nuevo: false, tab: "general", tabDe: p.id, convAbierto: false, volverIntento: false, nuevoComentario: "" }); this.irArriba(); },
           t: c.t, s: c.s || "", estilo: c.estilo || suave,
           sEstilo: c.sEstilo || ("display: block; font-size: 11.5px; color: " + P.ink3 + "; margin-top: 2px;"),
-          esBadge: c.badge !== undefined || !!c.badgeEstilo, esTexto: c.badge === undefined && !c.badgeEstilo,
+          esBadge: c.badge !== undefined || !!c.badgeEstilo, esTexto: c.badge === undefined && !c.badgeEstilo && !(ci === 0 && (s.seccion === "cobros" || (s.seccion === "ventas" && !!p.clienteid))),
           badgeEstilo: c.badgeEstilo || (c.badge !== undefined ? this.estadoBadge(c.badge) : ""),
           tieneBadge2: !!c.badge2, badge2: c.badge2 || "", badge2Estilo: c.badge2Estilo || ""
         }))
@@ -2466,13 +2525,13 @@ class Component extends DCLogic {
       const cid = p.clienteid, Hh = hoyIso();
       const actTab = cid ? (s.actTab || "comentarios") : "comentarios";
       const enAct = !s.nuevo && en("actividad");
-      const evs = cid ? s.eventos.filter(x => x.clienteId === cid).slice().sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || b.id - a.id) : [];
+      const evs = cid ? s.eventos.filter(x => x.clienteId === cid).slice().sort((a, b) => String(b.fechaCreacion || b.fecha).localeCompare(String(a.fechaCreacion || a.fecha)) || b.id - a.id) : [];
       const rgs = cid ? s.reglas.filter(x => x.clienteId === cid) : [];
       vals.verComentarios = enAct && actTab === "comentarios";
       vals.verEventos = enAct && actTab === "eventos";
       vals.verReglas = enAct && actTab === "reglas";
       vals.verActSub = enAct && !!cid;
-      vals.actTabs = [["comentarios", "Comentarios", coms.length], ["eventos", "Eventos", evs.length], ["reglas", "Reglas programadas", rgs.length]].map(([k, l, n]) => ({
+      vals.actTabs = [["comentarios", "Comentarios", coms.length], ["eventos", "Eventos del proceso", evs.length], ["reglas", "Reglas programadas", rgs.length]].map(([k, l, n]) => ({
         label: l, conteo: String(n),
         estilo: "display: flex; align-items: center; gap: 7px; padding: 8px 14px; border: none; border-radius: 8px; font-size: 13px; white-space: nowrap; cursor: pointer; font-weight: " + (actTab === k ? "700" : "500") + "; background: " + (actTab === k ? P.surf : "transparent") + "; color: " + (actTab === k ? P.head : P.ink3) + "; box-shadow: " + (actTab === k ? "0 1px 2px rgba(0,0,0,0.08)" : "none") + ";",
         onClick: () => this.setState({ actTab: k })
@@ -2480,9 +2539,12 @@ class Component extends DCLogic {
       vals.conteoEventos = evs.length === 1 ? "1 evento" : evs.length + " eventos";
       vals.sinEventos = evs.length === 0;
       vals.evTipos = [{ v: "", l: "Seleccionar tipo de evento" }].concat(TIPOEVENTO.map(t => ({ v: String(t.id), l: t.titulo })));
-      vals.evAbierto = !!s.evAbierto; vals.evCerrado = !s.evAbierto;
-      vals.evNotif = s.evTipo === "1";
-      vals.onAbrirEvento = () => this.setState({ evAbierto: true, evTipo: "", evFecha: null, evDesc: "", evError: "" });
+      vals.evAbierto = !!cid && s.evAbierto === cid; vals.evCerrado = !vals.evAbierto;
+      vals.evNotif = s.evTipo === "1" || s.evTipo === "2";
+      { const rl = s.roles.find(r => String(r.nombre).trim().toLowerCase() === "legal"); vals.evConTipo = !!s.evTipo; vals.evAsig = s.evAsig || "";
+        vals.evAsigOpts = [{ v: "", l: "Sin asignar" }].concat(s.usuarios.filter(u => rl && u.rolId === rl.id).map(u => ({ v: String(u.id), l: u.nombre })));
+        vals.onEvAsig = e => this.setState({ evAsig: e.target.value }); } vals.evSoloNotas = s.evTipo === "3";
+      vals.onAbrirEvento = () => this.setState({ evAbierto: cid, evTipo: "", evFecha: null, evDesc: "", evAsig: "", evError: "" });
       vals.onCancelarEvento = () => this.setState({ evAbierto: false, evError: "" });
       vals.evTipo = s.evTipo; vals.evFecha = s.evFecha || Hh; vals.evDesc = s.evDesc; vals.evError = s.evError;
       vals.evTipoDesc = (TIPOEVENTO.find(t => String(t.id) === s.evTipo) || {}).descripcion || "";
@@ -2493,17 +2555,17 @@ class Component extends DCLogic {
         if (!s.evTipo) { this.setState({ evError: "Seleccioná el tipo de evento." }); return; }
         const d = String(s.evDesc || "").trim(), f = s.evFecha || Hh;
         if (f > Hh) { this.setState({ evError: "La fecha de notificación no puede ser futura." }); return; }
-        this.setState(st => Object.assign(registrarEvento({ eventos: st.eventos, gestiones: st.gestiones }, cid, Number(st.evTipo), f, d, Hh), { evAbierto: false, evTipo: "", evDesc: "", evFecha: null, evError: "", guardado: Date.now() }));
+        this.setState(st => Object.assign(registrarEvento({ eventos: st.eventos, gestiones: st.gestiones }, cid, Number(st.evTipo), (st.evTipo === "1" || st.evTipo === "2") ? f : null, d, Hh, st.evAsig ? Number(st.evAsig) : null), { evAbierto: false, evTipo: "", evDesc: "", evFecha: null, evAsig: "", evError: "", guardado: Date.now() }));
       };
       vals.eventos = evs.map((e, ix) => {
         const t = TIPOEVENTO.find(x => x.id === e.tipoEventoId);
-        const lim = e.tipoEventoId === 1 ? addHabiles(e.fechaNotificacion || e.fecha, 5) : null, vig = !!lim && Hh <= lim;
+        const lim = e.tipoEventoId === 1 ? addHabiles(e.fechaNotificacion || e.fechaCreacion || e.fecha, 5) : null, vig = !!lim && Hh <= lim;
         return {
-          tipo: t ? t.titulo : "Regla programada", origen: e.origen, fecha: "Registrado el " + fFecha(e.fecha), descripcion: e.descripcion, conDescripcion: !!e.descripcion,
+          tipo: t ? t.titulo : "Regla programada", fecha: "Evento registrado el " + fFecha(e.fechaCreacion || e.fecha), descripcion: e.descripcion, conDescripcion: !!e.descripcion,
           puntoEstilo: "width: 12px; height: 12px; flex: none; border-radius: 50%; border: 2px solid " + P.gold + "; background: " + (ix === 0 ? P.gold : P.surf) + ";",
           lineaEstilo: "flex: 1; width: 2px; margin-top: 4px; background: " + (ix === evs.length - 1 ? "transparent" : P.line) + ";",
-          conNotif: !!e.fechaNotificacion, notif: "Notificado el " + fFecha(e.fechaNotificacion),
-          conGestion: !!e.gestionId, gestion: "Gestión #" + e.gestionId,
+          conNotif: !!e.fechaNotificacion, notif: "Cliente notificado el " + fFecha(e.fechaNotificacion),
+          conGestion: !!e.gestionId, gestion: "Gestión #" + e.gestionId, asignado: (() => { const g = s.gestiones.find(x => x.id === e.gestionId), u = g && s.usuarios.find(x => x.id === g.asignadoA); return "· " + (u ? "Asignado a " + u.nombre : "Sin asignar"); })(), onGestion: () => { this.setState({ vista: "gestion", gestionAbierta: e.gestionId, gdNuevoCom: "", gdDesde: s.personaAbierta }); this.irArriba(); },
           conPlazo: !!lim, plazo: lim ? (vig ? "Dentro del plazo: hasta el " + fFecha(lim) + " (5 días hábiles)" : "Plazo vencido el " + fFecha(lim)) : "",
           plazoEstilo: "margin: 6px 0 0; font-size: 12px; font-weight: 700; color: " + (vig ? P.gold : P.ink3) + ";",
           onEliminar: () => this.setState(st => ({ eventos: st.eventos.filter(x => x.id !== e.id), gestiones: e.gestionId ? st.gestiones.filter(g => g.id !== e.gestionId) : st.gestiones, guardado: Date.now() }))
@@ -2514,10 +2576,10 @@ class Component extends DCLogic {
       vals.frecOpts = FRECUENCIAS.map(f => ({ v: f, l: f }));
       vals.rgFrec = s.rgFrec; vals.rgIni = s.rgIni; vals.rgFin = s.rgFin; vals.rgDia = s.rgDia; vals.rgError = s.rgError;
       vals.rgMensual = s.rgTipo === "1";
-      vals.rgAbierto = !!s.rgAbierto; vals.rgCerrado = !s.rgAbierto; vals.rgTipo = s.rgTipo;
+      vals.rgAbierto = !!cid && s.rgAbierto === cid; vals.rgCerrado = !vals.rgAbierto; vals.rgTipo = s.rgTipo;
       vals.rgTipos = [{ v: "", l: "Seleccionar tipo de regla" }].concat(TIPOREGLAPROGRAMADA.map(x => ({ v: String(x.id), l: x.titulo })));
       vals.onRgTipo = e => { const tp = TIPOREGLAPROGRAMADA.find(x => String(x.id) === e.target.value); this.setState({ rgTipo: e.target.value, rgFrec: tp ? tp.frecuencia : "Mensual", rgError: "" }); };
-      vals.onAbrirRegla = () => this.setState({ rgAbierto: true, rgTipo: "", rgFrec: "Mensual", rgIni: "", rgFin: "", rgDia: "", rgError: "" });
+      vals.onAbrirRegla = () => this.setState({ rgAbierto: cid, rgTipo: "", rgFrec: "Mensual", rgIni: "", rgFin: "", rgDia: "", rgError: "" });
       vals.onCancelarRegla = () => this.setState({ rgAbierto: false, rgError: "" });
       vals.onRgFrec = e => this.setState({ rgFrec: e.target.value, rgError: "" });
       vals.onRgIni = e => this.setState({ rgIni: e.target.value, rgError: "" });
