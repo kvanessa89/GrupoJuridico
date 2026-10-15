@@ -22,6 +22,51 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.ArchivoPago", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateOnly>("FechaCarga")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("PagoId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Tamano")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TipoContenido")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PagoId");
+
+                    b.ToTable("ArchivosPago", (string)null);
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Cliente", b =>
                 {
                     b.Property<int>("Id")
@@ -148,6 +193,60 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.ToTable("CorreosElectronicos", (string)null);
                 });
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Cuota", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EstadoCuotaPagoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EstadoCuotaVencimientoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("FechaVencimiento")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("MontoCuota")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.Property<int>("NumeroCuota")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PlanPagoId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool?>("SinMora")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstadoCuotaPagoId");
+
+                    b.HasIndex("EstadoCuotaVencimientoId");
+
+                    b.HasIndex("FechaVencimiento");
+
+                    b.HasIndex("PlanPagoId", "NumeroCuota")
+                        .IsUnique();
+
+                    b.ToTable("Cuotas", (string)null);
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.EstadoCliente", b =>
                 {
                     b.Property<int>("Id")
@@ -177,6 +276,58 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.ToTable("EstadosCliente", (string)null);
                 });
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.EstadoCuotaPago", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EstadosCuotaPago", (string)null);
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.EstadoCuotaVencimiento", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EstadosCuotaVencimiento", (string)null);
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.EstadoPrima", b =>
                 {
                     b.Property<int>("Id")
@@ -201,6 +352,32 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("EstadosPrima", (string)null);
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.EstadoPromesa", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EstadosPromesa", (string)null);
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Finca", b =>
@@ -333,6 +510,37 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("OrigenesCliente", (string)null);
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Pago", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CuotaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("FechaPago")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("MontoPago")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CuotaId");
+
+                    b.ToTable("Pagos", (string)null);
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Pais", b =>
@@ -512,6 +720,48 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.ToTable("PersonaFamiliares", (string)null);
                 });
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.PlanPago", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CantidadCuotas")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DiaPago")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("FechaInicio")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("MontoCuota")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.Property<decimal>("MontoTotal")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId")
+                        .IsUnique();
+
+                    b.ToTable("PlanesPago", (string)null);
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Prima", b =>
                 {
                     b.Property<int>("Id")
@@ -589,6 +839,46 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ProcedenciasVenta", (string)null);
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.PromesaPago", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CuotaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EstadoPromesaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("FechaPromesa")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("MontoPagado")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.Property<decimal>("MontoPrometido")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CuotaId");
+
+                    b.HasIndex("EstadoPromesaId");
+
+                    b.ToTable("PromesasPago", (string)null);
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Vendedor", b =>
@@ -901,6 +1191,15 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.ArchivoPago", b =>
+                {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Pago", null)
+                        .WithMany("Archivos")
+                        .HasForeignKey("PagoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Cliente", b =>
                 {
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCliente", "EstadoCliente")
@@ -938,6 +1237,33 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Cuota", b =>
+                {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCuotaPago", "EstadoCuotaPago")
+                        .WithMany()
+                        .HasForeignKey("EstadoCuotaPagoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCuotaVencimiento", "EstadoCuotaVencimiento")
+                        .WithMany()
+                        .HasForeignKey("EstadoCuotaVencimientoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.PlanPago", "PlanPago")
+                        .WithMany("Cuotas")
+                        .HasForeignKey("PlanPagoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EstadoCuotaPago");
+
+                    b.Navigation("EstadoCuotaVencimiento");
+
+                    b.Navigation("PlanPago");
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Finca", b =>
                 {
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Persona", null)
@@ -962,6 +1288,17 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Pais");
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Pago", b =>
+                {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Cuota", "Cuota")
+                        .WithMany("Pagos")
+                        .HasForeignKey("CuotaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cuota");
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Persona", b =>
@@ -1011,6 +1348,17 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.Navigation("WhatsappPais");
                 });
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.PlanPago", b =>
+                {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Cliente", "Cliente")
+                        .WithOne()
+                        .HasForeignKey("GrupoJuridico.Gestion.Domain.Entities.PlanPago", "ClienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Prima", b =>
                 {
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoPrima", "EstadoPrima")
@@ -1028,6 +1376,25 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.Navigation("EstadoPrima");
 
                     b.Navigation("Venta");
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.PromesaPago", b =>
+                {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Cuota", "Cuota")
+                        .WithMany("Promesas")
+                        .HasForeignKey("CuotaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoPromesa", "EstadoPromesa")
+                        .WithMany()
+                        .HasForeignKey("EstadoPromesaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cuota");
+
+                    b.Navigation("EstadoPromesa");
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Venta", b =>
@@ -1120,6 +1487,18 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.Navigation("Persona");
                 });
 
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Cuota", b =>
+                {
+                    b.Navigation("Pagos");
+
+                    b.Navigation("Promesas");
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Pago", b =>
+                {
+                    b.Navigation("Archivos");
+                });
+
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Persona", b =>
                 {
                     b.Navigation("Comentarios");
@@ -1135,6 +1514,11 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.Navigation("Ventas");
 
                     b.Navigation("Versiones");
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.PlanPago", b =>
+                {
+                    b.Navigation("Cuotas");
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Venta", b =>

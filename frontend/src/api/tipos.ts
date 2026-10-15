@@ -33,6 +33,10 @@ export interface Catalogos {
   parentescos: CatalogoItem[]
   roles: { id: number; nombre: Rol }[]
   interesMora: number
+  /** Estados de cobros (solo lectura): ids fijos, el nombre viene del catálogo. */
+  estadosCuotaPago: CatalogoItem[]
+  estadosCuotaVencimiento: CatalogoItem[]
+  estadosPromesa: CatalogoItem[]
 }
 
 export type TipoCatalogo = 'vendedores' | 'procedencias' | 'metodos' | 'estados-prima' | 'origenes' | 'estados-cliente' | 'paises' | 'parentescos'
@@ -211,6 +215,122 @@ export interface CrearProspecto {
   fechaEstimadaPago: string | null
   fechaPago: string | null
   familiares: FamiliarDto[]
+}
+
+// ---------- Cobros ----------
+
+/** Tarjeta de la sección Cobros que filtra la tabla. */
+export type VistaCobros = 'morosos' | 'vencido' | 'recordatorios' | 'promesas' | 'cobro-judicial'
+
+export interface CobrosFiltros {
+  vista: VistaCobros
+  q: string
+  orden: string
+  asc: boolean
+  pagina: number
+}
+
+export interface CobroFila {
+  id: number
+  expediente: string
+  nombreCompleto: string
+  telefono: string | null
+  whatsapp: string | null
+  estadoClienteId: number
+  estadoCliente: string
+  tienePlan: boolean
+  cantidadCuotas: number
+  cuotasVencidas: number
+  montoVencido: number
+  atraso: number
+  proxima: { fecha: string; saldo: number } | null
+  promesa: { estadoId: number; fecha: string } | null
+  recordatorio: { numeroCuota: number; saldo: number; fecha: string } | null
+}
+
+export interface CobrosLista {
+  filas: CobroFila[]
+  total: number
+  pagina: number
+  porPagina: number
+  totales: { morosos: number; montoVencido: number; recordatorios: number; promesasPendientes: number; cobroJudicial: number; fechasARecordar: string[] }
+  hoy: string
+}
+
+export interface PagoDto {
+  id: number
+  montoPago: number
+  fechaPago: string
+  comprobantes: { id: number; nombre: string; disponible: boolean }[]
+}
+
+export interface PromesaDto {
+  id: number
+  fechaPromesa: string
+  montoPrometido: number
+  montoPagado: number
+  estadoId: number
+}
+
+export interface CuotaDto {
+  id: number
+  numeroCuota: number
+  fechaVencimiento: string
+  montoCuota: number
+  /** Interés que se cobra hoy (0 si se acordó no cobrarlo). */
+  mora: number
+  /** Interés que correspondería aunque haya acuerdo. */
+  moraPosible: number
+  sinMora: boolean | null
+  total: number
+  pagado: number
+  saldo: number
+  estadoPagoId: number
+  estadoVencimientoId: number
+  pagos: PagoDto[]
+  promesas: PromesaDto[]
+}
+
+export interface PlanDetalle {
+  id: number
+  montoTotal: number
+  montoCuota: number
+  cantidadCuotas: number
+  fechaInicio: string
+  diaPago: number
+  saldo: number
+  pagadoTotal: number
+  cuotasPagadas: number
+  cuotasVencidas: number
+  montoVencido: number
+  atraso: number
+  promesasPendientes: number
+  promesasCumplidas: number
+  promesasIncumplidas: number
+  cuotas: CuotaDto[]
+}
+
+export interface PlanPersona {
+  personaId: number
+  esCliente: boolean
+  expediente: string
+  nombres: string
+  apellidos: string
+  fechaIngreso: string
+  estadoClienteId: number | null
+  interesMora: number
+  /** Monto de la venta menos la prima: se propone al crear el plan. */
+  montoSugerido: number
+  puedeGestionar: boolean
+  hoy: string
+  plan: PlanDetalle | null
+}
+
+export interface CrearPlan {
+  montoTotal: number
+  cantidadCuotas: number
+  fechaInicio: string | null
+  diaPago: number
 }
 
 /** Respuesta de error de ASP.NET Core (ValidationProblemDetails). */

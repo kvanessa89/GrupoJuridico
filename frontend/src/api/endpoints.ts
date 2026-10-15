@@ -1,6 +1,6 @@
 import { http } from './cliente'
 import type {
-  Catalogos, CatalogoItem, ClientesLista, ComentarioDto, CorreoDto, CrearProspecto, FamiliarDto, FiltrosLista,
+  Catalogos, CobrosFiltros, CobrosLista, CrearPlan, PlanPersona, CatalogoItem, ClientesLista, ComentarioDto, CorreoDto, CrearProspecto, FamiliarDto, FiltrosLista,
   LoginResponse, NumeroDto, PersonaDetalle, PrimaDto, TipoCatalogo, Usuario, VentaDto, VentasLista,
 } from './tipos'
 
@@ -20,6 +20,19 @@ function params(f: FiltrosLista, porPagina: number) {
   for (const k of ['vendedorId', 'estadoPrimaId', 'procedenciaId', 'mes', 'anio', 'origenId', 'estadoClienteId'] as const)
     if (f[k]) p[k] = f[k]
   return p
+}
+
+/** Sin esto axios convertiría el FormData a JSON (el cliente usa JSON por defecto). */
+const MULTIPART = { headers: { 'Content-Type': 'multipart/form-data' } }
+
+/** Pago como multipart: los campos van con el nombre del formulario de la API. */
+function formularioPago(p: { montoPago: number; fechaPago: string; cobrarMora?: boolean; comprobante: File | null }) {
+  const f = new FormData()
+  f.append('montoPago', String(p.montoPago))
+  if (p.fechaPago) f.append('fechaPago', p.fechaPago)
+  if (p.cobrarMora !== undefined) f.append('cobrarMora', String(p.cobrarMora))
+  if (p.comprobante) f.append('comprobante', p.comprobante)
+  return f
 }
 
 export const api = {
@@ -55,6 +68,24 @@ export const api = {
   eliminarPersona: (id: number) => http.delete(`/personas/${id}`),
   comentar: (id: number, texto: string) => http.post<ComentarioDto>(`/personas/${id}/comentarios`, { texto }).then((r) => r.data),
   eliminarComentario: (id: number) => http.delete(`/comentarios/${id}`),
+
+  cobros: (f: CobrosFiltros, porPagina: number) => {
+    const p: Record<string, string | number | boolean> = { vista: f.vista, orden: f.orden, asc: f.asc, pagina: f.pagina, porPagina }
+    if (f.q.trim()) p.q = f.q.trim()
+    return http.get<CobrosLista>('/cobros', { params: p }).then((r) => r.data)
+  },
+  planPago: (personaId: number) => http.get<PlanPersona>(`/personas/${personaId}/plan-pago`).then((r) => r.data),
+  crearPlan: (personaId: number, datos: CrearPlan) => http.post<PlanPersona>(`/personas/${personaId}/plan-pago`, datos).then((r) => r.data),
+  registrarPago: (cuotaId: number, pago: { montoPago: number; fechaPago: string; cobrarMora: boolean; comprobante: File | null }) =>
+    http.post<PlanPersona>(`/cobros/cuotas/${cuotaId}/pagos`, formularioPago(pago), MULTIPART).then((r) => r.data),
+  editarPago: (pagoId: number, pago: { montoPago: number; fechaPago: string; comprobante: File | null }) =>
+    http.put<PlanPersona>(`/cobros/pagos/${pagoId}`, formularioPago(pago), MULTIPART).then((r) => r.data),
+  crearPromesa: (cuotaId: number, promesa: { fechaPromesa: string | null; montoPrometido: number }) =>
+    http.post<PlanPersona>(`/cobros/cuotas/${cuotaId}/promesas`, promesa).then((r) => r.data),
+  editarPromesa: (promesaId: number, promesa: { fechaPromesa: string | null; montoPrometido: number }) =>
+    http.put<PlanPersona>(`/cobros/promesas/${promesaId}`, promesa).then((r) => r.data),
+  /** El comprobante se pide con el token y se entrega como blob para descargarlo. */
+  comprobante: (archivoId: number) => http.get<Blob>(`/cobros/comprobantes/${archivoId}`, { responseType: 'blob' }).then((r) => r.data),
 
   usuarios: () => http.get<Usuario[]>('/usuarios').then((r) => r.data),
   crearUsuario: (u: { nombre: string; usuario: string; contrasena: string; rol: string }) =>

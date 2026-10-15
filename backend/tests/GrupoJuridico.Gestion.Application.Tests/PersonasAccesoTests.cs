@@ -1235,6 +1235,14 @@ public class PersonasAccesoTests
         public DbSet<Pais> Paises => Set<Pais>();
         public DbSet<Parentesco> Parentescos => Set<Parentesco>();
         public DbSet<ConfiguracionSistema> Configuracion => Set<ConfiguracionSistema>();
+        public DbSet<PlanPago> PlanesPago => Set<PlanPago>();
+        public DbSet<Cuota> Cuotas => Set<Cuota>();
+        public DbSet<Pago> Pagos => Set<Pago>();
+        public DbSet<ArchivoPago> ArchivosPago => Set<ArchivoPago>();
+        public DbSet<PromesaPago> PromesasPago => Set<PromesaPago>();
+        public DbSet<EstadoCuotaPago> EstadosCuotaPago => Set<EstadoCuotaPago>();
+        public DbSet<EstadoCuotaVencimiento> EstadosCuotaVencimiento => Set<EstadoCuotaVencimiento>();
+        public DbSet<EstadoPromesa> EstadosPromesa => Set<EstadoPromesa>();
         public int Guardados { get; private set; }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

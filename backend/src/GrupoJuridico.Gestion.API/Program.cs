@@ -19,6 +19,8 @@ builder.Services.AddScoped<IUsuarioActual, UsuarioActual>();
 builder.Services.AddExceptionHandler<ManejadorExcepciones>();
 builder.Services.AddProblemDetails();
 builder.Services.AddLoginRateLimiting(builder.Configuration);
+if (builder.Configuration.GetValue("Cobros:RecalculoMinutos", 60) > 0)
+    builder.Services.AddHostedService<RecalculoCobros>();
 
 var jwt = builder.Configuration.GetSection(JwtOptions.Seccion).Get<JwtOptions>() ?? new JwtOptions();
 if (string.IsNullOrWhiteSpace(jwt.Key) || jwt.Key.Length < 32)

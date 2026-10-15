@@ -22,7 +22,10 @@ public record CatalogosDto(
     IReadOnlyList<CatalogoItemDto> Paises,
     IReadOnlyList<CatalogoItemDto> Parentescos,
     IReadOnlyList<RolDto> Roles,
-    decimal InteresMora);
+    decimal InteresMora,
+    IReadOnlyList<CatalogoItemDto> EstadosCuotaPago,
+    IReadOnlyList<CatalogoItemDto> EstadosCuotaVencimiento,
+    IReadOnlyList<CatalogoItemDto> EstadosPromesa);
 
 public record GuardarCatalogoItemRequest(string Nombre, string? Codigo, string? Apellidos);
 
@@ -70,7 +73,11 @@ public class CatalogosService
             (await _db.Paises.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             (await _db.Parentescos.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             _identity.Roles(),
-            interes != null && decimal.TryParse(interes.Valor, NumberStyles.Number, CultureInfo.InvariantCulture, out var pct) ? pct : 2.5m);
+            interes != null && decimal.TryParse(interes.Valor, NumberStyles.Number, CultureInfo.InvariantCulture, out var pct) ? pct : 2.5m,
+            // Estados de Cobros: solo lectura, se calculan de los pagos y fechas.
+            (await _db.EstadosCuotaPago.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
+            (await _db.EstadosCuotaVencimiento.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
+            (await _db.EstadosPromesa.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList());
     }
 
     public async Task<CatalogoItemDto> CrearAsync(string tipo, GuardarCatalogoItemRequest request, CancellationToken ct = default)
