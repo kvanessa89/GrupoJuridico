@@ -1,0 +1,67 @@
+# Ambiente de PRUEBAS en Render (ASPNETCORE_ENVIRONMENT=Staging): API, frontend y PostgreSQL.
+# Los archivos van a un bucket de Cloudflare R2 propio de pruebas. Guía: docs/despliegue-render.md
+#
+# Los valores con "sync: false" son secretos o dependen de otro servicio: Render los pide al crear
+# el Blueprint y nunca se guardan en el repositorio.
+
+databases:
+  - name: gj-db-pruebas
+    databaseName: gj_gestion
+    user: gj_gestion
+    plan: basic-256mb
+    region: virginia
+
+services:
+  - type: web
+    name: gj-api-pruebas
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: virginia
+    healthCheckPath: /api/salud
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Staging
+      - key: ConnectionStrings__Gestion
+        fromDatabase:
+          name: gj-db-pruebas
+          property: connectionString
+      - key: Jwt__Key
+        generateValue: true
+      # Solo roles, catálogos y el administrador inicial; nada de datos de demostración.
+      - key: Seed__DatosDemo
+        value: "false"
+      - key: Seed__AdminUsuario
+        value: admin
+      - key: Seed__AdminContrasena
+        sync: false
+      # Dirección del frontend de pruebas (por ejemplo https://gj-web-pruebas.onrender.com).
+      - key: Cors__Origenes__0
+        sync: false
+      - key: Archivos__Proveedor
+        value: R2
+      - key: Archivos__R2__CuentaId
+        sync: false
+      - key: Archivos__R2__AccessKeyId
+        sync: false
+      - key: Archivos__R2__SecretAccessKey
+        sync: false
+      - key: Archivos__R2__Bucket
+        value: gj-archivos-pruebas
+
+  - type: web
+    name: gj-web-pruebas
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build:staging
+    staticPublishPath: dist
+    envVars:
+      # Dirección de la API de pruebas terminada en /api (por ejemplo https://gj-api-pruebas.onrender.com/api).
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      # La app usa rutas del navegador (/gestion/...): todas cargan index.html.
+      - type: rewrite
+        source: /*
+        destination: /index.html

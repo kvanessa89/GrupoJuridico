@@ -92,6 +92,14 @@ npm run build:staging  # staging (.env.staging)
 
 `VITE_API_URL` define la URL de la API por entorno.
 
+## Despliegue
+
+El ambiente de pruebas corre en Render (API en Docker, frontend estático y PostgreSQL), con los archivos en Cloudflare R2. Está descrito en [`render.yaml`](render.yaml). Los pasos están en [docs/despliegue-render.md](docs/despliegue-render.md).
+
+- `Archivos__Proveedor`: `Local` (por defecto, disco del servidor) o `R2`. Con R2 hay que configurar `Archivos__R2__CuentaId`, `Archivos__R2__AccessKeyId`, `Archivos__R2__SecretAccessKey` y `Archivos__R2__Bucket`.
+- `ConnectionStrings__Gestion` acepta el formato de Npgsql (`Host=…`) o una URL `postgresql://…`.
+- Si existe la variable `PORT`, la API escucha en ese puerto.
+
 ## Diferencias con el prototipo
 
 - Las contraseñas se guardan cifradas (Identity), así que en "Usuarios del sistema" no se pueden mostrar:

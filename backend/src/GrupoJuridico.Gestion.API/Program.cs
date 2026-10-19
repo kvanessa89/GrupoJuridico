@@ -12,6 +12,11 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Hostings como Render indican en PORT dónde debe escuchar la API (detrás de su proxy con HTTPS).
+var puerto = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(puerto) && int.TryParse(puerto, out var numeroPuerto))
+    builder.WebHost.UseUrls($"http://0.0.0.0:{numeroPuerto}");
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();

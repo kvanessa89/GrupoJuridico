@@ -40,6 +40,7 @@ public sealed class AlmacenArchivosR2 : IAlmacenArchivos, IDisposable
 {
     private readonly IAmazonS3 _s3;
     private readonly string _bucket;
+    private readonly bool _https;
 
     public AlmacenArchivosR2(IOptions<AlmacenArchivosOptions> opciones)
     {
@@ -48,6 +49,7 @@ public sealed class AlmacenArchivosR2 : IAlmacenArchivos, IDisposable
         if (faltan.Count > 0)
             throw new InvalidOperationException("Archivos:Proveedor es R2 pero falta configurar: " + string.Join(", ", faltan) + ".");
         _bucket = r2.Bucket;
+        _https = r2.EndpointEfectivo.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
         _s3 = new AmazonS3Client(new BasicAWSCredentials(r2.AccessKeyId, r2.SecretAccessKey), new AmazonS3Config
         {
             ServiceURL = r2.EndpointEfectivo,
@@ -72,7 +74,8 @@ public sealed class AlmacenArchivosR2 : IAlmacenArchivos, IDisposable
             Key = clave,
             InputStream = copia,
             AutoCloseStream = false,
-            DisablePayloadSigning = true,
+            // Recomendado para R2; el SDK solo lo permite sobre HTTPS (el endpoint de R2 siempre lo es).
+            DisablePayloadSigning = _https,
         }, ct);
         return clave;
     }
