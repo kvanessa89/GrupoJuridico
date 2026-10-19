@@ -13,8 +13,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var conexion = configuration.GetConnectionString("Gestion")
-            ?? throw new InvalidOperationException("Falta la cadena de conexión 'ConnectionStrings:Gestion'.");
+        var conexion = CadenaConexion.Normalizar(configuration.GetConnectionString("Gestion")
+            ?? throw new InvalidOperationException("Falta la cadena de conexión 'ConnectionStrings:Gestion'."));
 
         services.AddScoped<AuditoriaInterceptor>();
         services.AddDbContext<ApplicationDbContext>((sp, o) => o
@@ -48,7 +48,13 @@ public static class DependencyInjection
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddSingleton<IFechaActual, FechaActual>();
-        services.AddSingleton<IAlmacenArchivos, AlmacenArchivosLocal>();
+        var proveedor = configuration[$"{AlmacenArchivosOptions.Seccion}:Proveedor"] ?? AlmacenArchivosOptions.ProveedorLocal;
+        if (proveedor.Equals(AlmacenArchivosOptions.ProveedorR2, StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<IAlmacenArchivos, AlmacenArchivosR2>();
+        else if (proveedor.Equals(AlmacenArchivosOptions.ProveedorLocal, StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<IAlmacenArchivos, AlmacenArchivosLocal>();
+        else
+            throw new InvalidOperationException($"Archivos:Proveedor debe ser 'Local' o 'R2' (se recibió '{proveedor}').");
         services.AddScoped<DbSeeder>();
         return services;
     }
