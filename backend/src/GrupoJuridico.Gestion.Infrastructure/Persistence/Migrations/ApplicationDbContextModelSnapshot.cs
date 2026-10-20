@@ -947,7 +947,8 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MetodoVentaId");
 
-                    b.HasIndex("PersonaId");
+                    b.HasIndex("PersonaId")
+                        .IsUnique();
 
                     b.HasIndex("ProcedenciaVentaId");
 

@@ -45,6 +45,7 @@ public class Persona : BaseEntity
     public bool EsCliente => ClienteId.HasValue;
     public string NombreCompleto => (Nombres + " " + Apellidos).Trim();
 
+    /// <summary>La venta de la persona. Hay una sola: la base lo garantiza con un índice único en Ventas.PersonaId.</summary>
     public Venta? Venta => Ventas.OrderBy(v => v.Id).FirstOrDefault();
     public Prima? Prima => Venta?.Prima;
     public Finca? Finca => Fincas.OrderBy(f => f.Id).FirstOrDefault();
