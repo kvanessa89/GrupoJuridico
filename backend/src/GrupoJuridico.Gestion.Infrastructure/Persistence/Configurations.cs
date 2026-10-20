@@ -271,6 +271,9 @@ internal class CuotaConfig : IEntityTypeConfiguration<Cuota>
         b.HasIndex(x => new { x.PlanPagoId, x.NumeroCuota }).IsUnique();
         b.Property(x => x.Version).IsConcurrencyToken();
         b.HasIndex(x => x.FechaVencimiento);
+        // Cuotas sin pagar que todavía figuran al día: así se encuentran rápido las que vencieron (ActualizadorCobros).
+        b.HasIndex(x => x.FechaVencimiento, "IX_Cuotas_PendientesAlDia")
+            .HasFilter("\"EstadoCuotaVencimientoId\" = 1 AND \"EstadoCuotaPagoId\" <> 3");
         b.HasOne(x => x.EstadoCuotaPago).WithMany().HasForeignKey(x => x.EstadoCuotaPagoId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.EstadoCuotaVencimiento).WithMany().HasForeignKey(x => x.EstadoCuotaVencimientoId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Pagos).WithOne(p => p.Cuota).HasForeignKey(p => p.CuotaId).OnDelete(DeleteBehavior.Cascade);
@@ -304,6 +307,9 @@ internal class PromesaPagoConfig : IEntityTypeConfiguration<PromesaPago>
     public void Configure(EntityTypeBuilder<PromesaPago> b)
     {
         b.ToTable("PromesasPago");
+        // Promesas pendientes, para detectar las que pasaron su fecha (ActualizadorCobros).
+        b.HasIndex(x => x.FechaPromesa, "IX_PromesasPago_Pendientes")
+            .HasFilter("\"EstadoPromesaId\" = 1");
         b.Property(x => x.MontoPrometido).HasPrecision(14, 2);
         b.Property(x => x.MontoPagado).HasPrecision(14, 2);
         b.HasOne(x => x.EstadoPromesa).WithMany().HasForeignKey(x => x.EstadoPromesaId).OnDelete(DeleteBehavior.Restrict);

@@ -36,6 +36,9 @@ public interface IApplicationDbContext
     DbSet<EstadoPromesa> EstadosPromesa { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Olvida las entidades cargadas y sus cambios sin guardar (después de perder una carrera de concurrencia).</summary>
+    void DescartarCambios();
 }
 
 /// <summary>Almacenamiento de archivos subidos (comprobantes de pago). Las claves las genera el almacenamiento.</summary>

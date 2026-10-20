@@ -1,5 +1,6 @@
 using System.Globalization;
 using FluentValidation;
+using GrupoJuridico.Gestion.Application.Cobros;
 using GrupoJuridico.Gestion.Application.Common;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
@@ -51,10 +52,13 @@ public class CatalogosService
     private readonly IIdentityService _identity;
     private readonly GuardarCatalogoItemValidator _validator = new();
 
-    public CatalogosService(IApplicationDbContext db, IIdentityService identity)
+    private readonly ActualizadorCobros _cobros;
+
+    public CatalogosService(IApplicationDbContext db, IIdentityService identity, ActualizadorCobros cobros)
     {
         _db = db;
         _identity = identity;
+        _cobros = cobros;
     }
 
     public async Task<CatalogosDto> ObtenerAsync(CancellationToken ct = default)
@@ -231,6 +235,8 @@ public class CatalogosService
         }
         fila.Valor = request.Porcentaje.ToString(CultureInfo.InvariantCulture);
         await _db.SaveChangesAsync(ct);
+        // El porcentaje cambia la mora de las cuotas vencidas (y con ella su estado): se recalculan todos los planes.
+        await _cobros.ActualizarTodosAsync(ct);
         return request.Porcentaje;
     }
 

@@ -12,7 +12,8 @@ namespace GrupoJuridico.Gestion.Application.Cobros;
 
 /// <summary>
 /// Módulo de Cobros: planes de pago, cuotas, pagos con comprobante y promesas de pago.
-/// Los estados dependen de la fecha, así que se recalculan (y guardan) antes de cada lectura.
+/// Los estados dependen de la fecha: antes de cada lectura <see cref="ActualizadorCobros"/> recalcula
+/// (y guarda) los planes que lo necesitan.
 /// </summary>
 public class CobrosService
 {
@@ -32,13 +33,15 @@ public class CobrosService
     private readonly IUsuarioActual _usuario;
     private readonly IFechaActual _fecha;
     private readonly IAlmacenArchivos _almacen;
+    private readonly ActualizadorCobros _actualizador;
 
-    public CobrosService(IApplicationDbContext db, IUsuarioActual usuario, IFechaActual fecha, IAlmacenArchivos almacen)
+    public CobrosService(IApplicationDbContext db, IUsuarioActual usuario, IFechaActual fecha, IAlmacenArchivos almacen, ActualizadorCobros actualizador)
     {
         _db = db;
         _usuario = usuario;
         _fecha = fecha;
         _almacen = almacen;
+        _actualizador = actualizador;
     }
 
     /// <summary>Administrador y Cobros registran planes, pagos y promesas; los demás solo consultan el plan.</summary>
@@ -49,58 +52,9 @@ public class CobrosService
         if (!PuedeGestionar) throw new ProhibidoException("Solo Administrador y Cobros pueden gestionar cobros.");
     }
 
-    private async Task<decimal> PorcentajeMoraAsync(CancellationToken ct)
-    {
-        var fila = await _db.Configuracion.AsNoTracking().FirstOrDefaultAsync(c => c.Clave == ConfiguracionSistema.InteresMora, ct);
-        return fila != null && decimal.TryParse(fila.Valor, NumberStyles.Number, CultureInfo.InvariantCulture, out var pct) ? pct : 2.5m;
-    }
+    private Task<decimal> PorcentajeMoraAsync(CancellationToken ct) => _actualizador.PorcentajeMoraAsync(ct);
 
-    private IQueryable<PlanPago> PlanesCompletos() => _db.PlanesPago
-        .Include(p => p.Cliente)
-        .Include(p => p.Cuotas).ThenInclude(c => c.Pagos).ThenInclude(p => p.Archivos)
-        .Include(p => p.Cuotas).ThenInclude(c => c.Promesas)
-        .AsSplitQuery();
-
-    /// <summary>
-    /// Recalcula estados de cuotas, promesas y clientes y guarda lo que cambió. Si el estado de un cliente cambia,
-    /// también cambia la versión de la sección "datos" de su ficha, porque ahí se edita ese estado.
-    /// </summary>
-    private async Task NormalizarAsync(IReadOnlyList<PlanPago> planes, decimal porcentaje, CancellationToken ct)
-    {
-        var hoy = _fecha.Hoy;
-        var hayCambios = false;
-        var clientesCambiados = new List<int>();
-        foreach (var plan in planes)
-        {
-            var (cambios, estadoCliente) = ReglasCobro.NormalizarPlan(plan, plan.Cliente, porcentaje, hoy);
-            hayCambios |= cambios;
-            if (estadoCliente) clientesCambiados.Add(plan.ClienteId);
-        }
-        if (!hayCambios) return;
-        if (clientesCambiados.Count > 0)
-        {
-            var versiones = await _db.Personas
-                .Where(p => p.ClienteId != null && clientesCambiados.Contains(p.ClienteId.Value))
-                .SelectMany(p => p.Versiones.Where(v => v.Seccion == "datos"))
-                .ToListAsync(ct);
-            foreach (var v in versiones) v.Version = Guid.NewGuid();
-        }
-        try
-        {
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            // Otro proceso guardó primero; el próximo recálculo aplicará los estados vigentes.
-        }
-    }
-
-    /// <summary>Recalcula todos los planes. Lo usa el proceso periódico para que los estados cambien con el día.</summary>
-    public async Task NormalizarTodosAsync(CancellationToken ct = default)
-    {
-        var planes = await PlanesCompletos().ToListAsync(ct);
-        await NormalizarAsync(planes, await PorcentajeMoraAsync(ct), ct);
-    }
+    private IQueryable<PlanPago> PlanesCompletos() => _actualizador.PlanesCompletos();
 
     // ---------- Resumen de un plan ----------
 
@@ -154,9 +108,9 @@ public class CobrosService
         if (!VistasCobros.Todas.Contains(vista)) throw new ValidacionException("vista", "Vista de cobros no válida.");
 
         var hoy = _fecha.Hoy;
+        await _actualizador.ActualizarPendientesAsync(ct);
         var porcentaje = await PorcentajeMoraAsync(ct);
-        var planes = await PlanesCompletos().ToListAsync(ct);
-        await NormalizarAsync(planes, porcentaje, ct);
+        var planes = await PlanesCompletos().AsNoTracking().ToListAsync(ct);
         var resumenes = planes.ToDictionary(p => p.ClienteId, p => Resumir(p, porcentaje, hoy));
 
         var personas = await _db.Personas.AsNoTracking()
@@ -262,13 +216,14 @@ public class CobrosService
 
     public async Task<PlanPersonaDto> ObtenerPlanAsync(int personaId, CancellationToken ct = default)
     {
+        // La persona se lee sin seguimiento (solo para revisar el acceso), así que el recálculo no la deja desactualizada.
         var persona = await CargarPersonaAsync(personaId, ct);
         var porcentaje = await PorcentajeMoraAsync(ct);
         PlanPago? plan = null;
         if (persona.ClienteId is int clienteId)
         {
+            await _actualizador.ActualizarClienteAsync(clienteId, ct);
             plan = await PlanesCompletos().FirstOrDefaultAsync(p => p.ClienteId == clienteId, ct);
-            if (plan != null) await NormalizarAsync(new[] { plan }, porcentaje, ct);
         }
         var estadoCliente = plan?.Cliente?.EstadoClienteId ?? persona.Cliente?.EstadoClienteId;
         var venta = persona.Venta;

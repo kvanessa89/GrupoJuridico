@@ -40,7 +40,7 @@ public sealed class CobrosServiceTests : IDisposable
     private ApplicationDbContext Db() => new(_opciones);
 
     private CobrosService Servicio(ApplicationDbContext db, string rol = Roles.Cobros) =>
-        new(db, new UsuarioPrueba(rol), new FechaPrueba(), _almacen);
+        new(db, new UsuarioPrueba(rol), new FechaPrueba(), _almacen, new ActualizadorCobros(db, new FechaPrueba()));
 
     private int CrearPersona(bool cliente = true, int primaEstado = EstadoPrima.Pendiente, string nombre = "Ana")
     {

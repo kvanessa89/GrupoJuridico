@@ -59,6 +59,8 @@ public class ApplicationDbContext : IdentityDbContext<Usuario, Rol, int>, IAppli
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
+    public void DescartarCambios() => ChangeTracker.Clear();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);

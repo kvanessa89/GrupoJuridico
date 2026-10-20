@@ -244,6 +244,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasIndex("PlanPagoId", "NumeroCuota")
                         .IsUnique();
 
+                    b.HasIndex(new[] { "FechaVencimiento" }, "IX_Cuotas_PendientesAlDia")
+                        .HasFilter("\"EstadoCuotaVencimientoId\" = 1 AND \"EstadoCuotaPagoId\" <> 3");
+
                     b.ToTable("Cuotas", (string)null);
                 });
 
@@ -877,6 +880,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasIndex("CuotaId");
 
                     b.HasIndex("EstadoPromesaId");
+
+                    b.HasIndex(new[] { "FechaPromesa" }, "IX_PromesasPago_Pendientes")
+                        .HasFilter("\"EstadoPromesaId\" = 1");
 
                     b.ToTable("PromesasPago", (string)null);
                 });
