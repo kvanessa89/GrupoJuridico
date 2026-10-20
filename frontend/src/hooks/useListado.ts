@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { FiltrosLista } from '../api/tipos'
 
 /**
  * Carga una tabla paginada cada vez que cambian los filtros. El buscador espera
  * un momento antes de consultar y las respuestas viejas se descartan.
  */
-export function useListado<T>(cargar: (f: FiltrosLista) => Promise<T>, filtros: FiltrosLista) {
+export function useListado<T, F extends { q: string }>(cargar: (f: F) => Promise<T>, filtros: F) {
   const [datos, setDatos] = useState<T | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(false)

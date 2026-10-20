@@ -30,6 +30,15 @@ public class ApplicationDbContext : IdentityDbContext<Usuario, Rol, int>, IAppli
     public DbSet<Parentesco> Parentescos => Set<Parentesco>();
     public DbSet<ConfiguracionSistema> Configuracion => Set<ConfiguracionSistema>();
 
+    public DbSet<PlanPago> PlanesPago => Set<PlanPago>();
+    public DbSet<Cuota> Cuotas => Set<Cuota>();
+    public DbSet<Pago> Pagos => Set<Pago>();
+    public DbSet<ArchivoPago> ArchivosPago => Set<ArchivoPago>();
+    public DbSet<PromesaPago> PromesasPago => Set<PromesaPago>();
+    public DbSet<EstadoCuotaPago> EstadosCuotaPago => Set<EstadoCuotaPago>();
+    public DbSet<EstadoCuotaVencimiento> EstadosCuotaVencimiento => Set<EstadoCuotaVencimiento>();
+    public DbSet<EstadoPromesa> EstadosPromesa => Set<EstadoPromesa>();
+
     private void InicializarVersiones()
     {
         foreach (var entry in ChangeTracker.Entries<Persona>().Where(e => e.State == EntityState.Added).ToList())
@@ -49,6 +58,8 @@ public class ApplicationDbContext : IdentityDbContext<Usuario, Rol, int>, IAppli
         InicializarVersiones();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
+
+    public void DescartarCambios() => ChangeTracker.Clear();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

@@ -26,7 +26,29 @@ public interface IApplicationDbContext
     DbSet<Parentesco> Parentescos { get; }
     DbSet<ConfiguracionSistema> Configuracion { get; }
 
+    DbSet<PlanPago> PlanesPago { get; }
+    DbSet<Cuota> Cuotas { get; }
+    DbSet<Pago> Pagos { get; }
+    DbSet<ArchivoPago> ArchivosPago { get; }
+    DbSet<PromesaPago> PromesasPago { get; }
+    DbSet<EstadoCuotaPago> EstadosCuotaPago { get; }
+    DbSet<EstadoCuotaVencimiento> EstadosCuotaVencimiento { get; }
+    DbSet<EstadoPromesa> EstadosPromesa { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Olvida las entidades cargadas y sus cambios sin guardar (después de perder una carrera de concurrencia).</summary>
+    void DescartarCambios();
+}
+
+/// <summary>Almacenamiento de archivos subidos (comprobantes de pago). Las claves las genera el almacenamiento.</summary>
+public interface IAlmacenArchivos
+{
+    /// <summary>Guarda el contenido y devuelve la clave para recuperarlo.</summary>
+    Task<string> GuardarAsync(Stream contenido, string extension, CancellationToken ct = default);
+    /// <summary>Abre el archivo para lectura, o null si ya no existe.</summary>
+    Task<Stream?> AbrirAsync(string clave, CancellationToken ct = default);
+    Task EliminarAsync(string clave, CancellationToken ct = default);
 }
 
 /// <summary>Usuario autenticado de la petición actual.</summary>

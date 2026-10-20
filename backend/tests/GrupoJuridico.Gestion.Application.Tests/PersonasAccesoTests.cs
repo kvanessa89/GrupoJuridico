@@ -1,3 +1,4 @@
+using GrupoJuridico.Gestion.Application.Cobros;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
 using GrupoJuridico.Gestion.Application.Personas;
@@ -191,7 +192,7 @@ public class PersonasAccesoTests
         using var db = CrearDb();
         var id = await SembrarAsync(db, EstadoPrima.Pendiente);
         var servicio = CrearServicio(db, Roles.Administrador);
-        var catalogos = new Catalogos.CatalogosService(db, new IdentityPrueba());
+        var catalogos = new Catalogos.CatalogosService(db, new IdentityPrueba(), new ActualizadorCobros(db, new FechaPrueba()));
         var hermano = await catalogos.CrearAsync("parentescos", new Catalogos.GuardarCatalogoItemRequest("Hermano/a", null, null));
         Assert.StartsWith("PA-", hermano.Codigo);
         var version = (await servicio.ObtenerAsync(id)).Versiones["familiares"];
@@ -367,7 +368,7 @@ public class PersonasAccesoTests
         var servicio = CrearServicio(db, Roles.Administrador);
         await servicio.ReemplazarNumerosAsync(id, new[] { new NumeroItem(0, "88888888", "Teléfono", true) },
             version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
-        var catalogos = new Catalogos.CatalogosService(db, new IdentityPrueba());
+        var catalogos = new Catalogos.CatalogosService(db, new IdentityPrueba(), new ActualizadorCobros(db, new FechaPrueba()));
 
         var nuevo = await catalogos.CrearAsync("paises", new Catalogos.GuardarCatalogoItemRequest("Panamá", "507", null));
         Assert.Equal("+507", nuevo.Codigo);
@@ -388,7 +389,7 @@ public class PersonasAccesoTests
     {
         using var db = CrearDb();
         var id = await SembrarAsync(db, EstadoPrima.Pendiente);
-        var catalogos = new Catalogos.CatalogosService(db, new IdentityPrueba());
+        var catalogos = new Catalogos.CatalogosService(db, new IdentityPrueba(), new ActualizadorCobros(db, new FechaPrueba()));
         var usado = await catalogos.CrearAsync(tipo, new Catalogos.GuardarCatalogoItemRequest("Usado", null, null));
         var libre = await catalogos.CrearAsync(tipo, new Catalogos.GuardarCatalogoItemRequest("Libre", null, null));
         var persona = await db.Personas.Include(p => p.Ventas).SingleAsync(p => p.Id == id);
@@ -1186,7 +1187,7 @@ public class PersonasAccesoTests
     }
 
     private static PersonasService CrearServicio(TestDb db, string rol) =>
-        new(db, new UsuarioPrueba(rol), new IdentityPrueba(), new FechaPrueba());
+        new(db, new UsuarioPrueba(rol), new IdentityPrueba(), new FechaPrueba(), new ActualizadorCobros(db, new FechaPrueba()));
 
     private sealed class UsuarioPrueba(string rol) : IUsuarioActual
     {
@@ -1217,6 +1218,7 @@ public class PersonasAccesoTests
 
     private sealed class TestDb(DbContextOptions<TestDb> options) : DbContext(options), IApplicationDbContext
     {
+        public void DescartarCambios() => ChangeTracker.Clear();
         public DbSet<Persona> Personas => Set<Persona>();
         public DbSet<Cliente> Clientes => Set<Cliente>();
         public DbSet<Venta> Ventas => Set<Venta>();
@@ -1235,6 +1237,14 @@ public class PersonasAccesoTests
         public DbSet<Pais> Paises => Set<Pais>();
         public DbSet<Parentesco> Parentescos => Set<Parentesco>();
         public DbSet<ConfiguracionSistema> Configuracion => Set<ConfiguracionSistema>();
+        public DbSet<PlanPago> PlanesPago => Set<PlanPago>();
+        public DbSet<Cuota> Cuotas => Set<Cuota>();
+        public DbSet<Pago> Pagos => Set<Pago>();
+        public DbSet<ArchivoPago> ArchivosPago => Set<ArchivoPago>();
+        public DbSet<PromesaPago> PromesasPago => Set<PromesaPago>();
+        public DbSet<EstadoCuotaPago> EstadosCuotaPago => Set<EstadoCuotaPago>();
+        public DbSet<EstadoCuotaVencimiento> EstadosCuotaVencimiento => Set<EstadoCuotaVencimiento>();
+        public DbSet<EstadoPromesa> EstadosPromesa => Set<EstadoPromesa>();
         public int Guardados { get; private set; }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

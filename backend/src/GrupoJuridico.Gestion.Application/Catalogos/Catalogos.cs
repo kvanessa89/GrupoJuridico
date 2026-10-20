@@ -1,5 +1,6 @@
 using System.Globalization;
 using FluentValidation;
+using GrupoJuridico.Gestion.Application.Cobros;
 using GrupoJuridico.Gestion.Application.Common;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
@@ -22,7 +23,10 @@ public record CatalogosDto(
     IReadOnlyList<CatalogoItemDto> Paises,
     IReadOnlyList<CatalogoItemDto> Parentescos,
     IReadOnlyList<RolDto> Roles,
-    decimal InteresMora);
+    decimal InteresMora,
+    IReadOnlyList<CatalogoItemDto> EstadosCuotaPago,
+    IReadOnlyList<CatalogoItemDto> EstadosCuotaVencimiento,
+    IReadOnlyList<CatalogoItemDto> EstadosPromesa);
 
 public record GuardarCatalogoItemRequest(string Nombre, string? Codigo, string? Apellidos);
 
@@ -48,10 +52,13 @@ public class CatalogosService
     private readonly IIdentityService _identity;
     private readonly GuardarCatalogoItemValidator _validator = new();
 
-    public CatalogosService(IApplicationDbContext db, IIdentityService identity)
+    private readonly ActualizadorCobros _cobros;
+
+    public CatalogosService(IApplicationDbContext db, IIdentityService identity, ActualizadorCobros cobros)
     {
         _db = db;
         _identity = identity;
+        _cobros = cobros;
     }
 
     public async Task<CatalogosDto> ObtenerAsync(CancellationToken ct = default)
@@ -70,7 +77,11 @@ public class CatalogosService
             (await _db.Paises.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             (await _db.Parentescos.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             _identity.Roles(),
-            interes != null && decimal.TryParse(interes.Valor, NumberStyles.Number, CultureInfo.InvariantCulture, out var pct) ? pct : 2.5m);
+            interes != null && decimal.TryParse(interes.Valor, NumberStyles.Number, CultureInfo.InvariantCulture, out var pct) ? pct : 2.5m,
+            // Estados de Cobros: solo lectura, se calculan de los pagos y fechas.
+            (await _db.EstadosCuotaPago.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
+            (await _db.EstadosCuotaVencimiento.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
+            (await _db.EstadosPromesa.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList());
     }
 
     public async Task<CatalogoItemDto> CrearAsync(string tipo, GuardarCatalogoItemRequest request, CancellationToken ct = default)
@@ -224,6 +235,8 @@ public class CatalogosService
         }
         fila.Valor = request.Porcentaje.ToString(CultureInfo.InvariantCulture);
         await _db.SaveChangesAsync(ct);
+        // El porcentaje cambia la mora de las cuotas vencidas (y con ella su estado): se recalculan todos los planes.
+        await _cobros.ActualizarTodosAsync(ct);
         return request.Porcentaje;
     }
 

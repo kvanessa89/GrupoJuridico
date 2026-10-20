@@ -220,3 +220,98 @@ internal class VersionSeccionConfig : IEntityTypeConfiguration<VersionSeccion>
         b.HasOne<Persona>().WithMany(p => p.Versiones).HasForeignKey(x => x.PersonaId).OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+internal class EstadoCuotaPagoConfig : IEntityTypeConfiguration<EstadoCuotaPago>
+{
+    public void Configure(EntityTypeBuilder<EstadoCuotaPago> b)
+    {
+        CatalogoConfig.Configurar(b, "EstadosCuotaPago");
+        b.Property(x => x.Id).ValueGeneratedNever();
+    }
+}
+
+internal class EstadoCuotaVencimientoConfig : IEntityTypeConfiguration<EstadoCuotaVencimiento>
+{
+    public void Configure(EntityTypeBuilder<EstadoCuotaVencimiento> b)
+    {
+        CatalogoConfig.Configurar(b, "EstadosCuotaVencimiento");
+        b.Property(x => x.Id).ValueGeneratedNever();
+    }
+}
+
+internal class EstadoPromesaConfig : IEntityTypeConfiguration<EstadoPromesa>
+{
+    public void Configure(EntityTypeBuilder<EstadoPromesa> b)
+    {
+        CatalogoConfig.Configurar(b, "EstadosPromesa");
+        b.Property(x => x.Id).ValueGeneratedNever();
+    }
+}
+
+internal class PlanPagoConfig : IEntityTypeConfiguration<PlanPago>
+{
+    public void Configure(EntityTypeBuilder<PlanPago> b)
+    {
+        b.ToTable("PlanesPago");
+        b.Property(x => x.MontoTotal).HasPrecision(14, 2);
+        b.Property(x => x.MontoCuota).HasPrecision(14, 2);
+        // Un cliente tiene un solo plan; al eliminar el cliente se elimina su plan con cuotas, pagos y promesas.
+        b.HasIndex(x => x.ClienteId).IsUnique();
+        b.HasOne(x => x.Cliente).WithOne().HasForeignKey<PlanPago>(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(x => x.Cuotas).WithOne(c => c.PlanPago).HasForeignKey(c => c.PlanPagoId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal class CuotaConfig : IEntityTypeConfiguration<Cuota>
+{
+    public void Configure(EntityTypeBuilder<Cuota> b)
+    {
+        b.ToTable("Cuotas");
+        b.Property(x => x.MontoCuota).HasPrecision(14, 2);
+        b.HasIndex(x => new { x.PlanPagoId, x.NumeroCuota }).IsUnique();
+        b.Property(x => x.Version).IsConcurrencyToken();
+        b.HasIndex(x => x.FechaVencimiento);
+        // Cuotas sin pagar que todavía figuran al día: así se encuentran rápido las que vencieron (ActualizadorCobros).
+        b.HasIndex(x => x.FechaVencimiento, "IX_Cuotas_PendientesAlDia")
+            .HasFilter("\"EstadoCuotaVencimientoId\" = 1 AND \"EstadoCuotaPagoId\" <> 3");
+        b.HasOne(x => x.EstadoCuotaPago).WithMany().HasForeignKey(x => x.EstadoCuotaPagoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.EstadoCuotaVencimiento).WithMany().HasForeignKey(x => x.EstadoCuotaVencimientoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Pagos).WithOne(p => p.Cuota).HasForeignKey(p => p.CuotaId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(x => x.Promesas).WithOne(p => p.Cuota).HasForeignKey(p => p.CuotaId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal class PagoConfig : IEntityTypeConfiguration<Pago>
+{
+    public void Configure(EntityTypeBuilder<Pago> b)
+    {
+        b.ToTable("Pagos");
+        b.Property(x => x.MontoPago).HasPrecision(14, 2);
+        b.HasMany(x => x.Archivos).WithOne().HasForeignKey(a => a.PagoId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal class ArchivoPagoConfig : IEntityTypeConfiguration<ArchivoPago>
+{
+    public void Configure(EntityTypeBuilder<ArchivoPago> b)
+    {
+        b.ToTable("ArchivosPago");
+        b.Property(x => x.Nombre).HasMaxLength(255).IsRequired();
+        b.Property(x => x.TipoContenido).HasMaxLength(100);
+        b.Property(x => x.Clave).HasMaxLength(200);
+    }
+}
+
+internal class PromesaPagoConfig : IEntityTypeConfiguration<PromesaPago>
+{
+    public void Configure(EntityTypeBuilder<PromesaPago> b)
+    {
+        b.ToTable("PromesasPago");
+        // Promesas pendientes, para detectar las que pasaron su fecha (ActualizadorCobros).
+        b.HasIndex(x => x.FechaPromesa, "IX_PromesasPago_Pendientes")
+            .HasFilter("\"EstadoPromesaId\" = 1");
+        b.Property(x => x.MontoPrometido).HasPrecision(14, 2);
+        b.Property(x => x.MontoPagado).HasPrecision(14, 2);
+        b.HasOne(x => x.EstadoPromesa).WithMany().HasForeignKey(x => x.EstadoPromesaId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

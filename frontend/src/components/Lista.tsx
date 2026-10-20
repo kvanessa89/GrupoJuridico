@@ -22,18 +22,46 @@ export interface TotalDef {
   label: string
   valor: string
   nota: string
+  /** Con onClick la tarjeta filtra la tabla; `activo` marca la elegida. */
+  onClick?: () => void
+  activo?: boolean
 }
 
 export function Totales({ items }: { items: TotalDef[] }) {
   return (
     <div className="totales">
-      {items.map((t) => (
-        <div key={t.label} className="total">
-          <div className="total-label">{t.label}</div>
-          <div className="total-valor">{t.valor}</div>
-          <div className="total-nota">{t.nota}</div>
-        </div>
-      ))}
+      {items.map((t) => {
+        const contenido = (
+          <>
+            <div className="total-label">{t.label}</div>
+            <div className="total-valor">{t.valor}</div>
+            <div className="total-nota">{t.nota}</div>
+          </>
+        )
+        return t.onClick ? (
+          <button key={t.label} className={'total clicable' + (t.activo ? ' activo' : '')} aria-pressed={!!t.activo} onClick={t.onClick}>
+            {contenido}
+          </button>
+        ) : (
+          <div key={t.label} className="total">{contenido}</div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Solo el buscador (sin selects) con el conteo de registros. */
+export function Buscador({ q, onQ, placeholder, conteo }: { q: string; onQ: (v: string) => void; placeholder: string; conteo: number }) {
+  return (
+    <div className="filtros">
+      <div className="buscador" style={{ gridColumn: 'auto' }}>
+        <Lupa />
+        <input value={q} placeholder={placeholder} aria-label="Buscar" onChange={(e) => onQ(e.target.value)} />
+      </div>
+      <div className="filtros-pie">
+        <span>{conteo === 1 ? '1 registro' : conteo + ' registros'}</span>
+        {q && <button className="btn-texto" onClick={() => onQ('')}>Limpiar búsqueda</button>}
+      </div>
     </div>
   )
 }
@@ -77,8 +105,8 @@ export function Tabla({
 }: {
   columnas: Columna[]
   filas: FilaDef[]
-  filtros: FiltrosLista
-  setFiltros: (cambios: Partial<FiltrosLista>) => void
+  filtros: Pick<FiltrosLista, 'orden' | 'asc'>
+  setFiltros: (cambios: Pick<FiltrosLista, 'orden' | 'asc'>) => void
   onAbrir: (id: number) => void
   onEliminar?: (id: number) => void
   cargando?: boolean

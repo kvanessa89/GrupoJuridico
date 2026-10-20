@@ -1,8 +1,11 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import type { FiltrosLista } from '../api/tipos'
+import type { CobrosFiltros, FiltrosLista } from '../api/tipos'
 import { mesActual } from '../utils/formato'
 
 export type SeccionLista = 'ventas' | 'clientes'
+
+/** Cobros abre en Clientes morosos, del mayor atraso al menor. */
+const COBROS_INICIALES: CobrosFiltros = { vista: 'morosos', q: '', orden: 'atraso', asc: false, pagina: 1 }
 
 /** Filtros iniciales: Ventas abre en el mes actual ordenada por fecha estimada; Clientes por expediente. */
 // eslint-disable-next-line react-refresh/only-export-components
@@ -19,7 +22,9 @@ export function filtrosIniciales(seccion: SeccionLista): FiltrosLista {
 interface Ctx {
   filtros: Record<SeccionLista, FiltrosLista>
   cambiar: (s: SeccionLista, cambios: Partial<FiltrosLista>) => void
-  reiniciar: (s: SeccionLista) => void
+  reiniciar: (s: SeccionLista | 'cobros') => void
+  cobros: CobrosFiltros
+  cambiarCobros: (cambios: Partial<CobrosFiltros>) => void
 }
 
 const FiltrosCtx = createContext<Ctx | null>(null)
@@ -33,10 +38,13 @@ export function FiltrosProvider({ children }: { children: ReactNode }) {
   const cambiar = useCallback((s: SeccionLista, cambios: Partial<FiltrosLista>) => {
     setFiltros((f) => ({ ...f, [s]: { ...f[s], ...cambios } }))
   }, [])
-  const reiniciar = useCallback((s: SeccionLista) => {
-    setFiltros((f) => ({ ...f, [s]: filtrosIniciales(s) }))
+  const [cobros, setCobros] = useState(COBROS_INICIALES)
+  const cambiarCobros = useCallback((cambios: Partial<CobrosFiltros>) => setCobros((f) => ({ ...f, ...cambios })), [])
+  const reiniciar = useCallback((s: SeccionLista | 'cobros') => {
+    if (s === 'cobros') setCobros(COBROS_INICIALES)
+    else setFiltros((f) => ({ ...f, [s]: filtrosIniciales(s) }))
   }, [])
-  const valor = useMemo(() => ({ filtros, cambiar, reiniciar }), [filtros, cambiar, reiniciar])
+  const valor = useMemo(() => ({ filtros, cambiar, reiniciar, cobros, cambiarCobros }), [filtros, cambiar, reiniciar, cobros, cambiarCobros])
   return <FiltrosCtx.Provider value={valor}>{children}</FiltrosCtx.Provider>
 }
 
@@ -57,6 +65,21 @@ export function useFiltros(seccion: SeccionLista) {
       [cambiar, seccion],
     ),
     reiniciar: useCallback(() => reiniciar(seccion), [reiniciar, seccion]),
+  }
+}
+
+/** Filtros de Cobros: la tarjeta elegida (vista), la búsqueda, el orden y la página. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useFiltrosCobros() {
+  const c = useContext(FiltrosCtx)
+  if (!c) throw new Error('useFiltrosCobros fuera de FiltrosProvider')
+  const { cobros, cambiarCobros } = c
+  return {
+    filtros: cobros,
+    set: useCallback(
+      (cambios: Partial<CobrosFiltros>) => cambiarCobros('pagina' in cambios ? cambios : { ...cambios, pagina: 1 }),
+      [cambiarCobros],
+    ),
   }
 }
 

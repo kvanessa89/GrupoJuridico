@@ -159,3 +159,54 @@ export function IconoUsuarios() {
     </svg>
   )
 }
+
+export function IconoCobros({ tamano = 18 }: { tamano?: number }) {
+  return (
+    <svg width={tamano} height={tamano} viewBox="0 0 24 24" {...trazo} strokeWidth="1.8" style={{ flex: 'none' }}>
+      <rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6.5 10v4" /><path d="M17.5 10v4" />
+    </svg>
+  )
+}
+
+/** Billete: registrar pago. */
+export function IconoPago() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" {...trazo} strokeWidth="1.9">
+      <rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" />
+    </svg>
+  )
+}
+
+/** Calendario con check: promesa de pago. */
+export function IconoPromesa({ check = true }: { check?: boolean }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" {...trazo} strokeWidth={check ? 1.9 : 2}>
+      <rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" />
+      {check && <path d="m9 15 2 2 4-4" />}
+    </svg>
+  )
+}
+
+export function Lapiz() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" {...trazo} strokeWidth="2">
+      <path d="M4 20h4L19 9l-4-4L4 16v4Z" /><path d="m13.5 6.5 4 4" />
+    </svg>
+  )
+}
+
+export function Documento() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" {...trazo} strokeWidth="1.8" style={{ flex: 'none' }}>
+      <path d="M14 3v5h5M6 3h8l5 5v13H6Z" />
+    </svg>
+  )
+}
+
+export function Subir() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" {...trazo} strokeWidth="2" style={{ flex: 'none', color: 'var(--gold)' }}>
+      <path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M5 20h14" />
+    </svg>
+  )
+}
