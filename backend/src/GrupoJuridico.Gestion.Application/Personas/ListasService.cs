@@ -1,3 +1,4 @@
+using GrupoJuridico.Gestion.Application.Cobros;
 using GrupoJuridico.Gestion.Application.Common;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
@@ -18,10 +19,13 @@ public class ListasService
     private readonly IApplicationDbContext _db;
     private readonly IUsuarioActual _usuario;
 
-    public ListasService(IApplicationDbContext db, IUsuarioActual usuario)
+    private readonly ActualizadorCobros _cobros;
+
+    public ListasService(IApplicationDbContext db, IUsuarioActual usuario, ActualizadorCobros cobros)
     {
         _db = db;
         _usuario = usuario;
+        _cobros = cobros;
     }
 
     private IQueryable<Persona> PersonasCompletas() => _db.Personas.AsNoTracking()
@@ -118,6 +122,8 @@ public class ListasService
     public async Task<ClientesListaDto> ClientesAsync(ListaQuery f, CancellationToken ct = default)
     {
         if (!Roles.VeClientes(_usuario.Rol)) throw new ProhibidoException();
+        // El estado del cliente cambia con la fecha (por ejemplo, a Moroso cuando vence una cuota).
+        await _cobros.ActualizarPendientesAsync(ct);
         var clientes = await PersonasCompletas().Where(p => p.ClienteId != null).ToListAsync(ct);
         var anios = clientes.Select(p => p.FechaIngreso.Year).Distinct().OrderBy(a => a).ToList();
 

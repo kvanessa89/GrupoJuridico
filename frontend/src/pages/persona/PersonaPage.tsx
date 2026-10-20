@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { NavigationType, useBlocker, useNavigate, useParams } from 'react-router'
+import { NavigationType, useBlocker, useLocation, useNavigate, useParams } from 'react-router'
 import { erroresDe, mensajeDe } from '../../api/cliente'
 import { api } from '../../api/endpoints'
 import type { ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
@@ -16,6 +16,7 @@ import {
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
 import { Comentarios, Contactos, Familiares } from './Secciones'
+import { PlanPagoFicha } from '../cobros/PlanPagoFicha'
 
 type ParteGuardada = 'datos' | 'venta' | 'prima' | 'numeros' | 'correos' | 'familiares'
 
@@ -55,6 +56,8 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const personaId = Number(id)
   const navegar = useNavigate()
   const { catalogos, usuario } = useSesion()
+  // Al volver del plan de pago la ficha abre en la pestaña Ventas.
+  const pestanaInicial: Pestana = (useLocation().state as { pestana?: Pestana } | null)?.pestana ?? 'general'
 
   const editor = useRef(new EditorSecciones())
   const idsNuevos = useRef({ numeros: new Map<number, number>(), correos: new Map<number, number>(), familiares: new Map<number, number>() })
@@ -66,7 +69,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const [cargaError, setCargaError] = useState('')
   const [guardado, setGuardado] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState('')
-  const [pestana, setPestana] = useState<Pestana>('general')
+  const [pestana, setPestana] = useState<Pestana>(pestanaInicial)
   const [volverIntento, setVolverIntento] = useState(false)
   // Guardado al salir de la ficha en curso (por "Volver", el menú o el Atrás del navegador).
   const [saliendo, setSaliendo] = useState(false)
@@ -86,7 +89,6 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         setPersona(p)
         setForm(formDesde(p))
         setComentarios(p.comentarios)
-        setPestana('general')
         setGuardado(false)
         setConv(null)
         setVolverIntento(false)
@@ -611,6 +613,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         )}
         {en('ventas') && persona?.venta !== null && bloqueVenta}
         {en('ventas') && persona?.prima !== null && bloquePrima}
+        {!nuevo && esCliente && en('ventas') && <PlanPagoFicha personaId={personaId} />}
         {en('familiares') && <Familiares familiares={form.familiares} mostrarErrores={volverIntento || crearIntento} onCambiar={(f) => cambiarLista('familiares', f)} />}
         {!nuevo && en('actividad') && (
           <Comentarios

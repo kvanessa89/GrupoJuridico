@@ -1,3 +1,4 @@
+using GrupoJuridico.Gestion.Application.Cobros;
 using GrupoJuridico.Gestion.Application.Common;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
@@ -25,12 +26,15 @@ public class PersonasService
     private readonly ComentarioValidator _comentarioValidator = new();
     private readonly FamiliarItemValidator _familiarValidator = new();
 
-    public PersonasService(IApplicationDbContext db, IUsuarioActual usuario, IIdentityService identity, IFechaActual fecha)
+    private readonly ActualizadorCobros _cobros;
+
+    public PersonasService(IApplicationDbContext db, IUsuarioActual usuario, IIdentityService identity, IFechaActual fecha, ActualizadorCobros cobros)
     {
         _db = db;
         _usuario = usuario;
         _identity = identity;
         _fecha = fecha;
+        _cobros = cobros;
     }
 
     public Guid VersionGuardada { get; private set; }
@@ -183,13 +187,22 @@ public class PersonasService
 
     private void VerificarAcceso(Persona persona)
     {
-        if (_usuario.Rol == Roles.AsistenteVentas &&
-            persona.Prima?.EstadoPrimaId == EstadoPrima.Pagada)
+        if (!AccesoPermitido(_usuario.Rol, persona))
             throw new ProhibidoException("No tiene permiso para acceder a esta persona.");
     }
 
+    /// <summary>El Asistente de Ventas no accede a personas con la prima pagada (requiere la prima cargada).</summary>
+    public static bool AccesoPermitido(string? rol, Persona persona) =>
+        !(rol == Roles.AsistenteVentas && persona.Prima?.EstadoPrimaId == EstadoPrima.Pagada);
+
     public async Task<PersonaDetalleDto> ObtenerAsync(int id, CancellationToken ct = default)
     {
+        // Antes de cargar la ficha se pone al día el plan de pago: así el estado del cliente y la versión
+        // de "datos" que recibe la ficha ya son los vigentes (sin conflictos falsos al autoguardar).
+        var acceso = await _db.Personas.AsNoTracking().Include(x => x.Ventas).ThenInclude(v => v.Prima)
+            .FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NoEncontradoException("Persona", id);
+        VerificarAcceso(acceso);
+        if (acceso.ClienteId is int clienteId) await _cobros.ActualizarClienteAsync(clienteId, ct);
         var p = await CargarAsync(id, ct);
         return await CrearDetalleAsync(p);
     }

@@ -66,6 +66,7 @@ public class DbSeeder
             await UsuarioAsync("ventas", "Andrea Vargas", "demo-ventas-2026", Roles.AsistenteVentas);
             await UsuarioAsync("cobros", "Marcela Solís", "demo-cobros-2026", Roles.Cobros);
             await CarteraDemoAsync();
+            await PlanesDemoAsync();
         }
     }
 
@@ -145,6 +146,26 @@ public class DbSeeder
         {
             var parentescos = new[] { "Cónyuge", "Hijo/a", "Madre", "Padre", "Hermano/a" };
             _db.Parentescos.AddRange(parentescos.Select((n, i) => new Parentesco { Codigo = "PA-" + (i + 1), Nombre = n }));
+        }
+        if (!await _db.EstadosCuotaPago.AnyAsync())
+        {
+            _db.EstadosCuotaPago.AddRange(
+                new EstadoCuotaPago { Id = EstadoCuotaPago.Pendiente, Codigo = "ECP-1", Nombre = "Pendiente" },
+                new EstadoCuotaPago { Id = EstadoCuotaPago.Parcial, Codigo = "ECP-2", Nombre = "Parcial" },
+                new EstadoCuotaPago { Id = EstadoCuotaPago.Pagada, Codigo = "ECP-3", Nombre = "Pagada" });
+        }
+        if (!await _db.EstadosCuotaVencimiento.AnyAsync())
+        {
+            _db.EstadosCuotaVencimiento.AddRange(
+                new EstadoCuotaVencimiento { Id = EstadoCuotaVencimiento.AlDia, Codigo = "ECV-1", Nombre = "Al día" },
+                new EstadoCuotaVencimiento { Id = EstadoCuotaVencimiento.Vencido, Codigo = "ECV-2", Nombre = "Vencido" });
+        }
+        if (!await _db.EstadosPromesa.AnyAsync())
+        {
+            _db.EstadosPromesa.AddRange(
+                new EstadoPromesa { Id = EstadoPromesa.Pendiente, Codigo = "EPP-1", Nombre = "Pendiente" },
+                new EstadoPromesa { Id = EstadoPromesa.Cumplida, Codigo = "EPP-2", Nombre = "Cumplida" },
+                new EstadoPromesa { Id = EstadoPromesa.Incumplida, Codigo = "EPP-3", Nombre = "Incumplida" });
         }
         if (!await _db.Configuracion.AnyAsync(c => c.Clave == ConfiguracionSistema.InteresMora))
             _db.Configuracion.Add(new ConfiguracionSistema { Clave = ConfiguracionSistema.InteresMora, Valor = "2.5" });
@@ -268,6 +289,66 @@ public class DbSeeder
             await _db.SaveChangesAsync();
         }
         _log.LogInformation("Cartera de demostración cargada: {Personas} personas.", Cartera.Length);
+    }
+
+    /// <summary>
+    /// Planes de pago de ejemplo (los del prototipo) para los primeros siete clientes. Las fechas se calculan
+    /// desde hoy para que siempre haya morosos, recordatorios, promesas y candidatos a cobro judicial.
+    /// </summary>
+    private async Task PlanesDemoAsync()
+    {
+        if (await _db.PlanesPago.AnyAsync()) return;
+        var clientes = await _db.Clientes.OrderBy(c => c.Id).Take(7).ToListAsync();
+        if (clientes.Count == 0) return;
+
+        var hoy = DateOnly.FromDateTime(DateTime.Today);
+        var manana = hoy.AddDays(hoy.DayOfWeek == DayOfWeek.Saturday ? 2 : 1);
+        // Cliente, total, cuotas, inicio, día de pago, pagadas antes de, abono parcial, fecha de promesa.
+        var planes = new (decimal Total, int Cuotas, DateOnly Inicio, int Dia, DateOnly PagarAntes, decimal Parcial, DateOnly? Promesa)[]
+        {
+            (3600000, 12, hoy.AddDays(-215), hoy.AddDays(-12).Day, hoy.AddDays(-45), 100000, null),
+            (1950000, 10, hoy.AddDays(-125), manana.Day, hoy, 0, null),
+            (2400000, 12, hoy.AddDays(-155), hoy.AddDays(-20).Day, hoy.AddDays(-25), 0, hoy.AddDays(-5)),
+            (1500000, 6, hoy.AddDays(-65), manana.Day, hoy, 0, null),
+            (2940000, 12, hoy.AddDays(-95), hoy.AddDays(-6).Day, hoy.AddDays(-10), 0, hoy.AddDays(4)),
+            (1800000, 6, hoy.AddDays(-250), hoy.AddDays(-15).Day, hoy.AddDays(-110), 0, null),
+            (1200000, 4, hoy.AddDays(-190), hoy.AddDays(-40).Day, hoy.AddDays(-100), 150000, null)
+        };
+        var porcentaje = 2.5m;
+        var interes = await _db.Configuracion.FirstOrDefaultAsync(c => c.Clave == ConfiguracionSistema.InteresMora);
+        if (interes != null && decimal.TryParse(interes.Valor, NumberStyles.Number, CultureInfo.InvariantCulture, out var pct)) porcentaje = pct;
+
+        for (var i = 0; i < clientes.Count; i++)
+        {
+            var d = planes[i];
+            var plan = new PlanPago
+            {
+                ClienteId = clientes[i].Id,
+                MontoTotal = d.Total,
+                MontoCuota = ReglasCobro.MontoMensual(d.Total, d.Cuotas),
+                CantidadCuotas = d.Cuotas,
+                FechaInicio = d.Inicio,
+                DiaPago = d.Dia
+            };
+            plan.Cuotas = ReglasCobro.GenerarCuotas(plan);
+            void Pagar(Cuota c, decimal monto)
+            {
+                var fecha = c.FechaVencimiento.AddDays(-1) < hoy ? c.FechaVencimiento.AddDays(-1) : hoy;
+                var pago = new Pago { MontoPago = monto, FechaPago = fecha };
+                pago.Archivos.Add(new ArchivoPago { Nombre = $"comprobante-cuota-{c.NumeroCuota}.pdf", TipoContenido = "application/pdf", FechaCarga = fecha });
+                c.Pagos.Add(pago);
+            }
+            foreach (var c in plan.Cuotas.Where(c => c.FechaVencimiento < d.PagarAntes)) Pagar(c, c.MontoCuota);
+            var vencidas = plan.Cuotas.Where(c => c.FechaVencimiento >= d.PagarAntes && c.FechaVencimiento < hoy).ToList();
+            if (d.Parcial > 0 && vencidas.Count > 0) Pagar(vencidas[^1], d.Parcial);
+            if (d.Promesa is DateOnly fechaPromesa && vencidas.Count > 0)
+                vencidas[0].Promesas.Add(new PromesaPago { FechaPromesa = fechaPromesa, MontoPrometido = vencidas[0].MontoCuota });
+
+            ReglasCobro.NormalizarPlan(plan, clientes[i], porcentaje, hoy);
+            _db.PlanesPago.Add(plan);
+        }
+        await _db.SaveChangesAsync();
+        _log.LogInformation("Planes de pago de demostración cargados: {Planes}.", clientes.Count);
     }
 
     private static string SinTildes(string texto)

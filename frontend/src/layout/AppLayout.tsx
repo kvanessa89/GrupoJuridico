@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router'
 import { permisos, useSesion } from '../auth/Sesion'
 import { Cargando } from '../components/Cargando'
-import { IconoClientes, IconoConfig, IconoMenu, IconoUsuarios, IconoVentas, Maletin } from '../components/Iconos'
+import { IconoClientes, IconoCobros, IconoConfig, IconoMenu, IconoUsuarios, IconoVentas, Maletin } from '../components/Iconos'
 import { iniciales } from '../utils/formato'
 import { FiltrosProvider, useReiniciarFiltros, type SeccionLista } from './Filtros'
 
@@ -14,8 +14,9 @@ function Menu() {
   const [abierto, setAbierto] = useState(() => window.matchMedia?.('(min-width: 761px)').matches ?? true)
   const rol = usuario?.rol
   const items = [
-    { a: '/gestion/ventas', label: 'Tabla de ventas', icono: <IconoVentas />, seccion: 'ventas' as SeccionLista, ver: true },
+    { a: '/gestion/ventas', label: 'Tabla de ventas', icono: <IconoVentas />, seccion: 'ventas' as SeccionLista | 'cobros', ver: true },
     { a: '/gestion/clientes', label: 'Clientes', icono: <IconoClientes />, seccion: 'clientes' as SeccionLista, ver: permisos.veClientes(rol) },
+    { a: '/gestion/cobros', label: 'Cobros', icono: <IconoCobros />, seccion: 'cobros' as const, ver: permisos.veClientes(rol) },
     { a: '/gestion/configuracion', label: 'Configuración', icono: <IconoConfig />, ver: permisos.esAdmin(rol) },
     { a: '/gestion/usuarios', label: 'Usuarios', icono: <IconoUsuarios />, ver: permisos.esAdmin(rol) },
   ].filter((i) => i.ver)

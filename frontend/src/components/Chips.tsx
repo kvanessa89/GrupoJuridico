@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { estiloTono, type Tono } from '../utils/colores'
 
 const GRIS: [string, string] = ['rgba(168,162,158,0.16)', '#78716C']
 
@@ -51,4 +52,8 @@ export function EtiquetaPrimaGrande({ estadoId, texto }: { estadoId: number; tex
 
 export function EtiquetaEstadoGrande({ estadoId, texto }: { estadoId: number; texto: string }) {
   return <span className="etiqueta-grande" style={colores(CLIENTE_FICHA[estadoId] ?? CLIENTE_FICHA[6])}>{texto}</span>
+}
+
+export function ChipTono({ tono, texto }: { tono: Tono; texto: string }) {
+  return <span className="chip" style={estiloTono(tono)}>{texto}</span>
 }
