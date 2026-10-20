@@ -1,7 +1,7 @@
 import { http } from './cliente'
 import type {
-  Catalogos, CobrosFiltros, CobrosLista, CrearPlan, PlanPersona, CatalogoItem, ClientesLista, ComentarioDto, CorreoDto, CrearProspecto, FamiliarDto, FiltrosLista,
-  LoginResponse, NumeroDto, PersonaDetalle, PrimaDto, TipoCatalogo, Usuario, VentaDto, VentasLista,
+  ArchivosPersona, Catalogos, CobrosFiltros, CobrosLista, CrearPlan, PlanPersona, CatalogoItem, ClientesLista, ComentarioDto, CorreoDto, CrearProspecto, FamiliarDto, FiltrosLista,
+  LoginResponse, NumeroDto, PermisoDocumento, PersonaDetalle, PrimaDto, TipoCatalogo, Usuario, VentaDto, VentasLista,
 } from './tipos'
 
 import type { AxiosResponse } from 'axios'
@@ -86,6 +86,19 @@ export const api = {
     http.put<PlanPersona>(`/cobros/promesas/${promesaId}`, promesa).then((r) => r.data),
   /** El comprobante se pide con el token y se entrega como blob para descargarlo. */
   comprobante: (archivoId: number) => http.get<Blob>(`/cobros/comprobantes/${archivoId}`, { responseType: 'blob' }).then((r) => r.data),
+
+  archivos: (personaId: number) => http.get<ArchivosPersona>(`/personas/${personaId}/archivos`).then((r) => r.data),
+  subirArchivos: (personaId: number, tipoDocumentoId: number, archivos: File[]) => {
+    const f = new FormData()
+    f.append('tipoDocumentoId', String(tipoDocumentoId))
+    for (const a of archivos) f.append('archivos', a)
+    return http.post<ArchivosPersona>(`/personas/${personaId}/archivos`, f, MULTIPART).then((r) => r.data)
+  },
+  /** El archivo se pide con el token y se entrega como blob para descargarlo. */
+  archivo: (id: number) => http.get<Blob>(`/archivos/${id}`, { responseType: 'blob' }).then((r) => r.data),
+  eliminarArchivo: (id: number) => http.delete<ArchivosPersona>(`/archivos/${id}`).then((r) => r.data),
+  permisosDocumento: () => http.get<PermisoDocumento[]>('/archivos/permisos').then((r) => r.data),
+  guardarPermisoDocumento: (p: PermisoDocumento) => http.put<PermisoDocumento>('/archivos/permisos', p).then((r) => r.data),
 
   usuarios: () => http.get<Usuario[]>('/usuarios').then((r) => r.data),
   crearUsuario: (u: { nombre: string; usuario: string; contrasena: string; rol: string }) =>

@@ -167,6 +167,25 @@ public class DbSeeder
                 new EstadoPromesa { Id = EstadoPromesa.Cumplida, Codigo = "EPP-2", Nombre = "Cumplida" },
                 new EstadoPromesa { Id = EstadoPromesa.Incumplida, Codigo = "EPP-3", Nombre = "Incumplida" });
         }
+        if (!await _db.TiposDocumento.AnyAsync())
+        {
+            // Tipos y permisos iniciales del diseño (Ver y Subir por rol); se ajustan en Configuración → Archivos.
+            const string A = Roles.Administrador, V = Roles.AsistenteVentas, C = Roles.Cobros;
+            var tipos = new (string Nombre, string[] Subir, string[] Ver)[]
+            {
+                ("Poderes", new[] { A }, new[] { A, V }),
+                ("Contrato", new[] { A, V }, new[] { A, V, C }),
+                ("Comprobantes de pago", new[] { A, C }, new[] { A, C }),
+                ("Gestión legal", new[] { A }, new[] { A }),
+            };
+            for (var i = 0; i < tipos.Length; i++)
+            {
+                var t = new TipoDocumento { Codigo = "TD-" + (i + 1), Nombre = tipos[i].Nombre };
+                foreach (var rol in Roles.Todos)
+                    t.Permisos.Add(new PermisoDocumento { Rol = rol, PuedeSubir = tipos[i].Subir.Contains(rol), PuedeVer = tipos[i].Ver.Contains(rol) });
+                _db.TiposDocumento.Add(t);
+            }
+        }
         if (!await _db.Configuracion.AnyAsync(c => c.Clave == ConfiguracionSistema.InteresMora))
             _db.Configuracion.Add(new ConfiguracionSistema { Clave = ConfiguracionSistema.InteresMora, Valor = "2.5" });
         await _db.SaveChangesAsync();

@@ -7,6 +7,7 @@ import { ChipTono } from '../../components/Chips'
 import { estiloTono, TONO_PAGO, TONO_PROMESA, TONO_VENCIMIENTO } from '../../utils/colores'
 import { CampoMonto, CampoTexto } from '../../components/Controles'
 import { Check, Chevron, Documento, IconoPago, IconoPromesa, Lapiz, Subir } from '../../components/Iconos'
+import { guardarBlob } from '../../utils/descargas'
 import { fCorta, fFecha, fMonto, plural } from '../../utils/formato'
 import { montoMensual, planValido, primeraCuota, promesaVisible, saldoParaPago, textoPromesas, type DatosPlan } from './reglas'
 
@@ -66,13 +67,7 @@ interface AccionesCuotas {
 
 /** Descarga el comprobante con el token de la sesión. */
 async function descargar(id: number, nombre: string) {
-  const blob = await api.comprobante(id)
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = nombre
-  a.click()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  guardarBlob(await api.comprobante(id), nombre)
 }
 
 function DetalleCuota({ c, acciones }: { c: CuotaDto; acciones?: AccionesCuotas }) {

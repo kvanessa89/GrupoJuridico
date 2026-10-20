@@ -315,3 +315,38 @@ internal class PromesaPagoConfig : IEntityTypeConfiguration<PromesaPago>
         b.HasOne(x => x.EstadoPromesa).WithMany().HasForeignKey(x => x.EstadoPromesaId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+// ---------- Archivos del expediente ----------
+
+internal class TipoDocumentoConfig : IEntityTypeConfiguration<TipoDocumento>
+{
+    public void Configure(EntityTypeBuilder<TipoDocumento> b)
+    {
+        CatalogoConfig.Configurar(b, "TiposDocumento");
+        b.HasMany(x => x.Permisos).WithOne(p => p.TipoDocumento).HasForeignKey(p => p.TipoDocumentoId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal class PermisoDocumentoConfig : IEntityTypeConfiguration<PermisoDocumento>
+{
+    public void Configure(EntityTypeBuilder<PermisoDocumento> b)
+    {
+        b.ToTable("PermisosDocumento");
+        b.Property(x => x.Rol).HasMaxLength(50).IsRequired();
+        b.HasIndex(x => new { x.TipoDocumentoId, x.Rol }).IsUnique();
+    }
+}
+
+internal class ArchivoPersonaConfig : IEntityTypeConfiguration<ArchivoPersona>
+{
+    public void Configure(EntityTypeBuilder<ArchivoPersona> b)
+    {
+        b.ToTable("ArchivosPersona");
+        b.Property(x => x.Nombre).HasMaxLength(255).IsRequired();
+        b.Property(x => x.TipoContenido).HasMaxLength(100);
+        b.Property(x => x.Clave).HasMaxLength(200).IsRequired();
+        b.HasOne<Persona>().WithMany().HasForeignKey(x => x.PersonaId).OnDelete(DeleteBehavior.Cascade);
+        // Un tipo con archivos no se puede borrar (CatalogosService lo valida antes).
+        b.HasOne(x => x.TipoDocumento).WithMany().HasForeignKey(x => x.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

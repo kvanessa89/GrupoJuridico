@@ -210,3 +210,11 @@ export function Subir() {
     </svg>
   )
 }
+
+export function Descargar() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" {...trazo} strokeWidth="2">
+      <path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" />
+    </svg>
+  )
+}

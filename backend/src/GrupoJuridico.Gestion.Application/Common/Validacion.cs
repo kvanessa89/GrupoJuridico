@@ -27,6 +27,18 @@ public static class Validacion
 
     public static bool Vacio(string? s) => string.IsNullOrWhiteSpace(s);
 
+    /// <summary>
+    /// Nombre de un archivo subido para mostrar y descargar: sin carpetas (con / o \, venga de donde venga),
+    /// sin caracteres de control y de largo acotado.
+    /// </summary>
+    public static string NombreArchivo(string? nombre, string porDefecto)
+    {
+        var sinRuta = (nombre ?? "").Split('/', '\\').Last();
+        var limpio = new string(sinRuta.Where(c => !char.IsControl(c)).ToArray()).Trim();
+        if (limpio.Length == 0) limpio = porDefecto;
+        return limpio.Length > 200 ? limpio[..200] : limpio;
+    }
+
     /// <summary>Los teléfonos se guardan solo con dígitos; el prefijo va en el país.</summary>
     public static string SoloDigitos(string? s) => new((s ?? "").Where(char.IsAsciiDigit).ToArray());
 

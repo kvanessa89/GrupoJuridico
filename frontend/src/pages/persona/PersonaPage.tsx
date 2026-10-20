@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavigationType, useBlocker, useLocation, useNavigate, useParams } from 'react-router'
 import { erroresDe, mensajeDe } from '../../api/cliente'
 import { api } from '../../api/endpoints'
-import type { ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
+import type { ArchivosPersona, ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
 import { useSesion } from '../../auth/Sesion'
 import { EtiquetaEstadoGrande, EtiquetaPrimaGrande } from '../../components/Chips'
 import { CampoMonto, CampoNotas, CampoSelect, CampoTelefono, CampoTexto, Select, TarjetaSeccion, type Opcion } from '../../components/Controles'
@@ -15,12 +15,13 @@ import {
   correoValido, avisoPendiente, ETIQUETAS, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
+import { Archivos } from './Archivos'
 import { Comentarios, Contactos, Familiares } from './Secciones'
 import { PlanPagoFicha } from '../cobros/PlanPagoFicha'
 
 type ParteGuardada = 'datos' | 'venta' | 'prima' | 'numeros' | 'correos' | 'familiares'
 
-type Pestana = 'general' | 'ventas' | 'familiares' | 'actividad'
+type Pestana = 'general' | 'ventas' | 'familiares' | 'archivos' | 'actividad'
 
 /** Sección rechazada por la API (409) y quién la había guardado, según la respuesta. */
 type Conflicto = { seccion: SeccionVersion; modificadoPorId: number | null; modificadoPor: string | null; modificadoEn: string | null }
@@ -98,6 +99,21 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       vivo = false
     }
   }, [personaId, nuevo])
+
+  // Archivos del expediente (solo clientes): se cargan aparte para mostrar la cantidad en la pestaña.
+  const [archivos, setArchivos] = useState<ArchivosPersona | null>(null)
+  const [errorArchivos, setErrorArchivos] = useState('')
+  const clienteCargado = !nuevo && !!persona?.esCliente
+  useEffect(() => {
+    if (!clienteCargado) return
+    let vivo = true
+    api.archivos(personaId)
+      .then((d) => vivo && setArchivos(d))
+      .catch((e) => vivo && setErrorArchivos(mensajeDe(e, 'No se pudieron cargar los archivos.')))
+    return () => {
+      vivo = false
+    }
+  }, [personaId, clienteCargado])
 
   const pendientesRef = useRef<{ campo: string; pestana: Pestana }[]>([])
   const ultimoForm = useRef(form)
@@ -493,6 +509,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     ['general', 'General', 0],
     ['ventas', 'Ventas', 0],
     ['familiares', 'Familiares', form.familiares.length],
+    ['archivos', 'Archivos', archivos?.archivos.length ?? 0],
     ['actividad', 'Actividad', comentarios.length],
   ]
 
@@ -615,6 +632,9 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         {en('ventas') && persona?.prima !== null && bloquePrima}
         {!nuevo && esCliente && en('ventas') && <PlanPagoFicha personaId={personaId} />}
         {en('familiares') && <Familiares familiares={form.familiares} mostrarErrores={volverIntento || crearIntento} onCambiar={(f) => cambiarLista('familiares', f)} />}
+        {clienteCargado && en('archivos') && (errorArchivos
+          ? <div role="alert" className="alerta">{errorArchivos}</div>
+          : <Archivos personaId={personaId} datos={archivos} onCambio={setArchivos} />)}
         {!nuevo && en('actividad') && (
           <Comentarios
             comentarios={comentarios}

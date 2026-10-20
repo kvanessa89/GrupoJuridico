@@ -117,7 +117,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
     private ActualizadorCobros Actualizador(ApplicationDbContext db) => new(db, Reloj());
     private CobrosService Cobros(ApplicationDbContext db) => new(db, new Usuario(Roles.Cobros), Reloj(), new SinArchivos(), Actualizador(db));
     private ListasService Listas(ApplicationDbContext db) => new(db, new Usuario(Roles.Administrador), Actualizador(db));
-    private PersonasService Personas(ApplicationDbContext db) => new(db, new Usuario(Roles.Administrador), new SinUsuarios(), Reloj(), Actualizador(db));
+    private PersonasService Personas(ApplicationDbContext db) => new(db, new Usuario(Roles.Administrador), new SinUsuarios(), Reloj(), Actualizador(db), new SinArchivos());
 
     /// <summary>Cliente Al Día con un plan de 3 cuotas de 300 000; la primera vence mañana (16 de octubre).</summary>
     private async Task<int> ClienteConCuotaQueVenceMananaAsync(string nombre = "Ana")

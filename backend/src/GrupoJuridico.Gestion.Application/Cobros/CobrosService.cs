@@ -1,4 +1,5 @@
 using System.Globalization;
+using GrupoJuridico.Gestion.Application.Common;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
 using GrupoJuridico.Gestion.Application.Common.Models;
@@ -497,11 +498,5 @@ public class CobrosService
         return (contenido, archivo.Nombre, string.IsNullOrEmpty(archivo.TipoContenido) ? "application/octet-stream" : archivo.TipoContenido);
     }
 
-    /// <summary>Nombre para mostrar: sin rutas ni caracteres de control y de largo acotado.</summary>
-    private static string NombreSeguro(string nombre)
-    {
-        var limpio = new string(Path.GetFileName(nombre ?? "").Where(c => !char.IsControl(c)).ToArray()).Trim();
-        if (limpio.Length == 0) limpio = "comprobante";
-        return limpio.Length > 200 ? limpio[..200] : limpio;
-    }
+    private static string NombreSeguro(string nombre) => Validacion.NombreArchivo(nombre, "comprobante");
 }
