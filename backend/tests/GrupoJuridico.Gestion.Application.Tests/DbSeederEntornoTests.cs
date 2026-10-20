@@ -1,8 +1,11 @@
+using GrupoJuridico.Gestion.Application.Common.Interfaces;
+using GrupoJuridico.Gestion.Domain.Constants;
+using GrupoJuridico.Gestion.Domain.Entities;
 using GrupoJuridico.Gestion.Infrastructure;
 using GrupoJuridico.Gestion.Infrastructure.Identity;
 using GrupoJuridico.Gestion.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -87,6 +90,42 @@ public class DbSeederEntornoTests
         Assert.Empty(await fixture.Db.Personas.ToListAsync());
     }
 
+    [Fact]
+    public async Task Los_comprobantes_de_demostracion_son_archivos_del_expediente_que_se_pueden_descargar()
+    {
+        using var fixture = new Fixture("Development", datosDemo: true);
+        await fixture.Seeder.EjecutarAsync();
+        var tipo = await fixture.Db.TiposDocumento.SingleAsync(t => t.Codigo == TipoDocumento.CodigoComprobantesPago);
+        var comprobantes = await fixture.Db.ArchivosPersona.Where(a => a.PagoId != null).ToListAsync();
+        Assert.NotEmpty(comprobantes);
+        Assert.All(comprobantes, a => Assert.Equal(tipo.Id, a.TipoDocumentoId));
+        var almacen = fixture.Servicio<IAlmacenArchivos>();
+        await using var pdf = await almacen.AbrirAsync(comprobantes[0].Clave);
+        Assert.NotNull(pdf);
+        var inicio = new byte[5];
+        await pdf!.ReadExactlyAsync(inicio);
+        Assert.Equal("%PDF-", System.Text.Encoding.ASCII.GetString(inicio));
+    }
+
+    [Fact]
+    public async Task Los_tipos_de_documento_iniciales_se_cargan_una_vez_y_el_de_comprobantes_siempre_existe()
+    {
+        using var fixture = new Fixture("Production", datosDemo: false);
+        await fixture.Seeder.EjecutarAsync();
+        Assert.Equal(new[] { "Poderes", "Contrato", "Comprobantes de pago", "Gestión legal" },
+            await fixture.Db.TiposDocumento.OrderBy(t => t.Id).Select(t => t.Nombre).ToListAsync());
+        Assert.Equal(12, await fixture.Db.PermisosDocumento.CountAsync());
+
+        // Un tipo eliminado en Configuración no vuelve; el de comprobantes se recrea con sus permisos.
+        fixture.Db.TiposDocumento.RemoveRange(fixture.Db.TiposDocumento.Where(t => t.Nombre == "Poderes" || t.Codigo == TipoDocumento.CodigoComprobantesPago));
+        await fixture.Db.SaveChangesAsync();
+        await fixture.Seeder.EjecutarAsync();
+        Assert.False(await fixture.Db.TiposDocumento.AnyAsync(t => t.Nombre == "Poderes"));
+        var comprobantes = await fixture.Db.TiposDocumento.Include(t => t.Permisos).SingleAsync(t => t.Codigo == TipoDocumento.CodigoComprobantesPago);
+        Assert.Equal(new[] { Roles.Administrador, Roles.Cobros },
+            comprobantes.Permisos.Where(p => p.PuedeSubir).Select(p => p.Rol).OrderBy(r => r).ToArray());
+    }
+
     private sealed class Fixture : IDisposable
     {
         // Valor exclusivo de la base efímera de pruebas; no se usa como configuración de despliegue.
@@ -96,13 +135,17 @@ public class DbSeederEntornoTests
         public ApplicationDbContext Db => _scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         public UserManager<Usuario> Users => _scope.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
         public DbSeeder Seeder => _scope.ServiceProvider.GetRequiredService<DbSeeder>();
+        public T Servicio<T>() where T : notnull => _scope.ServiceProvider.GetRequiredService<T>();
+        private readonly string _carpeta = Path.Combine(Path.GetTempPath(), "gj-seeder-" + Guid.NewGuid().ToString("N"));
+        public string Carpeta => _carpeta;
 
         public Fixture(string entorno, bool datosDemo, bool relacional = false)
         {
             var services = new ServiceCollection();
             services.AddLogging();
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
-            services.AddSingleton<IHostEnvironment>(new EntornoPrueba { EnvironmentName = entorno });
+            // Los comprobantes de demostración se guardan en disco: en una carpeta temporal que se borra al terminar.
+            services.AddSingleton<IHostEnvironment>(new EntornoPrueba { EnvironmentName = entorno, ContentRootPath = _carpeta });
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Gestion"] = "Host=localhost;Database=no-utilizada;Username=no-utilizado",
@@ -124,6 +167,7 @@ public class DbSeederEntornoTests
         {
             _scope.Dispose();
             _provider.Dispose();
+            if (Directory.Exists(_carpeta)) Directory.Delete(_carpeta, recursive: true);
         }
     }
 

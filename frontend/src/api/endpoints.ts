@@ -84,8 +84,6 @@ export const api = {
     http.post<PlanPersona>(`/cobros/cuotas/${cuotaId}/promesas`, promesa).then((r) => r.data),
   editarPromesa: (promesaId: number, promesa: { fechaPromesa: string | null; montoPrometido: number }) =>
     http.put<PlanPersona>(`/cobros/promesas/${promesaId}`, promesa).then((r) => r.data),
-  /** El comprobante se pide con el token y se entrega como blob para descargarlo. */
-  comprobante: (archivoId: number) => http.get<Blob>(`/cobros/comprobantes/${archivoId}`, { responseType: 'blob' }).then((r) => r.data),
 
   archivos: (personaId: number) => http.get<ArchivosPersona>(`/personas/${personaId}/archivos`).then((r) => r.data),
   subirArchivos: (personaId: number, tipoDocumentoId: number, archivos: File[]) => {

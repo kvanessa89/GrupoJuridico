@@ -9,8 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GrupoJuridico.Gestion.Application.Archivos;
 
-/// <summary>Archivo del expediente tal como lo ve el usuario actual.</summary>
-public record ArchivoDto(int Id, int TipoDocumentoId, string Nombre, long Tamano, DateOnly FechaCarga, bool PuedeEliminar);
+/// <summary>
+/// Archivo del expediente tal como lo ve el usuario actual. <c>CuotaPago</c> es el número de cuota cuando el
+/// archivo es el comprobante de un pago de Cobros (esos no se quitan desde aquí: se cambian editando el pago).
+/// </summary>
+public record ArchivoDto(int Id, int TipoDocumentoId, string Nombre, long Tamano, DateOnly FechaCarga, bool PuedeEliminar, int? CuotaPago = null);
 
 /// <summary>Archivos visibles de la persona y los tipos de documento que el usuario puede subir.</summary>
 public record ArchivosPersonaDto(IReadOnlyList<ArchivoDto> Archivos, IReadOnlyList<int> TiposSubir);
@@ -82,6 +85,7 @@ public class ArchivosService
         var archivos = await _db.ArchivosPersona.AsNoTracking()
             .Where(a => a.PersonaId == personaId && visibles.Contains(a.TipoDocumentoId))
             .OrderByDescending(a => a.FechaCarga).ThenByDescending(a => a.Id)
+            .Select(a => new { a.Id, a.TipoDocumentoId, a.Nombre, a.Tamano, a.FechaCarga, CuotaPago = a.PagoId == null ? (int?)null : a.Pago!.Cuota!.NumeroCuota })
             .ToListAsync(ct);
         var subibles = permisos.Where(p => p.Value.Subir).Select(p => p.Key).ToList();
         // Solo se sube a clientes oficiales (la pestaña Archivos es de la ficha del cliente).
@@ -89,7 +93,8 @@ public class ArchivosService
             ? await _db.TiposDocumento.AsNoTracking().Where(t => subibles.Contains(t.Id)).OrderBy(t => t.Id).Select(t => t.Id).ToListAsync(ct)
             : new List<int>();
         return new ArchivosPersonaDto(
-            archivos.Select(a => new ArchivoDto(a.Id, a.TipoDocumentoId, a.Nombre, a.Tamano, a.FechaCarga, permisos[a.TipoDocumentoId].Subir)).ToList(),
+            archivos.Select(a => new ArchivoDto(a.Id, a.TipoDocumentoId, a.Nombre, a.Tamano, a.FechaCarga,
+                permisos[a.TipoDocumentoId].Subir && a.CuotaPago == null, a.CuotaPago)).ToList(),
             tiposSubir);
     }
 
@@ -163,6 +168,12 @@ public class ArchivosService
         var permisos = await PermisosAsync(ct);
         if (!permisos.TryGetValue(archivo.TipoDocumentoId, out var permiso) || !permiso.Subir)
             throw new ProhibidoException("Su rol no puede eliminar este tipo de documento.");
+        if (archivo.PagoId is int pagoId)
+        {
+            var cuota = await _db.Pagos.Where(p => p.Id == pagoId).Select(p => p.Cuota!.NumeroCuota).FirstOrDefaultAsync(ct);
+            throw new ValidacionException("archivo",
+                $"Este archivo es el comprobante del pago de la cuota {cuota}. Para cambiarlo, edite el pago en el plan de pago.");
+        }
         _db.ArchivosPersona.Remove(archivo);
         await _db.SaveChangesAsync(ct);
         // Primero se borra el registro: si falla el almacenamiento solo queda un archivo huérfano, nunca un registro roto.

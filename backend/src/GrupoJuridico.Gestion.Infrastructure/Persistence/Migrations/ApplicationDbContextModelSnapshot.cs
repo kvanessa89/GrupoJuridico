@@ -22,51 +22,6 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.ArchivoPago", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Clave")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateOnly>("FechaCarga")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime>("ModificadoEn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("ModificadoPorId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<int>("PagoId")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("Tamano")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("TipoContenido")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PagoId");
-
-                    b.ToTable("ArchivosPago", (string)null);
-                });
-
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.ArchivoPersona", b =>
                 {
                     b.Property<int>("Id")
@@ -94,6 +49,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<int?>("PagoId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("PersonaId")
                         .HasColumnType("integer");
 
@@ -109,6 +67,8 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PagoId");
 
                     b.HasIndex("PersonaId");
 
@@ -1303,17 +1263,13 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.ArchivoPago", b =>
-                {
-                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Pago", null)
-                        .WithMany("Archivos")
-                        .HasForeignKey("PagoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.ArchivoPersona", b =>
                 {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Pago", "Pago")
+                        .WithMany("Comprobantes")
+                        .HasForeignKey("PagoId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Persona", null)
                         .WithMany()
                         .HasForeignKey("PersonaId")
@@ -1325,6 +1281,8 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TipoDocumentoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Pago");
 
                     b.Navigation("TipoDocumento");
                 });
@@ -1629,7 +1587,7 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Pago", b =>
                 {
-                    b.Navigation("Archivos");
+                    b.Navigation("Comprobantes");
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Persona", b =>

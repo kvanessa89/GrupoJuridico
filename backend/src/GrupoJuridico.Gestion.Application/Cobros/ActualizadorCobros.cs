@@ -32,7 +32,7 @@ public class ActualizadorCobros
 
     public IQueryable<PlanPago> PlanesCompletos() => _db.PlanesPago
         .Include(p => p.Cliente)
-        .Include(p => p.Cuotas).ThenInclude(c => c.Pagos).ThenInclude(p => p.Archivos)
+        .Include(p => p.Cuotas).ThenInclude(c => c.Pagos).ThenInclude(p => p.Comprobantes)
         .Include(p => p.Cuotas).ThenInclude(c => c.Promesas)
         .AsSplitQuery();
 

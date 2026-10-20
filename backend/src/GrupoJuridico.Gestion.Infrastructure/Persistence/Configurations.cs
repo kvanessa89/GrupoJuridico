@@ -287,18 +287,7 @@ internal class PagoConfig : IEntityTypeConfiguration<Pago>
     {
         b.ToTable("Pagos");
         b.Property(x => x.MontoPago).HasPrecision(14, 2);
-        b.HasMany(x => x.Archivos).WithOne().HasForeignKey(a => a.PagoId).OnDelete(DeleteBehavior.Cascade);
-    }
-}
-
-internal class ArchivoPagoConfig : IEntityTypeConfiguration<ArchivoPago>
-{
-    public void Configure(EntityTypeBuilder<ArchivoPago> b)
-    {
-        b.ToTable("ArchivosPago");
-        b.Property(x => x.Nombre).HasMaxLength(255).IsRequired();
-        b.Property(x => x.TipoContenido).HasMaxLength(100);
-        b.Property(x => x.Clave).HasMaxLength(200);
+        b.HasMany(x => x.Comprobantes).WithOne(a => a.Pago).HasForeignKey(a => a.PagoId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 

@@ -60,6 +60,7 @@ public record CobrosListaDto(
 
 // ---------- Plan de pago ----------
 
+/// <summary>Comprobante de un pago. <c>Id</c> es el del archivo del expediente (se descarga con GET api/archivos/{id}).</summary>
 public record ComprobanteDto(int Id, string Nombre, bool Disponible);
 
 public record PagoDto(int Id, decimal MontoPago, DateOnly FechaPago, IReadOnlyList<ComprobanteDto> Comprobantes);

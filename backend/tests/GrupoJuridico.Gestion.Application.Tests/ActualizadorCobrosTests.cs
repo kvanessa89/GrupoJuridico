@@ -106,6 +106,11 @@ public sealed class ActualizadorCobrosTests : IDisposable
         db.EstadosCuotaPago.AddRange(new EstadoCuotaPago { Id = 1, Nombre = "Pendiente" }, new EstadoCuotaPago { Id = 2, Nombre = "Parcial" }, new EstadoCuotaPago { Id = 3, Nombre = "Pagada" });
         db.EstadosCuotaVencimiento.AddRange(new EstadoCuotaVencimiento { Id = 1, Nombre = "Al día" }, new EstadoCuotaVencimiento { Id = 2, Nombre = "Vencido" });
         db.EstadosPromesa.AddRange(new EstadoPromesa { Id = 1, Nombre = "Pendiente" }, new EstadoPromesa { Id = 2, Nombre = "Cumplida" }, new EstadoPromesa { Id = 3, Nombre = "Incumplida" });
+        // Tipo de los comprobantes (lo crea la carga inicial): Administrador y Cobros suben y ven.
+        var comprobantes = new TipoDocumento { Codigo = TipoDocumento.CodigoComprobantesPago, Nombre = "Comprobantes de pago" };
+        foreach (var rol in new[] { Roles.Administrador, Roles.Cobros })
+            comprobantes.Permisos.Add(new PermisoDocumento { Rol = rol, PuedeVer = true, PuedeSubir = true });
+        db.TiposDocumento.Add(comprobantes);
         db.Configuracion.Add(new ConfiguracionSistema { Clave = ConfiguracionSistema.InteresMora, Valor = "2.5" });
         db.SaveChanges();
     }

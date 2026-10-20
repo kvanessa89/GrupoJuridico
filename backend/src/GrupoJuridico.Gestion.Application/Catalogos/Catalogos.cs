@@ -229,6 +229,8 @@ public class CatalogosService
             case "tipos-documento":
             {
                 var x = await _db.TiposDocumento.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Tipo de documento", id);
+                if (x.Codigo == TipoDocumento.CodigoComprobantesPago)
+                    throw new ValidacionException("id", "Este tipo lo usan los comprobantes de pago de Cobros y no se puede eliminar; sí se puede renombrar.");
                 var enUso = await _db.ArchivosPersona.CountAsync(a => a.TipoDocumentoId == id, ct);
                 if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} archivo(s) tienen este tipo de documento.");
                 _db.TiposDocumento.Remove(x);

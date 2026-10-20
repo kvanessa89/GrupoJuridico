@@ -341,8 +341,10 @@ export interface ArchivoDto {
   nombre: string
   tamano: number
   fechaCarga: string
-  /** Solo quien puede subir ese tipo de documento puede quitarlo. */
+  /** Solo quien puede subir ese tipo de documento puede quitarlo (los comprobantes de un pago, nunca desde aquí). */
   puedeEliminar: boolean
+  /** Número de cuota si es el comprobante de un pago de Cobros. */
+  cuotaPago?: number | null
 }
 
 export interface ArchivosPersona {

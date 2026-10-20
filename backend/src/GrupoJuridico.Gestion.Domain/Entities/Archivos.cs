@@ -5,6 +5,12 @@ namespace GrupoJuridico.Gestion.Domain.Entities;
 /// <summary>Tipo de documento de los archivos del expediente (Poderes, Contrato…). Se administra en Configuración.</summary>
 public class TipoDocumento : Catalogo
 {
+    /// <summary>
+    /// Código fijo del tipo "Comprobantes de pago": ahí se guardan los comprobantes de los pagos de Cobros.
+    /// Se puede renombrar pero no eliminar.
+    /// </summary>
+    public const string CodigoComprobantesPago = "COMPROBANTES-PAGO";
+
     public List<PermisoDocumento> Permisos { get; set; } = new();
 }
 
@@ -22,7 +28,10 @@ public class PermisoDocumento : BaseEntity
     public bool PuedeSubir { get; set; }
 }
 
-/// <summary>Archivo del expediente de un cliente. El contenido está en el almacenamiento, bajo una clave interna.</summary>
+/// <summary>
+/// Archivo del expediente de un cliente. El contenido está en el almacenamiento, bajo una clave interna.
+/// Los comprobantes de pago son archivos del expediente asociados a su pago (<see cref="PagoId"/>).
+/// </summary>
 public class ArchivoPersona : BaseEntity
 {
     public const long MaxTamano = 10 * 1024 * 1024;
@@ -36,4 +45,7 @@ public class ArchivoPersona : BaseEntity
     public long Tamano { get; set; }
     public DateOnly FechaCarga { get; set; }
     public string Clave { get; set; } = string.Empty;
+    /// <summary>Pago al que pertenece, si es el comprobante de un pago de Cobros.</summary>
+    public int? PagoId { get; set; }
+    public Pago? Pago { get; set; }
 }

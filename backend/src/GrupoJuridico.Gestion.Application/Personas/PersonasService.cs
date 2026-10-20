@@ -514,11 +514,8 @@ public class PersonasService
         if (!_usuario.EsAdministrador) throw new ProhibidoException();
         var p = await CargarAsync(id, ct);
         var cliente = p.Cliente;
-        // Los registros se borran en cascada; los archivos guardados (expediente y comprobantes) se borran después.
+        // Los registros se borran en cascada; los archivos guardados (expediente, incluidos los comprobantes) se borran después.
         var claves = await _db.ArchivosPersona.Where(a => a.PersonaId == id).Select(a => a.Clave).ToListAsync(ct);
-        if (cliente != null)
-            claves.AddRange(await _db.ArchivosPago.Where(a => _db.Pagos.Any(pg => pg.Id == a.PagoId && pg.Cuota!.PlanPago!.ClienteId == cliente.Id))
-                .Select(a => a.Clave).ToListAsync(ct));
         _db.Personas.Remove(p);
         if (cliente != null) _db.Clientes.Remove(cliente);
         await _db.SaveChangesAsync(ct);

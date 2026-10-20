@@ -125,7 +125,9 @@ export function Archivos({
                 <span style={{ color: 'var(--ink3)', display: 'inline-flex' }}><Documento /></span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="archivo-nombre" title={a.nombre}>{a.nombre}</div>
-                  <div className="archivo-meta">Cargado el {fFecha(a.fechaCarga)} · {fTamano(a.tamano)}</div>
+                  <div className="archivo-meta">
+                    {a.cuotaPago ? `Comprobante del pago de la cuota ${a.cuotaPago} · ` : ''}Cargado el {fFecha(a.fechaCarga)} · {fTamano(a.tamano)}
+                  </div>
                 </div>
                 <button className="btn-archivo" title="Descargar" aria-label={'Descargar ' + a.nombre} onClick={() => descargar(a)}>
                   <Descargar />

@@ -1241,7 +1241,6 @@ public class PersonasAccesoTests
         public DbSet<PlanPago> PlanesPago => Set<PlanPago>();
         public DbSet<Cuota> Cuotas => Set<Cuota>();
         public DbSet<Pago> Pagos => Set<Pago>();
-        public DbSet<ArchivoPago> ArchivosPago => Set<ArchivoPago>();
         public DbSet<PromesaPago> PromesasPago => Set<PromesaPago>();
         public DbSet<TipoDocumento> TiposDocumento => Set<TipoDocumento>();
         public DbSet<PermisoDocumento> PermisosDocumento => Set<PermisoDocumento>();

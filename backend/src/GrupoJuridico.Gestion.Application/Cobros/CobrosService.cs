@@ -251,7 +251,7 @@ public class CobrosService
                 i.Total, i.Pagado, i.Saldo, i.Cuota.EstadoCuotaPagoId, i.Cuota.EstadoCuotaVencimientoId,
                 i.Cuota.Pagos.OrderBy(p => p.FechaPago).ThenBy(p => p.Id).Select(p => new PagoDto(
                     p.Id, p.MontoPago, p.FechaPago,
-                    p.Archivos.OrderBy(a => a.Id).Select(a => new ComprobanteDto(a.Id, a.Nombre, !string.IsNullOrEmpty(a.Clave))).ToList())).ToList(),
+                    p.Comprobantes.OrderBy(a => a.Id).Select(a => new ComprobanteDto(a.Id, a.Nombre, !string.IsNullOrEmpty(a.Clave))).ToList())).ToList(),
                 i.Cuota.Promesas.OrderBy(p => p.Id).Select(p => new PromesaDto(
                     p.Id, p.FechaPromesa, p.MontoPrometido, p.MontoPagado, p.EstadoPromesaId)).ToList())).ToList());
     }
@@ -298,6 +298,19 @@ public class CobrosService
 
     private async Task<int> PersonaDelPlanAsync(PlanPago plan, CancellationToken ct) =>
         await _db.Personas.Where(p => p.ClienteId == plan.ClienteId).Select(p => p.Id).FirstAsync(ct);
+
+    /// <summary>Tipo de documento de los comprobantes de pago (siempre existe: lo crea la carga inicial).</summary>
+    private async Task<int> TipoComprobantesAsync(CancellationToken ct) =>
+        await _db.TiposDocumento.Where(t => t.Codigo == TipoDocumento.CodigoComprobantesPago).Select(t => t.Id).FirstOrDefaultAsync(ct) is int id and > 0
+            ? id
+            : throw new InvalidOperationException("Falta el tipo de documento \"Comprobantes de pago\". Reinicie la API para que la carga inicial lo cree.");
+
+    /// <summary>El comprobante es un archivo del expediente del cliente, de tipo "Comprobantes de pago".</summary>
+    private static ArchivoPersona Comprobante(ArchivoSubido archivo, string tipoContenido, string clave, int personaId, int tipoDocumentoId, DateOnly hoy) => new()
+    {
+        PersonaId = personaId, TipoDocumentoId = tipoDocumentoId, Nombre = NombreSeguro(archivo.Nombre),
+        TipoContenido = tipoContenido, Tamano = archivo.Tamano, FechaCarga = hoy, Clave = clave,
+    };
 
     private static string Monto(decimal n) => "₡" + n.ToString("#,##0.##", CultureInfo.InvariantCulture);
 
@@ -368,10 +381,11 @@ public class CobrosService
             (r.FechaPago > hoy, "fechaPago", "La fecha de pago no puede ser posterior a hoy."),
             (comprobante == null, "comprobante", "Suba el comprobante de pago."));
         var (extension, tipo) = ValidarComprobante(comprobante!);
+        var tipoComprobantes = await TipoComprobantesAsync(ct);
 
         var clave = await _almacen.GuardarAsync(comprobante!.Contenido, extension, ct);
         var pago = new Pago { CuotaId = cuota.Id, MontoPago = r.MontoPago, FechaPago = r.FechaPago!.Value };
-        pago.Archivos.Add(new ArchivoPago { Nombre = NombreSeguro(comprobante.Nombre), TipoContenido = tipo, Tamano = comprobante.Tamano, FechaCarga = hoy, Clave = clave });
+        pago.Comprobantes.Add(Comprobante(comprobante, tipo, clave, personaId, tipoComprobantes, hoy));
         cuota.Pagos.Add(pago);
 
         // El pago se suma primero a las promesas pendientes de la cuota.
@@ -407,17 +421,20 @@ public class CobrosService
             (r.MontoPago > saldoSinEstePago, "montoPago", $"El monto no puede ser mayor al saldo de la cuota ({Monto(saldoSinEstePago)})."),
             (r.FechaPago == null, "fechaPago", "Ingrese la fecha de pago."),
             (r.FechaPago > hoy, "fechaPago", "La fecha de pago no puede ser posterior a hoy."),
-            (comprobante == null && pago.Archivos.Count == 0, "comprobante", "Suba el comprobante de pago."));
+            (comprobante == null && pago.Comprobantes.Count == 0, "comprobante", "Suba el comprobante de pago."));
 
         string? claveNueva = null;
         var anteriores = new List<string>();
         if (comprobante != null)
         {
             var (extension, tipo) = ValidarComprobante(comprobante);
+            var tipoComprobantes = await TipoComprobantesAsync(ct);
             claveNueva = await _almacen.GuardarAsync(comprobante.Contenido, extension, ct);
-            anteriores = pago.Archivos.Select(a => a.Clave).Where(c => !string.IsNullOrEmpty(c)).ToList();
-            pago.Archivos.Clear();
-            pago.Archivos.Add(new ArchivoPago { Nombre = NombreSeguro(comprobante.Nombre), TipoContenido = tipo, Tamano = comprobante.Tamano, FechaCarga = hoy, Clave = claveNueva });
+            // El comprobante anterior se elimina del expediente (registro y archivo guardado).
+            anteriores = pago.Comprobantes.Select(a => a.Clave).Where(c => !string.IsNullOrEmpty(c)).ToList();
+            _db.ArchivosPersona.RemoveRange(pago.Comprobantes);
+            pago.Comprobantes.Clear();
+            pago.Comprobantes.Add(Comprobante(comprobante, tipo, claveNueva, personaId, tipoComprobantes, hoy));
         }
 
         // La diferencia del monto se refleja en las promesas de la cuota que no estén incumplidas.
@@ -486,17 +503,5 @@ public class CobrosService
     }
 
     /// <summary>Comprobante para descargar; cualquier rol con acceso a la persona puede verlo.</summary>
-    public async Task<(Stream Contenido, string Nombre, string Tipo)> ComprobanteAsync(int archivoId, CancellationToken ct = default)
-    {
-        var archivo = await _db.ArchivosPago.AsNoTracking().FirstOrDefaultAsync(a => a.Id == archivoId, ct)
-            ?? throw new NoEncontradoException("Comprobante", archivoId);
-        var clienteId = await _db.Pagos.Where(p => p.Id == archivo.PagoId).Select(p => p.Cuota!.PlanPago!.ClienteId).FirstAsync(ct);
-        var personaId = await _db.Personas.Where(p => p.ClienteId == clienteId).Select(p => p.Id).FirstAsync(ct);
-        await CargarPersonaAsync(personaId, ct);
-        var contenido = string.IsNullOrEmpty(archivo.Clave) ? null : await _almacen.AbrirAsync(archivo.Clave, ct);
-        if (contenido == null) throw new NoEncontradoException("Archivo del comprobante", archivoId);
-        return (contenido, archivo.Nombre, string.IsNullOrEmpty(archivo.TipoContenido) ? "application/octet-stream" : archivo.TipoContenido);
-    }
-
     private static string NombreSeguro(string nombre) => Validacion.NombreArchivo(nombre, "comprobante");
 }

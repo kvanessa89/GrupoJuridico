@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using GrupoJuridico.Gestion.Application.Common.Interfaces;
 using GrupoJuridico.Gestion.Domain.Constants;
 using GrupoJuridico.Gestion.Domain.Entities;
 using GrupoJuridico.Gestion.Domain.Enums;
@@ -35,9 +36,11 @@ public class DbSeeder
     private readonly SeedOptions _opciones;
     private readonly ILogger<DbSeeder> _log;
     private readonly IHostEnvironment _entorno;
+    private readonly IAlmacenArchivos _almacen;
 
-    public DbSeeder(ApplicationDbContext db, UserManager<Usuario> users, RoleManager<Rol> roles, IOptions<SeedOptions> opciones, ILogger<DbSeeder> log, IHostEnvironment entorno)
+    public DbSeeder(ApplicationDbContext db, UserManager<Usuario> users, RoleManager<Rol> roles, IOptions<SeedOptions> opciones, ILogger<DbSeeder> log, IHostEnvironment entorno, IAlmacenArchivos almacen)
     {
+        _almacen = almacen;
         _db = db;
         _users = users;
         _roles = roles;
@@ -167,28 +170,68 @@ public class DbSeeder
                 new EstadoPromesa { Id = EstadoPromesa.Cumplida, Codigo = "EPP-2", Nombre = "Cumplida" },
                 new EstadoPromesa { Id = EstadoPromesa.Incumplida, Codigo = "EPP-3", Nombre = "Incumplida" });
         }
-        if (!await _db.TiposDocumento.AnyAsync())
-        {
-            // Tipos y permisos iniciales del diseño (Ver y Subir por rol); se ajustan en Configuración → Archivos.
-            const string A = Roles.Administrador, V = Roles.AsistenteVentas, C = Roles.Cobros;
-            var tipos = new (string Nombre, string[] Subir, string[] Ver)[]
-            {
-                ("Poderes", new[] { A }, new[] { A, V }),
-                ("Contrato", new[] { A, V }, new[] { A, V, C }),
-                ("Comprobantes de pago", new[] { A, C }, new[] { A, C }),
-                ("Gestión legal", new[] { A }, new[] { A }),
-            };
-            for (var i = 0; i < tipos.Length; i++)
-            {
-                var t = new TipoDocumento { Codigo = "TD-" + (i + 1), Nombre = tipos[i].Nombre };
-                foreach (var rol in Roles.Todos)
-                    t.Permisos.Add(new PermisoDocumento { Rol = rol, PuedeSubir = tipos[i].Subir.Contains(rol), PuedeVer = tipos[i].Ver.Contains(rol) });
-                _db.TiposDocumento.Add(t);
-            }
-        }
+        await TiposDocumentoAsync();
         if (!await _db.Configuracion.AnyAsync(c => c.Clave == ConfiguracionSistema.InteresMora))
             _db.Configuracion.Add(new ConfiguracionSistema { Clave = ConfiguracionSistema.InteresMora, Valor = "2.5" });
         await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Tipos de documento y permisos iniciales del diseño (Ver y Subir por rol), una sola vez: si después se
+    /// eliminan desde Configuración no se vuelven a crear. "Comprobantes de pago" siempre debe existir (lo usa Cobros).
+    /// </summary>
+    private async Task TiposDocumentoAsync()
+    {
+        const string A = Roles.Administrador, V = Roles.AsistenteVentas, C = Roles.Cobros;
+        var iniciales = new (string Codigo, string Nombre, string[] Subir, string[] Ver)[]
+        {
+            ("TD-1", "Poderes", new[] { A }, new[] { A, V }),
+            ("TD-2", "Contrato", new[] { A, V }, new[] { A, V, C }),
+            (TipoDocumento.CodigoComprobantesPago, "Comprobantes de pago", new[] { A, C }, new[] { A, C }),
+            ("TD-4", "Gestión legal", new[] { A }, new[] { A }),
+        };
+        var cargados = await _db.Configuracion.AnyAsync(c => c.Clave == ConfiguracionSistema.TiposDocumentoIniciales);
+        foreach (var t in iniciales)
+        {
+            if (cargados && t.Codigo != TipoDocumento.CodigoComprobantesPago) continue;
+            var tipo = await _db.TiposDocumento.Include(x => x.Permisos).FirstOrDefaultAsync(x => x.Codigo == t.Codigo);
+            if (tipo == null)
+            {
+                tipo = new TipoDocumento { Codigo = t.Codigo, Nombre = t.Nombre };
+                _db.TiposDocumento.Add(tipo);
+            }
+            // Un tipo creado por una migración llega sin permisos: se le asignan los iniciales.
+            if (tipo.Permisos.Count == 0)
+                foreach (var rol in Roles.Todos)
+                    tipo.Permisos.Add(new PermisoDocumento { Rol = rol, PuedeSubir = t.Subir.Contains(rol), PuedeVer = t.Ver.Contains(rol) });
+        }
+        if (!cargados) _db.Configuracion.Add(new ConfiguracionSistema { Clave = ConfiguracionSistema.TiposDocumentoIniciales, Valor = "1" });
+    }
+
+    /// <summary>PDF mínimo de una página con un texto (solo ASCII), para los comprobantes de demostración.</summary>
+    private static byte[] PdfDemostracion(string texto)
+    {
+        var contenido = $"BT /F1 14 Tf 72 720 Td ({texto}) Tj ET";
+        var objetos = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+            $"<< /Length {contenido.Length} >>\nstream\n{contenido}\nendstream",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        };
+        var pdf = new StringBuilder("%PDF-1.4\n");
+        var posiciones = new List<int>();
+        for (var i = 0; i < objetos.Length; i++)
+        {
+            posiciones.Add(pdf.Length);
+            pdf.Append($"{i + 1} 0 obj\n{objetos[i]}\nendobj\n");
+        }
+        var xref = pdf.Length;
+        pdf.Append($"xref\n0 {objetos.Length + 1}\n0000000000 65535 f \n");
+        foreach (var p in posiciones) pdf.Append($"{p:D10} 00000 n \n");
+        pdf.Append($"trailer\n<< /Size {objetos.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        return Encoding.ASCII.GetBytes(pdf.ToString());
     }
 
     private record Semilla(string Nombres, string Apellidos, string Cedula, string Ingreso, int Vendedor, string? Expediente,
@@ -331,6 +374,10 @@ public class DbSeeder
             (1800000, 6, hoy.AddDays(-250), hoy.AddDays(-15).Day, hoy.AddDays(-110), 0, null),
             (1200000, 4, hoy.AddDays(-190), hoy.AddDays(-40).Day, hoy.AddDays(-100), 150000, null)
         };
+        var tipoComprobantes = await _db.TiposDocumento.Where(t => t.Codigo == TipoDocumento.CodigoComprobantesPago).Select(t => t.Id).SingleAsync();
+        var clienteIds = clientes.Select(c => c.Id).ToList();
+        var personaDe = await _db.Personas.Where(p => p.ClienteId != null && clienteIds.Contains(p.ClienteId.Value))
+            .ToDictionaryAsync(p => p.ClienteId!.Value, p => p.Id);
         var porcentaje = 2.5m;
         var interes = await _db.Configuracion.FirstOrDefaultAsync(c => c.Clave == ConfiguracionSistema.InteresMora);
         if (interes != null && decimal.TryParse(interes.Valor, NumberStyles.Number, CultureInfo.InvariantCulture, out var pct)) porcentaje = pct;
@@ -348,16 +395,24 @@ public class DbSeeder
                 DiaPago = d.Dia
             };
             plan.Cuotas = ReglasCobro.GenerarCuotas(plan);
-            void Pagar(Cuota c, decimal monto)
+            var personaId = personaDe[clientes[i].Id];
+            async Task PagarAsync(Cuota c, decimal monto)
             {
                 var fecha = c.FechaVencimiento.AddDays(-1) < hoy ? c.FechaVencimiento.AddDays(-1) : hoy;
                 var pago = new Pago { MontoPago = monto, FechaPago = fecha };
-                pago.Archivos.Add(new ArchivoPago { Nombre = $"comprobante-cuota-{c.NumeroCuota}.pdf", TipoContenido = "application/pdf", FechaCarga = fecha });
+                // El comprobante es un archivo del expediente: un PDF de demostración guardado en el almacenamiento.
+                var pdf = PdfDemostracion($"Comprobante de demostracion - cuota {c.NumeroCuota}");
+                var clave = await _almacen.GuardarAsync(new MemoryStream(pdf), ".pdf");
+                pago.Comprobantes.Add(new ArchivoPersona
+                {
+                    PersonaId = personaId, TipoDocumentoId = tipoComprobantes, Nombre = $"comprobante-cuota-{c.NumeroCuota}.pdf",
+                    TipoContenido = "application/pdf", Tamano = pdf.Length, FechaCarga = fecha, Clave = clave,
+                });
                 c.Pagos.Add(pago);
             }
-            foreach (var c in plan.Cuotas.Where(c => c.FechaVencimiento < d.PagarAntes)) Pagar(c, c.MontoCuota);
+            foreach (var c in plan.Cuotas.Where(c => c.FechaVencimiento < d.PagarAntes)) await PagarAsync(c, c.MontoCuota);
             var vencidas = plan.Cuotas.Where(c => c.FechaVencimiento >= d.PagarAntes && c.FechaVencimiento < hoy).ToList();
-            if (d.Parcial > 0 && vencidas.Count > 0) Pagar(vencidas[^1], d.Parcial);
+            if (d.Parcial > 0 && vencidas.Count > 0) await PagarAsync(vencidas[^1], d.Parcial);
             if (d.Promesa is DateOnly fechaPromesa && vencidas.Count > 0)
                 vencidas[0].Promesas.Add(new PromesaPago { FechaPromesa = fechaPromesa, MontoPrometido = vencidas[0].MontoCuota });
 

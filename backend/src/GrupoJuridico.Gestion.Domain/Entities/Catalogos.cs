@@ -59,6 +59,8 @@ public class Parentesco : Catalogo { }
 public class ConfiguracionSistema : IAuditable
 {
     public const string InteresMora = "InteresMora";
+    /// <summary>Marca que ya se cargaron los tipos de documento iniciales (para no volver a crearlos si se eliminan).</summary>
+    public const string TiposDocumentoIniciales = "TiposDocumentoIniciales";
 
     public string Clave { get; set; } = string.Empty;
     public string Valor { get; set; } = string.Empty;

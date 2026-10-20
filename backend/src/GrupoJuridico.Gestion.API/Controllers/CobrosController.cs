@@ -45,14 +45,6 @@ public class CobrosController : ControllerBase
     public Task<PlanPersonaDto> EditarPromesa(int promesaId, PromesaRequest request, CancellationToken ct) =>
         _cobros.EditarPromesaAsync(promesaId, request, ct);
 
-    /// <summary>Descarga un comprobante de pago.</summary>
-    [HttpGet("comprobantes/{archivoId:int}")]
-    public async Task<IActionResult> Comprobante(int archivoId, CancellationToken ct)
-    {
-        var (contenido, nombre, tipo) = await _cobros.ComprobanteAsync(archivoId, ct);
-        return File(contenido, tipo, nombre);
-    }
-
     private static ArchivoSubido? Archivo(IFormFile? archivo) =>
         archivo == null ? null : new ArchivoSubido(archivo.FileName, archivo.ContentType, archivo.Length, archivo.OpenReadStream());
 

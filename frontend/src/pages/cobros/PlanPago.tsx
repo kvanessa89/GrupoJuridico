@@ -65,9 +65,9 @@ interface AccionesCuotas {
   onEditarPromesa: (c: CuotaDto, p: PromesaDto) => void
 }
 
-/** Descarga el comprobante con el token de la sesión. */
+/** Descarga el comprobante (un archivo del expediente del cliente) con el token de la sesión. */
 async function descargar(id: number, nombre: string) {
-  guardarBlob(await api.comprobante(id), nombre)
+  guardarBlob(await api.archivo(id), nombre)
 }
 
 function DetalleCuota({ c, acciones }: { c: CuotaDto; acciones?: AccionesCuotas }) {

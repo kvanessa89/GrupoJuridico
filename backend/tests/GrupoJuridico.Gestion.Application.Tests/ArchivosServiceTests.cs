@@ -42,7 +42,7 @@ public sealed class ArchivosServiceTests : IDisposable
             ("Gestión legal", new[] { A }, new[] { A }),
         })
         {
-            var t = new TipoDocumento { Nombre = nombre };
+            var t = new TipoDocumento { Nombre = nombre, Codigo = nombre == "Comprobantes de pago" ? TipoDocumento.CodigoComprobantesPago : "" };
             foreach (var rol in Roles.Todos)
                 t.Permisos.Add(new PermisoDocumento { Rol = rol, PuedeSubir = subir.Contains(rol), PuedeVer = ver.Contains(rol) });
             db.TiposDocumento.Add(t);
@@ -251,6 +251,9 @@ public sealed class ArchivosServiceTests : IDisposable
         var ex = await Assert.ThrowsAsync<ValidacionException>(() => catalogos.EliminarAsync("tipos-documento", _tipo["Contrato"]));
         Assert.Contains("1 archivo(s)", ex.Errores["id"][0]);
         await catalogos.EliminarAsync("tipos-documento", nuevo.Id);
+        var sistema = await Assert.ThrowsAsync<ValidacionException>(() => catalogos.EliminarAsync("tipos-documento", _tipo["Comprobantes de pago"]));
+        Assert.Contains("comprobantes de pago de Cobros", sistema.Errores["id"][0]);
+        await catalogos.ActualizarAsync("tipos-documento", _tipo["Comprobantes de pago"], new GuardarCatalogoItemRequest("Recibos de pago", null, null));
         Assert.False(await db.TiposDocumento.AnyAsync(t => t.Id == nuevo.Id));
         Assert.False(await db.PermisosDocumento.AnyAsync(p => p.TipoDocumentoId == nuevo.Id));
     }
