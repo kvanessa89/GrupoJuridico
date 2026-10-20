@@ -128,6 +128,8 @@ internal class VentaConfig : IEntityTypeConfiguration<Venta>
     public void Configure(EntityTypeBuilder<Venta> b)
     {
         b.ToTable("Ventas");
+        // Una persona tiene una sola venta: se crea con el prospecto y la app siempre usa esa.
+        b.HasIndex(x => x.PersonaId).IsUnique();
         b.Property(x => x.Monto).HasPrecision(14, 2);
         b.Property(x => x.Notas).HasMaxLength(4000);
         b.HasOne(x => x.ProcedenciaVenta).WithMany().HasForeignKey(x => x.ProcedenciaVentaId).OnDelete(DeleteBehavior.Restrict);
