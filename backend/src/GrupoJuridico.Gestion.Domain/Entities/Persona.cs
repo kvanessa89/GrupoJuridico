@@ -149,9 +149,6 @@ public class PersonaFamiliar : BaseEntity
     public string NombreCompleto { get; set; } = string.Empty;
     public int? ParentescoId { get; set; }
     public Parentesco? Parentesco { get; set; }
-    public int? WhatsappPaisId { get; set; }
-    public Pais? WhatsappPais { get; set; }
-    public string Whatsapp { get; set; } = string.Empty;
     public int? TelefonoPaisId { get; set; }
     public Pais? TelefonoPais { get; set; }
     public string Telefono { get; set; } = string.Empty;

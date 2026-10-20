@@ -210,7 +210,7 @@ public class CatalogosService
             {
                 var x = await _db.Paises.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("País", id);
                 var enUso = await _db.Numeros.CountAsync(n => n.PaisId == id, ct)
-                    + await _db.Familiares.CountAsync(f => f.TelefonoPaisId == id || f.WhatsappPaisId == id, ct);
+                    + await _db.Familiares.CountAsync(f => f.TelefonoPaisId == id, ct);
                 if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} teléfono(s) usan este país.");
                 _db.Paises.Remove(x);
                 break;

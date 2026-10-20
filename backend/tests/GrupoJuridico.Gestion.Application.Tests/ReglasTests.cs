@@ -219,7 +219,7 @@ public class RutasValidacionTests
     {
         var error = await Assert.ThrowsAsync<GrupoJuridico.Gestion.Application.Common.Exceptions.ValidacionException>(() =>
             GrupoJuridico.Gestion.Application.Common.Validacion.ValidarAsync(new FamiliarItemValidator(),
-                new FamiliarItem(0, "", null, "", "", ""), prefijo: "familiares[2]"));
+                new FamiliarItem(0, "", null, "", ""), prefijo: "familiares[2]"));
         Assert.Contains("familiares[2].nombreCompleto", error.Errores.Keys);
         Assert.Contains("familiares[2].telefono", error.Errores.Keys);
         Assert.Contains("familiares[2].correoElectronico", error.Errores.Keys);

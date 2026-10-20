@@ -189,10 +189,8 @@ internal class FamiliarConfig : IEntityTypeConfiguration<PersonaFamiliar>
         b.Property(x => x.NombreCompleto).HasMaxLength(200);
         b.HasOne(x => x.Parentesco).WithMany().HasForeignKey(x => x.ParentescoId).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.Telefono).HasMaxLength(40);
-        b.Property(x => x.Whatsapp).HasMaxLength(40);
         b.Property(x => x.CorreoElectronico).HasMaxLength(200);
         b.HasOne(x => x.TelefonoPais).WithMany().HasForeignKey(x => x.TelefonoPaisId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.WhatsappPais).WithMany().HasForeignKey(x => x.WhatsappPaisId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

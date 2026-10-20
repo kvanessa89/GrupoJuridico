@@ -153,9 +153,7 @@ export interface FamiliarDto {
   parentescoId: number | null
   telefono: string
   correoElectronico: string
-  whatsapp: string
   telefonoPaisId: number | null
-  whatsappPaisId: number | null
 }
 
 export interface ComentarioDto {
