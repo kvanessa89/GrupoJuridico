@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+**/App_Data/
+tests/
+# Secretos locales: nunca entran en la imagen.
+**/appsettings.Development.json
+**/*.user
