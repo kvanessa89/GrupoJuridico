@@ -272,8 +272,6 @@ public class DbSeeder
                 {
                     NombreCompleto = s.Nombres.Split(' ')[0] + " " + s.Apellidos.Split(' ').ElementAtOrDefault(1),
                     ParentescoId = parentescos[i % parentescos.Count],
-                    WhatsappPaisId = cr,
-                    Whatsapp = Telefonos[(i + 2) % Telefonos.Length],
                     TelefonoPaisId = cr,
                     Telefono = Telefonos[(i + 4) % Telefonos.Length],
                     CorreoElectronico = baseCorreo + ".fam@correo.cr"

@@ -75,8 +75,7 @@ public record NumeroDto(int Id, string Numero, string Tipo, bool Principal, int 
 
 public record CorreoDto(int Id, string Correo, bool Principal);
 
-public record FamiliarDto(int Id, string NombreCompleto, int? ParentescoId, string Telefono, string CorreoElectronico, string Whatsapp,
-    int? TelefonoPaisId, int? WhatsappPaisId);
+public record FamiliarDto(int Id, string NombreCompleto, int? ParentescoId, string Telefono, string CorreoElectronico, int? TelefonoPaisId);
 
 public record ComentarioDto(int Id, int UsuarioId, string Autor, string? Rol, string Texto, DateTime Fecha, bool PuedeEliminar);
 
@@ -135,8 +134,8 @@ public record NumeroItem(int Id, string Numero, string Tipo, bool Principal, int
 
 public record CorreoItem(int Id, string Correo, bool Principal);
 
-public record FamiliarItem(int Id, string? NombreCompleto, int? ParentescoId, string? Telefono, string? CorreoElectronico, string? Whatsapp,
-    int? TelefonoPaisId = null, int? WhatsappPaisId = null);
+public record FamiliarItem(int Id, string? NombreCompleto, int? ParentescoId, string? Telefono, string? CorreoElectronico,
+    int? TelefonoPaisId = null);
 
 public record ConvertirClienteRequest(string? Expediente, int? OrigenClienteId, int? EstadoClienteId);
 

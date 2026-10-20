@@ -702,14 +702,6 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.Property<int?>("TelefonoPaisId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Whatsapp")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<int?>("WhatsappPaisId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("ParentescoId");
@@ -717,8 +709,6 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasIndex("PersonaId");
 
                     b.HasIndex("TelefonoPaisId");
-
-                    b.HasIndex("WhatsappPaisId");
 
                     b.ToTable("PersonaFamiliares", (string)null);
                 });
@@ -1342,16 +1332,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TelefonoPaisId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.Pais", "WhatsappPais")
-                        .WithMany()
-                        .HasForeignKey("WhatsappPaisId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.Navigation("Parentesco");
 
                     b.Navigation("TelefonoPais");
-
-                    b.Navigation("WhatsappPais");
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.PlanPago", b =>

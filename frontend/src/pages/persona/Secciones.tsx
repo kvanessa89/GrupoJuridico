@@ -170,8 +170,7 @@ export function Familiares({ familiares, onCambiar, mostrarErrores = false }: {
           className="btn-enlace"
           disabled={familiares.length >= MAX_FAMILIARES}
           onClick={() => familiares.length < MAX_FAMILIARES && onCambiar([...familiares, {
-            id: siguienteIdLocal--, nombreCompleto: '', parentescoId: null, telefono: '', correoElectronico: '', whatsapp: '',
-            telefonoPaisId: null, whatsappPaisId: null,
+            id: siguienteIdLocal--, nombreCompleto: '', parentescoId: null, telefono: '', correoElectronico: '', telefonoPaisId: null,
           }])}
         >
           + Agregar familiar

@@ -177,7 +177,7 @@ public class PersonasAccesoTests
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarCorreosAsync(id,
             new[] { new CorreoItem(0, "sin arroba", true) }, version: ficha.Versiones["datos"]));
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarFamiliaresAsync(id,
-            new[] { new FamiliarItem(0, "Luis", null, "", "luis@", "") }, version: ficha.Versiones["familiares"]));
+            new[] { new FamiliarItem(0, "Luis", null, "", "luis@") }, version: ficha.Versiones["familiares"]));
         Assert.Equal(guardados, db.Guardados);
 
         await servicio.ActualizarDatosAsync(id, Datos(new string('1', 15), " ana@correo.cr "), version: ficha.Versiones["datos"]);
@@ -198,9 +198,9 @@ public class PersonasAccesoTests
         var version = (await servicio.ObtenerAsync(id)).Versiones["familiares"];
 
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarFamiliaresAsync(id,
-            new[] { new FamiliarItem(0, "Luis", 999, "", "", "") }, version: version));
+            new[] { new FamiliarItem(0, "Luis", 999, "", "") }, version: version));
         var familiares = await servicio.ReemplazarFamiliaresAsync(id,
-            new[] { new FamiliarItem(0, "Luis", hermano.Id, "88887777", "", "") }, version: version);
+            new[] { new FamiliarItem(0, "Luis", hermano.Id, "88887777", "") }, version: version);
         Assert.Equal(hermano.Id, familiares[0].ParentescoId);
 
         await Assert.ThrowsAsync<ValidacionException>(() => catalogos.EliminarAsync("parentescos", hermano.Id));
@@ -208,20 +208,20 @@ public class PersonasAccesoTests
         // El nombre y un medio de contacto son requeridos.
         var conNombre = (await servicio.ObtenerAsync(id)).Versiones["familiares"];
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarFamiliaresAsync(id,
-            new[] { new FamiliarItem(0, "  ", hermano.Id, "88887777", "", "") }, version: conNombre));
+            new[] { new FamiliarItem(0, "  ", hermano.Id, "88887777", "") }, version: conNombre));
         // Una fila agregada vacía debe completarse o quitarse, no guardarse silenciosamente.
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarFamiliaresAsync(id, new[]
         {
-            new FamiliarItem(familiares[0].Id, "Luis", hermano.Id, "88887777", "", ""),
-            new FamiliarItem(-1, "", null, "", "", ""),
+            new FamiliarItem(familiares[0].Id, "Luis", hermano.Id, "88887777", ""),
+            new FamiliarItem(-1, "", null, "", ""),
         }, version: conNombre));
 
         // Nombre completo del familiar: hasta 60 caracteres.
         var nueva = (await servicio.ObtenerAsync(id)).Versiones["familiares"];
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.ReemplazarFamiliaresAsync(id,
-            new[] { new FamiliarItem(0, new string('a', 61), hermano.Id, "", "", "") }, version: nueva));
+            new[] { new FamiliarItem(0, new string('a', 61), hermano.Id, "", "") }, version: nueva));
         await servicio.ReemplazarFamiliaresAsync(id,
-            new[] { new FamiliarItem(0, new string('a', 60), hermano.Id, "88887777", "", "") }, version: nueva);
+            new[] { new FamiliarItem(0, new string('a', 60), hermano.Id, "88887777", "") }, version: nueva);
         Assert.NotNull(await db.Parentescos.FindAsync(hermano.Id));
     }
 
@@ -349,10 +349,9 @@ public class PersonasAccesoTests
 
         var familiares = await servicio.ReemplazarFamiliaresAsync(id, new[]
         {
-            new FamiliarItem(0, "Luis", null, "70001111", "", "", null, eeuu.Id),
+            new FamiliarItem(0, "Luis", null, "70001111", "", null),
         }, version: ficha.Versiones["familiares"]);
         Assert.Equal(cr, familiares[0].TelefonoPaisId);
-        Assert.Null(familiares[0].WhatsappPaisId); // sin número no se guarda país
 
         var detalle = await servicio.ObtenerAsync(id);
         Assert.Equal(eeuu.Id, detalle.WhatsappPrincipalPaisId);
@@ -582,9 +581,9 @@ public class PersonasAccesoTests
                 new[] { new NumeroItem(0, "88887777", "Teléfono", true), new NumeroItem(0, "", "WhatsApp", true) },
                 version: antes.Versiones["datos"]),
             _ => servicio.ReemplazarFamiliaresAsync(id,
-                new[] { new FamiliarItem(0, "Uno", null, "", "uno@mail.cr", ""),
+                new[] { new FamiliarItem(0, "Uno", null, "", "uno@mail.cr"),
                     new FamiliarItem(0, "Dos", tipo == "parentesco" ? 999999 : null, "",
-                        tipo == "familiares" ? "incorrecto" : "dos@mail.cr", "") },
+                        tipo == "familiares" ? "incorrecto" : "dos@mail.cr") },
                 version: antes.Versiones["familiares"])
         };
         var error = await Assert.ThrowsAsync<ValidacionException>(Guardar);
@@ -618,7 +617,7 @@ public class PersonasAccesoTests
             "correos" => servicio.ReemplazarCorreosAsync(personaId,
                 filas.Select(x => new CorreoItem(x.Id, x.Valor, true)).ToArray(), version: version),
             _ => servicio.ReemplazarFamiliaresAsync(personaId,
-                filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "88887777", "", "")).ToArray(), version: version)
+                filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "88887777", "")).ToArray(), version: version)
         };
         int Primero(PersonaDetalleDto ficha) => tipo switch
         {
@@ -673,7 +672,7 @@ public class PersonasAccesoTests
             "correos" => servicio.ReemplazarCorreosAsync(id,
                 filas.Select(x => new CorreoItem(x.Id, x.Valor, true)).ToArray(), version: version),
             _ => servicio.ReemplazarFamiliaresAsync(id,
-                filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "88887777", "", "")).ToArray(), version: version)
+                filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "88887777", "")).ToArray(), version: version)
         };
         int[] Ids(PersonaDetalleDto ficha) => tipo switch
         {
@@ -718,7 +717,7 @@ public class PersonasAccesoTests
             "correos" => servicio.ReemplazarCorreosAsync(id, Enumerable.Range(0, cantidad)
                 .Select(i => new CorreoItem(-i, "correo" + i + "@mail.cr", i == 0)).ToArray(), version: version),
             _ => servicio.ReemplazarFamiliaresAsync(id, Enumerable.Range(0, cantidad)
-                .Select(i => new FamiliarItem(-i, "Familiar " + i, null, "88887777", "", "")).ToArray(), version: version)
+                .Select(i => new FamiliarItem(-i, "Familiar " + i, null, "88887777", "")).ToArray(), version: version)
         };
         string Lista(PersonaDetalleDto ficha) => tipo switch
         {
@@ -778,7 +777,7 @@ public class PersonasAccesoTests
         CrearProspectoRequest Request(int cantidad) => new(
             "Ana", "Vargas", "123", "01-20013", "", new DateOnly(2026, 10, 9), vendedor.Id,
             "88888888", "", "", procedencia.Id, metodo.Id, 1000m, "", 100m, 0m, null, null,
-            Enumerable.Range(0, cantidad).Select(i => new FamiliarItem(-i, "Familiar " + i, null, "88887777", "", "")).ToArray());
+            Enumerable.Range(0, cantidad).Select(i => new FamiliarItem(-i, "Familiar " + i, null, "88887777", "")).ToArray());
         var guardados = db.Guardados;
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.CrearProspectoAsync(Request(5)));
         Assert.Equal(guardados, db.Guardados);
@@ -862,7 +861,7 @@ public class PersonasAccesoTests
         var antes = await servicio.ObtenerAsync(id);
         var guardados = db.Guardados;
         Task Guardar() => servicio.ReemplazarFamiliaresAsync(id,
-            new[] { new FamiliarItem(0, "Luis", null, telefono, correo, "88887777") }, version: antes.Versiones["familiares"]);
+            new[] { new FamiliarItem(0, "Luis", null, telefono, correo) }, version: antes.Versiones["familiares"]);
         if (valido) await Guardar();
         else
         {
@@ -887,8 +886,6 @@ public class PersonasAccesoTests
     [InlineData("whatsapp", "+1", 10)]
     [InlineData("familiar", "+506", 8)]
     [InlineData("familiar", "+1", 10)]
-    [InlineData("familiar-whatsapp", "+506", 8)]
-    [InlineData("familiar-whatsapp", "+1", 10)]
     [InlineData("numeros", "+44", 12)]
     [InlineData("familiar", "+44", 12)]
     public async Task Telefonos_respetan_longitud_por_pais_sin_escrituras_parciales(string operacion, string codigo, int largo)
@@ -921,9 +918,8 @@ public class PersonasAccesoTests
             }, version: antes.Versiones[seccion]),
             _ => servicio.ReemplazarFamiliaresAsync(id, new[]
             {
-                new FamiliarItem(0, "Luis", null, "88887777", "", ""),
-                new FamiliarItem(-1, "María", null, operacion == "familiar" ? numero : "", "maria@mail.cr",
-                    operacion == "familiar-whatsapp" ? numero : "", paisId, paisId)
+                new FamiliarItem(0, "Luis", null, "88887777", ""),
+                new FamiliarItem(-1, "María", null, operacion == "familiar" ? numero : "", "maria@mail.cr", paisId)
             }, version: antes.Versiones[seccion])
         };
         foreach (var cantidad in new[] { largo - 1, largo + 1 })
@@ -1022,7 +1018,7 @@ public class PersonasAccesoTests
             "numeros" => servicio.ReemplazarNumerosAsync(id, filas.Select((x, i) =>
                 new NumeroItem(x.Id, x.Valor, i == 2 ? "WhatsApp" : "Teléfono", true)).ToArray(), version: version),
             "correos" => servicio.ReemplazarCorreosAsync(id, filas.Select(x => new CorreoItem(x.Id, x.Valor, true)).ToArray(), version: version),
-            _ => servicio.ReemplazarFamiliaresAsync(id, filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "88887777", "", "")).ToArray(), version: version)
+            _ => servicio.ReemplazarFamiliaresAsync(id, filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "88887777", "")).ToArray(), version: version)
         };
         int[] Ids(PersonaDetalleDto p) => tipo switch
         {
@@ -1077,10 +1073,8 @@ public class PersonasAccesoTests
     [InlineData("numeros", "numeros[0].paisId")]
     [InlineData("familiares", "familiares[0].parentescoId")]
     [InlineData("familiares", "familiares[0].telefonoPaisId")]
-    [InlineData("familiares", "familiares[0].whatsappPaisId")]
     [InlineData("crear-familiar", "familiares[0].parentescoId")]
     [InlineData("crear-familiar", "familiares[0].telefonoPaisId")]
-    [InlineData("crear-familiar", "familiares[0].whatsappPaisId")]
     public async Task Ids_negativos_de_catalogos_rechazan_sin_escrituras(string operacion, string campo)
     {
         using var db = CrearDb();
@@ -1095,9 +1089,9 @@ public class PersonasAccesoTests
             "88887777", "", "", 1, 1, 1000m, "", 100m, 0m, null, null, null);
         var datos = new ActualizarDatosRequest("Cambio", "Vargas", "123", "12-12345", "", new DateOnly(2026, 10, 13), 1,
             "88887777", "", "", null, null);
-        // Países explícitos se rechazan incluso con teléfono/WhatsApp vacío y correo válido.
-        var familiar = new FamiliarItem(0, "Luis", campo.EndsWith("parentescoId") ? -1 : null, "", "luis@mail.cr", "",
-            campo.EndsWith("telefonoPaisId") ? -1 : null, campo.EndsWith("whatsappPaisId") ? -1 : null);
+        // Países explícitos se rechazan incluso con teléfono vacío y correo válido.
+        var familiar = new FamiliarItem(0, "Luis", campo.EndsWith("parentescoId") ? -1 : null, "", "luis@mail.cr",
+            campo.EndsWith("telefonoPaisId") ? -1 : null);
         Task Guardar() => operacion switch
         {
             "crear" => servicio.CrearProspectoAsync(campo switch
@@ -1173,7 +1167,7 @@ public class PersonasAccesoTests
             new[] { new NumeroItem(0, "88887777", "teléfono", true, opcional) }, version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
         Assert.Equal(await db.Paises.OrderBy(p => p.Id).Select(p => p.Id).FirstAsync(), numeros[0].PaisId);
         var familiares = await servicio.ReemplazarFamiliaresAsync(id,
-            new[] { new FamiliarItem(-1, "Luis", opcional, "88887777", "", "", opcional, opcional) },
+            new[] { new FamiliarItem(-1, "Luis", opcional, "88887777", "", opcional) },
             version: (await servicio.ObtenerAsync(id)).Versiones["familiares"]);
         Assert.Null(familiares[0].ParentescoId);
         Assert.Equal(numeros[0].PaisId, familiares[0].TelefonoPaisId);

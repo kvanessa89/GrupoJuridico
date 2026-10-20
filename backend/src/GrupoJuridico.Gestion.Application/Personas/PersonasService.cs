@@ -88,8 +88,6 @@ public class PersonasService
         {
             if (!Validacion.Vacio(i.Telefono))
                 pais(i.TelefonoPaisId, $"familiares[{indice}].telefonoPaisId", i.Telefono, $"familiares[{indice}].telefono");
-            if (!Validacion.Vacio(i.Whatsapp))
-                pais(i.WhatsappPaisId, $"familiares[{indice}].whatsappPaisId", i.Whatsapp, $"familiares[{indice}].whatsapp");
             indice++;
         }
     }
@@ -102,7 +100,6 @@ public class PersonasService
         {
             ValidarIdCatalogo(i.ParentescoId, $"familiares[{indice}].parentescoId");
             ValidarIdCatalogo(i.TelefonoPaisId, $"familiares[{indice}].telefonoPaisId");
-            ValidarIdCatalogo(i.WhatsappPaisId, $"familiares[{indice}].whatsappPaisId");
             indice++;
         }
         var usados = items.Where(i => i.ParentescoId is > 0).Select(i => i.ParentescoId!.Value).Distinct().ToList();
@@ -132,7 +129,7 @@ public class PersonasService
     private static NumeroDto NumeroDe(Numero n) => new(n.Id, n.Valor, TipoTexto(n.Tipo), n.Principal, n.PaisId);
 
     private static FamiliarDto FamiliarDe(PersonaFamiliar f) =>
-        new(f.Id, f.NombreCompleto, f.ParentescoId, f.Telefono, f.CorreoElectronico, f.Whatsapp, f.TelefonoPaisId, f.WhatsappPaisId);
+        new(f.Id, f.NombreCompleto, f.ParentescoId, f.Telefono, f.CorreoElectronico, f.TelefonoPaisId);
 
     private static void ValidarCantidad(int cantidad, int maximo, string campo, string etiqueta)
     {
@@ -569,7 +566,7 @@ public class PersonasService
     /// <summary>Fila sin ningún dato (se ignora al guardar).</summary>
     public static bool FamiliarVacio(FamiliarItem f) =>
         Validacion.Vacio(f.NombreCompleto) && f.ParentescoId is not > 0 && Validacion.Vacio(f.Telefono)
-        && Validacion.Vacio(f.CorreoElectronico) && Validacion.Vacio(f.Whatsapp);
+        && Validacion.Vacio(f.CorreoElectronico);
 
     private static PersonaFamiliar NuevoFamiliar(FamiliarItem i, Func<int?, string, string?, string, int> pais)
     {
@@ -586,8 +583,6 @@ public class PersonasService
         f.Telefono = Validacion.SoloDigitos(i.Telefono);
         f.TelefonoPaisId = f.Telefono.Length > 0 ? pais(i.TelefonoPaisId, nameof(i.TelefonoPaisId), i.Telefono, nameof(i.Telefono)) : null;
         f.CorreoElectronico = i.CorreoElectronico?.Trim() ?? "";
-        f.Whatsapp = Validacion.SoloDigitos(i.Whatsapp);
-        f.WhatsappPaisId = f.Whatsapp.Length > 0 ? pais(i.WhatsappPaisId, nameof(i.WhatsappPaisId), i.Whatsapp, nameof(i.Whatsapp)) : null;
     }
 }
 

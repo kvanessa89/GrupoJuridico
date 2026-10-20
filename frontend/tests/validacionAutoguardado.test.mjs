@@ -40,9 +40,8 @@ test('prima pagada exige fecha también al crear y cada familiar exige nombre y 
   const f=valido();f.prima.montoCancelado='100'
   assert.ok(faltantesNuevo(f).fechaPago)
   f.prima.fechaPago='2026-10-13';assert.equal(erroresPrima(f).fechaPago,undefined)
-  const familiar={ id:-1,nombreCompleto:'Luis',parentescoId:null,telefono:'',correoElectronico:'',whatsapp:'' }
+  const familiar={ id:-1,nombreCompleto:'Luis',parentescoId:null,telefono:'',correoElectronico:'' }
   assert.ok(errorFamiliares([familiar]))
-  assert.ok(errorFamiliares([{...familiar,whatsapp:'88888888'}]))
   assert.equal(errorFamiliares([{...familiar,telefono:'88887777'}]),undefined)
   assert.equal(errorFamiliares([{...familiar,correoElectronico:'luis@mail.cr'}]),undefined)
   assert.ok(errorFamiliares([{...familiar,telefono:'88887777',correoElectronico:'correo-invalido'}]))

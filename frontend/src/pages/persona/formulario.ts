@@ -175,7 +175,7 @@ export const MSG_NOMBRE_FAMILIAR = 'Ingrese el nombre del familiar.'
 
 /** Fila de familiar sin ningún dato: se ignora (no se guarda ni muestra error). */
 export function familiarVacio(x: FamiliarDto): boolean {
-  return vacio(x.nombreCompleto) && x.parentescoId == null && vacio(x.telefono) && vacio(x.correoElectronico) && vacio(x.whatsapp)
+  return vacio(x.nombreCompleto) && x.parentescoId == null && vacio(x.telefono) && vacio(x.correoElectronico)
 }
 
 /** El nombre es requerido en cualquier familiar con datos (o ya guardado). */
@@ -270,7 +270,7 @@ export function errorFamiliares(familiares: FamiliarDto[], paises: readonly Pais
   return limiteFamiliares(familiares) ?? (familiares.some(faltaNombreFamiliar) ? MSG_NOMBRE_FAMILIAR :
     familiares.some(faltaContactoFamiliar) ? MSG_CONTACTO_FAMILIAR :
     !familiares.every(f => correoValido(f.correoElectronico)) ? MSG_CORREO :
-    familiares.map(f => errorTelefono(f.telefono, f.telefonoPaisId, paises) ?? errorTelefono(f.whatsapp, f.whatsappPaisId, paises)).find(Boolean))
+    familiares.map(f => errorTelefono(f.telefono, f.telefonoPaisId, paises)).find(Boolean))
 }
 
 /** Crear y editar comparten las reglas; cada familiar agregado debe completarse o quitarse. */

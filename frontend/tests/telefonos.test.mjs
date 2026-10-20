@@ -24,9 +24,9 @@ test('prospecto, contactos y familiares invalidan el borrador al cambiar país o
   f.datos.telefonoPrincipal='88887777';f.datos.whatsappPrincipal='305555010';f.datos.whatsappPrincipalPaisId='42'
   assert.equal(erroresDatos(f,false,paises).whatsappPrincipal,undefined)
   assert.equal(errorNumeros([{numero:'88887777',tipo:'WhatsApp',paisId:42}],paises),undefined)
-  const familiar={id:-1,nombreCompleto:'Luis',telefono:'8888777',telefonoPaisId:17,correoElectronico:'luis@mail.cr',whatsapp:'',whatsappPaisId:null}
+  const familiar={id:-1,nombreCompleto:'Luis',telefono:'8888777',telefonoPaisId:17,correoElectronico:'luis@mail.cr'}
   assert.match(errorFamiliares([familiar],paises),/8 dígitos/)
   assert.equal(errorFamiliares([{...familiar,telefono:''}],paises),undefined,'Con correo, teléfono vacío sigue siendo opcional')
-  assert.equal(errorFamiliares([{...familiar,telefono:'88887777',whatsapp:'305555010',whatsappPaisId:42}],paises),undefined)
+  assert.equal(errorFamiliares([{...familiar,telefono:'88887777'}],paises),undefined)
 })
 
