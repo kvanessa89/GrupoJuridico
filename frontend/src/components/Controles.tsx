@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { errorTelefono } from '../utils/telefonos'
 import { useSesion } from '../auth/Sesion'
 import { enlaceTel, formatearMonto, limpiarMonto, paisPorDefecto, soloDigitos } from '../utils/formato'
@@ -213,21 +213,31 @@ export function CampoNotas({ label, valor, onChange, maxLength, error }: { label
   )
 }
 
-/** Contraseña con el ojo para mostrarla u ocultarla. */
+/**
+ * Contraseña con el ojo para mostrarla u ocultarla. Por defecto es para crear o cambiar una
+ * contraseña (new-password); el login usa current-password para que el navegador la autocomplete.
+ */
 export function CampoContrasena({
-  valor, onChange, placeholder, onBlur,
-}: { valor: string; onChange: (v: string) => void; placeholder?: string; onBlur?: () => void }) {
+  valor, onChange, placeholder, onBlur, autoComplete = 'new-password', fontSize = 13.5,
+}: {
+  valor: string
+  onChange: (v: string) => void
+  placeholder?: string
+  onBlur?: () => void
+  autoComplete?: 'new-password' | 'current-password'
+  fontSize?: CSSProperties['fontSize']
+}) {
   const [ver, setVer] = useState(false)
   const titulo = ver ? 'Ocultar contraseña' : 'Ver contraseña'
   return (
     <span style={{ position: 'relative', display: 'block' }}>
       <input
         className="campo"
-        style={{ fontSize: 13.5, paddingRight: 42 }}
+        style={{ fontSize, paddingRight: 42 }}
         type={ver ? 'text' : 'password'}
         value={valor}
         placeholder={placeholder}
-        autoComplete="new-password"
+        autoComplete={autoComplete}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
       />

@@ -7,6 +7,6 @@ export function errorTelefono(numero: string, paisId: number | null, paises: rea
   const codigo = pais?.codigo.replace(/\D/g, '')
   const largo = codigo === '506' ? 8 : undefined
   if (largo && numero.replace(/\D/g, '').length !== largo)
-    return `El número debe estar conformado por ${largo} dígitos.`
+    return `El número debe ser de ${largo} dígitos.`
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useBlocker, useLocation, useNavigate, useParams } from 'react-router'
+import { NavigationType, useBlocker, useLocation, useNavigate, useParams } from 'react-router'
 import { erroresDe, mensajeDe } from '../../api/cliente'
 import { api } from '../../api/endpoints'
 import type { ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
@@ -37,6 +37,20 @@ function momento(iso: string): string {
  * Ficha de la persona. `seccion` indica desde qué tabla se entró: cambia el texto de "Volver"
  * y la etiqueta de estado del cliente (solo se muestra al entrar desde Clientes).
  */
+/**
+ * Para deshacer un Atrás bloqueado, el router avanza de nuevo en el historial y el navegador
+ * restaura el scroll que tenía la ficha, pisando el "subir al aviso". Se sube después de eso.
+ */
+function subirTrasRestaurarScroll() {
+  const subir = () => window.scrollTo({ top: 0, behavior: 'smooth' })
+  const respaldo = window.setTimeout(() => { window.removeEventListener('popstate', alVolver); subir() }, 300)
+  function alVolver() {
+    window.clearTimeout(respaldo)
+    window.setTimeout(subir, 50)
+  }
+  window.addEventListener('popstate', alVolver, { once: true })
+}
+
 export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'clientes'; nuevo?: boolean }) {
   const { id } = useParams()
   const personaId = Number(id)
@@ -57,6 +71,9 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const [errorGuardar, setErrorGuardar] = useState('')
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial)
   const [volverIntento, setVolverIntento] = useState(false)
+  // Guardado al salir de la ficha en curso (por "Volver", el menú o el Atrás del navegador).
+  const [saliendo, setSaliendo] = useState(false)
+  const saliendoRef = useRef(false)
   const [crearIntento, setCrearIntento] = useState(false)
   const [erroresServidor, setErroresServidor] = useState<Record<string, string>>({})
   const [creando, setCreando] = useState(false)
@@ -181,10 +198,17 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     if (!lista.length) return false
     setVolverIntento(true)
     setPestana(lista[0].pestana)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
     return true
   }
   const hayCambios = () => pendientesRef.current.length > 0 || guardadoresRef.current.some(g => g.hayPendientes())
-  const blocker = useBlocker(() => !nuevo && hayCambios())
+  // Recuerda si lo bloqueado fue el Atrás/Adelante del navegador (POP) y no un enlace.
+  const accionBloqueada = useRef<NavigationType>(NavigationType.Push)
+  const blocker = useBlocker(({ historyAction }) => {
+    const bloquear = !nuevo && hayCambios()
+    if (bloquear) accionBloqueada.current = historyAction
+    return bloquear
+  })
   useEffect(() => {
     const prevenir = (e: BeforeUnloadEvent) => {
       if (hayCambios()) { e.preventDefault(); e.returnValue = '' }
@@ -200,6 +224,33 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     if (!exito) setErrorGuardar(prev => prev || 'Hay cambios pendientes o un conflicto. Revise el aviso antes de salir.')
     return exito
   }
+  /**
+   * Al salir siempre se intenta "guardar y salir": con campos inválidos se queda y los señala;
+   * si el servidor rechaza el guardado (error o conflicto) también se queda, con su aviso.
+   */
+  const salirGuardando = async (salir: () => void, quedarse: () => void = () => undefined) => {
+    if (saliendoRef.current) return
+    saliendoRef.current = true
+    setSaliendo(true)
+    try {
+      if (await guardarPendientes()) salir()
+      else quedarse()
+    } finally {
+      saliendoRef.current = false
+      setSaliendo(false)
+    }
+  }
+  // El menú lateral y el Atrás del navegador pasan por aquí en lugar de mostrar un aviso.
+  const salirGuardandoRef = useRef(salirGuardando)
+  useEffect(() => { salirGuardandoRef.current = salirGuardando })
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return
+    void salirGuardandoRef.current(() => blocker.proceed(), () => {
+      const eraAtras = accionBloqueada.current === NavigationType.Pop
+      blocker.reset()
+      if (eraAtras) subirTrasRestaurarScroll()
+    })
+  }, [blocker])
   // Descarta el borrador de la sección y trae lo que guardó el otro usuario.
   const recargar = async (seccion: SeccionVersion) => {
     setRecargando(true)
@@ -286,9 +337,9 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const req = true
 
   const volver = async () => {
-    if (avisarPendientes(pendientesDe(form))) return
-    if (!nuevo && !await guardarPendientes()) return
-    navegar(seccion === 'clientes' ? '/gestion/clientes' : '/gestion/ventas')
+    const destino = seccion === 'clientes' ? '/gestion/clientes' : '/gestion/ventas'
+    if (nuevo) { navegar(destino); return }
+    await salirGuardando(() => navegar(destino))
   }
 
   const crear = async () => {
@@ -361,8 +412,8 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         <CampoTexto label={ETIQUETAS.nombres} valor={d.nombres} onChange={(v) => cambiar('datos', 'nombres', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('nombres')} />
         <CampoTexto label={ETIQUETAS.apellidos} valor={d.apellidos} onChange={(v) => cambiar('datos', 'apellidos', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('apellidos')} />
         <CampoTexto label={ETIQUETAS.cedula} valor={d.cedula} onChange={(v) => cambiar('datos', 'cedula', soloDigitos(v))} inputMode="numeric" maxLength={MAX_CEDULA} requerido={req} error={err('cedula')} />
-        <CampoTexto label={ETIQUETAS.finca} valor={d.finca} onChange={(v) => cambiar('datos', 'finca', v)} placeholder="12-12345" maxLength={MAX_FINCA} requerido={req} error={err('finca')} />
-        <CampoTexto label={ETIQUETAS.expediente} valor={d.expediente} onChange={(v) => cambiar('datos', 'expediente', v)} placeholder="12-123456-1234-AB" maxLength={MAX_EXPEDIENTE} error={err('expediente')} />
+        <CampoTexto label={ETIQUETAS.finca} valor={d.finca} onChange={(v) => cambiar('datos', 'finca', v)} placeholder="" maxLength={MAX_FINCA} requerido={req} error={err('finca')} />
+        <CampoTexto label={ETIQUETAS.expediente} valor={d.expediente} onChange={(v) => cambiar('datos', 'expediente', v)} placeholder="" maxLength={MAX_EXPEDIENTE} error={err('expediente')} />
         <CampoTexto label={ETIQUETAS.fechaIngreso} tipo="date" valor={d.fechaIngreso} onChange={(v) => cambiar('datos', 'fechaIngreso', v)} requerido={req} error={err('fechaIngreso')} />
         <CampoSelect
           label={ETIQUETAS.vendedorId} valor={d.vendedorId} onChange={(v) => cambiar('datos', 'vendedorId', v)} requerido={req} error={err('vendedorId')}
@@ -478,7 +529,10 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
           </div>
         </div>
         <div className="ficha-acciones">
-          {!nuevo && guardado && (
+          {!nuevo && saliendo && (
+            <span className="guardado" role="status"><span className="cargando-giro" aria-hidden="true" /><span>Guardando…</span></span>
+          )}
+          {!nuevo && !saliendo && guardado && (
             <span className="guardado"><Check /><span>Cambios guardados</span></span>
           )}
           {!nuevo && nombrePrima && <EtiquetaPrimaGrande estadoId={prima.estado} texto={nombrePrima} />}
@@ -505,11 +559,6 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         <p>{avisoConflicto(c)} Sus cambios en esta sección no se guardaron.</p>
         <button className="btn-secundario" disabled={recargando} onClick={() => void recargar(c.seccion)}>Recargar sección</button>
       </div>)}
-      {blocker.state === 'blocked' && <div role="alert" className="alerta">
-        <p>Hay cambios sin guardar. Permanezca en la ficha para guardarlos o resolver el conflicto.</p>
-        <button className="btn-primario" onClick={() => blocker.reset()}>Seguir editando</button>{' '}
-        <button className="btn-secundario" onClick={async () => { if (await guardarPendientes()) blocker.proceed() }}>Guardar y salir</button>
-      </div>}
 
       {conv && (
         <div className="convertir">
@@ -523,7 +572,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
             {!d.expediente.trim() && (
               <label style={{ flex: 1, minWidth: 180 }}>
                 <span className="etiqueta">Expediente</span>
-                <input className="campo" value={conv.expediente} placeholder="12-123456-1234-AB" maxLength={MAX_EXPEDIENTE} onChange={(e) => setConv({ ...conv, expediente: e.target.value })} />
+                <input className="campo" value={conv.expediente} placeholder="" maxLength={MAX_EXPEDIENTE} onChange={(e) => setConv({ ...conv, expediente: e.target.value })} />
               </label>
             )}
             <label style={{ flex: 1, minWidth: 180 }}>
@@ -560,12 +609,12 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
 
         {en('general') && bloqueDatos}
         {esCliente && en('general') && (
-          <Contactos mostrarErrores={volverIntento || blocker.state === 'blocked'} numeros={form.numeros} correos={form.correos} onNumeros={(n) => cambiarLista('numeros', n)} onCorreos={(c) => cambiarLista('correos', c)} />
+          <Contactos mostrarErrores={volverIntento} numeros={form.numeros} correos={form.correos} onNumeros={(n) => cambiarLista('numeros', n)} onCorreos={(c) => cambiarLista('correos', c)} />
         )}
         {en('ventas') && persona?.venta !== null && bloqueVenta}
         {en('ventas') && persona?.prima !== null && bloquePrima}
         {!nuevo && esCliente && en('ventas') && <PlanPagoFicha personaId={personaId} />}
-        {en('familiares') && <Familiares familiares={form.familiares} mostrarErrores={volverIntento || crearIntento || blocker.state === 'blocked'} onCambiar={(f) => cambiarLista('familiares', f)} />}
+        {en('familiares') && <Familiares familiares={form.familiares} mostrarErrores={volverIntento || crearIntento} onCambiar={(f) => cambiarLista('familiares', f)} />}
         {!nuevo && en('actividad') && (
           <Comentarios
             comentarios={comentarios}

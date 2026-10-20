@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useSesion } from '../auth/Sesion'
+import { CampoContrasena } from '../components/Controles'
 import { Maletin } from '../components/Iconos'
 
 export function Login() {
@@ -38,14 +39,14 @@ export function Login() {
           </div>
           <form className="login-tarjeta" onSubmit={enviar}>
             <h1>Iniciar sesión</h1>
-            <p>Acceso al sistema de cartera</p>
+            <p>Acceso al sistema de gestión</p>
             <label style={{ display: 'block', marginBottom: 14 }}>
               <span className="etiqueta">Usuario</span>
               <input className="campo" autoComplete="username" value={u} onChange={(e) => { setU(e.target.value); setError(false) }} />
             </label>
             <label style={{ display: 'block' }}>
               <span className="etiqueta">Contraseña</span>
-              <input className="campo" type="password" autoComplete="current-password" value={c} onChange={(e) => { setC(e.target.value); setError(false) }} />
+              <CampoContrasena valor={c} autoComplete="current-password" fontSize="inherit" onChange={(v) => { setC(v); setError(false) }} />
             </label>
             {error && <div className="login-error">Usuario o contraseña incorrectos.</div>}
             <button type="submit" className="btn-primario" disabled={enviando} style={{ width: '100%', marginTop: 20, padding: 12, fontSize: 14 }}>

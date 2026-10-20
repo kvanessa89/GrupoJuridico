@@ -177,14 +177,14 @@ public class DbSeeder
 
     private static readonly Semilla[] Cartera =
     {
-        new("Ana Lucía", "Vargas Mora", "1-0884-0219", "2025-11-04", 1, "EXP-2026-014", 1, 1, 900000, 300000, "2026-04-12", null, "Cliente con finca en Grecia."),
-        new("Roberto", "Cascante Alfaro", "2-0551-0733", "2025-12-18", 2, "EXP-2026-018", 2, 2, 650000, 650000, "2026-02-20", "2026-02-19", "Prima cancelada de una sola vez."),
-        new("María José", "Zamora Pérez", "1-1203-0447", "2026-01-09", 1, "EXP-2026-021", 1, 4, 1200000, 1200000, "2026-03-01", "2026-02-27", ""),
-        new("Fernando", "Solano Ureña", "4-0198-0612", "2026-01-22", 3, "EXP-2026-024", 2, 6, 480000, 180000, "2026-05-15", null, "Pendiente de firmar addendum."),
-        new("Gabriela", "Chinchilla Rojas", "1-0997-0338", "2026-02-03", 4, "EXP-2026-027", 1, 3, 750000, 750000, "2026-04-04", "2026-04-02", ""),
-        new("Luis Diego", "Herrera Campos", "3-0402-0855", "2026-02-14", 2, "EXP-2026-031", 2, 2, 540000, 240000, "2026-06-10", null, ""),
-        new("Sofía", "Araya Brenes", "1-1455-0290", "2026-02-27", 1, "EXP-2026-033", 1, 5, 980000, 980000, "2026-04-25", "2026-04-21", "Arrendamiento de local comercial."),
-        new("Jorge", "Benavides Soto", "2-0711-0509", "2026-03-05", 3, "EXP-2026-036", 1, 1, 620000, 0, "2026-05-30", null, "Entregó copia de cédula."),
+        new("Ana Lucía", "Vargas Mora", "1-0884-0219", "2025-11-04", 1, "00-000014-2026-CJ", 1, 1, 900000, 300000, "2026-04-12", null, "Cliente con finca en Grecia."),
+        new("Roberto", "Cascante Alfaro", "2-0551-0733", "2025-12-18", 2, "00-000018-2026-CJ", 2, 2, 650000, 650000, "2026-02-20", "2026-02-19", "Prima cancelada de una sola vez."),
+        new("María José", "Zamora Pérez", "1-1203-0447", "2026-01-09", 1, "00-000021-2026-CJ", 1, 4, 1200000, 1200000, "2026-03-01", "2026-02-27", ""),
+        new("Fernando", "Solano Ureña", "4-0198-0612", "2026-01-22", 3, "00-000024-2026-CJ", 2, 6, 480000, 180000, "2026-05-15", null, "Pendiente de firmar addendum."),
+        new("Gabriela", "Chinchilla Rojas", "1-0997-0338", "2026-02-03", 4, "00-000027-2026-CJ", 1, 3, 750000, 750000, "2026-04-04", "2026-04-02", ""),
+        new("Luis Diego", "Herrera Campos", "3-0402-0855", "2026-02-14", 2, "00-000031-2026-CJ", 2, 2, 540000, 240000, "2026-06-10", null, ""),
+        new("Sofía", "Araya Brenes", "1-1455-0290", "2026-02-27", 1, "00-000033-2026-CJ", 1, 5, 980000, 980000, "2026-04-25", "2026-04-21", "Arrendamiento de local comercial."),
+        new("Jorge", "Benavides Soto", "2-0711-0509", "2026-03-05", 3, "00-000036-2026-CJ", 1, 1, 620000, 0, "2026-05-30", null, "Entregó copia de cédula."),
         new("Natalia", "Quirós Vega", "1-1088-0714", "2026-03-11", 2, null, 2, 2, 430000, 130000, "2026-06-05", null, "Consulta llegó por WhatsApp."),
         new("Álvaro", "Madrigal Pineda", "5-0266-0431", "2026-03-18", 4, null, 1, 4, 860000, 0, "2026-07-01", null, "Recomendado por cliente EXP-2026-021."),
         new("Carolina", "Espinoza Leiva", "1-1321-0925", "2026-03-24", 1, null, 2, 6, 510000, 255000, "2026-06-20", null, ""),
@@ -264,7 +264,7 @@ public class DbSeeder
 
             var baseCorreo = SinTildes((s.Nombres.Split(' ')[0] + "." + s.Apellidos.Split(' ')[0]).ToLowerInvariant());
             persona.Correos.Add(new CorreoElectronico { Correo = baseCorreo + "@correo.cr", Principal = true });
-            persona.Fincas.Add(new Finca { Numero = "0" + (pid % 3 + 1) + "-" + (200000 + pid * 137) });
+            persona.Fincas.Add(new Finca { Numero = "0" + (pid % 3 + 1) + "-" + (20000 + pid * 137) });
 
             if (i % 2 == 0)
             {
