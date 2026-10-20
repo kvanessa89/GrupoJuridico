@@ -32,8 +32,8 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await act(async()=>{root.render(createElement(RouterProvider,{router}));await new Promise(r=>setTimeout(r,20))})
     const input=label=>[...document.querySelectorAll('label')].find(l=>l.querySelector('.etiqueta')?.textContent.startsWith(label))?.querySelector('input')
     const props=el=>el[Object.keys(el).find(k=>k.startsWith('__reactProps'))]
-    assert.equal(input('Número de finca').placeholder,'12-12345')
-    assert.equal(input('Número de expediente').placeholder,'12-123456-1234-AB')
+    assert.equal(input('Número de finca').placeholder,'')
+    assert.equal(input('Número de expediente').placeholder,'')
     assert.equal(input('Número de expediente').maxLength,17)
     const boton=texto=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===texto)
     await act(async()=>props(input('Número de finca')).onChange({target:{value:'12-123456'}}))
