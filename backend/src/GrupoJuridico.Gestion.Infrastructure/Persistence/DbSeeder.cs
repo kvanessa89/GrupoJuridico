@@ -307,7 +307,11 @@ public class DbSeeder
             {
                 clientes++;
                 var estado = clientes is 6 or 7 ? EstadoCliente.Moroso : new[] { 1, 1, 2, 3, 1, 4 }[i % 6];
-                persona.Cliente = new Cliente { Notas = s.Notas, OrigenClienteId = (i % 14) + 1, EstadoClienteId = estado };
+                persona.Cliente = new Cliente
+                {
+                    Notas = s.Notas, OrigenClienteId = (i % 14) + 1, EstadoClienteId = estado,
+                    EstadoManualId = EstadoCliente.EsAutomatico(estado) ? null : estado,
+                };
             }
 
             var prima = new Prima

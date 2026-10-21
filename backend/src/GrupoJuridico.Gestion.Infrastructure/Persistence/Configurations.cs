@@ -120,6 +120,7 @@ internal class ClienteConfig : IEntityTypeConfiguration<Cliente>
         b.Property(x => x.Notas).HasMaxLength(4000);
         b.HasOne(x => x.OrigenCliente).WithMany().HasForeignKey(x => x.OrigenClienteId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.EstadoCliente).WithMany().HasForeignKey(x => x.EstadoClienteId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.EstadoManual).WithMany().HasForeignKey(x => x.EstadoManualId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

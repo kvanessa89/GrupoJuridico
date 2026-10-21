@@ -121,6 +121,30 @@ public class PersonasService
     /// El id elegido sigue en el catálogo. Un vendedor, procedencia o método puede eliminarse
     /// mientras otra sesión tiene la ficha abierta: sin esto, el guardado violaría la FK (500).
     /// </summary>
+    /// <summary>
+    /// Estado manual elegido en la ficha: 0 o nulo = automático. Al Día, Moroso y Estrella no se eligen a mano:
+    /// los asigna el sistema según el plan de pago.
+    /// </summary>
+    private async Task<int?> EstadoManualAsync(int? estadoId, CancellationToken ct)
+    {
+        if (estadoId is null or 0) return null;
+        if (EstadoCliente.EsAutomatico(estadoId.Value))
+            throw new ValidacionException("estadoClienteId",
+                "Al Día, Moroso y Estrella los asigna el sistema según el plan de pago. Elija «Automático» o un estado manual.");
+        if (!await _db.EstadosCliente.AnyAsync(e => e.Id == estadoId, ct))
+            throw new ValidacionException("estadoClienteId", "El estado seleccionado ya no existe. Recargue la página y elija otro.");
+        return estadoId;
+    }
+
+    /// <summary>Estado que calcula el sistema con las cuotas guardadas del plan del cliente (Al Día si no tiene plan).</summary>
+    private async Task<int> EstadoCalculadoAsync(int clienteId, CancellationToken ct = default)
+    {
+        var cuotas = await _db.Cuotas.Where(c => c.PlanPago!.ClienteId == clienteId)
+            .Select(c => new Cuota { EstadoCuotaPagoId = c.EstadoCuotaPagoId, EstadoCuotaVencimientoId = c.EstadoCuotaVencimientoId })
+            .ToListAsync(ct);
+        return ReglasCobro.EstadoCalculado(cuotas);
+    }
+
     private async Task ValidarCatalogoAsync<T>(IQueryable<T> catalogo, int? id, string campo, string mensaje, CancellationToken ct)
         where T : Catalogo
     {
@@ -220,7 +244,9 @@ public class PersonasService
             p.CorreoPrincipal?.Correo ?? "",
             v == null ? null : new VentaDto(v.Id, v.ProcedenciaVentaId, v.MetodoVentaId, v.Monto, v.Notas),
             pr == null ? null : new PrimaDto(pr.Id, pr.Monto, pr.MontoCancelado, pr.SaldoPendiente, pr.FechaEstimadaPago, pr.FechaPago, pr.EstadoPrimaId),
-            p.Cliente == null ? null : new ClienteDto(p.Cliente.Id, p.Cliente.OrigenClienteId, p.Cliente.EstadoClienteId, p.Cliente.Notas),
+            p.Cliente == null ? null : new ClienteDto(p.Cliente.Id, p.Cliente.OrigenClienteId, p.Cliente.EstadoClienteId, p.Cliente.Notas,
+                p.Cliente.EstadoManualId,
+                p.Cliente.EstadoManualId == null ? p.Cliente.EstadoClienteId : await EstadoCalculadoAsync(p.Cliente.Id)),
             p.Numeros.OrderBy(n => n.Id).Select(NumeroDe).ToList(),
             p.Correos.OrderBy(c => c.Id).Select(c => new CorreoDto(c.Id, c.Correo, c.Principal)).ToList(),
             p.Familiares.OrderBy(f => f.Id).Select(FamiliarDe).ToList(),
@@ -357,11 +383,10 @@ public class PersonasService
 
         if (p.Cliente != null)
         {
-            if (r.EstadoClienteId is > 0)
+            if (r.EstadoClienteId != null)
             {
-                if (!await _db.EstadosCliente.AnyAsync(e => e.Id == r.EstadoClienteId, ct))
-                    throw new ValidacionException(nameof(r.EstadoClienteId), "El estado seleccionado ya no existe. Recargue la página y elija otro.");
-                p.Cliente.EstadoClienteId = r.EstadoClienteId.Value;
+                p.Cliente.EstadoManualId = await EstadoManualAsync(r.EstadoClienteId, ct);
+                p.Cliente.EstadoClienteId = p.Cliente.EstadoManualId ?? await EstadoCalculadoAsync(p.Cliente.Id, ct);
             }
             if (r.OrigenClienteId is > 0)
             {
@@ -539,10 +564,9 @@ public class PersonasService
         await ValidarCatalogoAsync(_db.EstadosCliente, r.EstadoClienteId, nameof(r.EstadoClienteId), "El estado seleccionado ya no existe. Recargue la página y elija otro.", ct);
         await PrepararVersionAsync(p, "datos", version);
         if (p.EsCliente) throw new ValidacionException("id", "La persona ya es cliente oficial.");
-        // Sin estado elegido, el cliente nace al día.
-        var estado = r.EstadoClienteId is > 0 ? r.EstadoClienteId.Value : EstadoCliente.AlDia;
-
-        p.Cliente = new Cliente { OrigenClienteId = r.OrigenClienteId!.Value, EstadoClienteId = estado };
+        // Sin estado manual, el cliente nace al día (todavía no tiene plan de pago).
+        var manual = await EstadoManualAsync(r.EstadoClienteId, ct);
+        p.Cliente = new Cliente { OrigenClienteId = r.OrigenClienteId!.Value, EstadoManualId = manual, EstadoClienteId = manual ?? EstadoCliente.AlDia };
         if (r.Expediente != null) p.Expediente = r.Expediente.Trim();
         await _db.SaveChangesAsync(ct);
         return await ObtenerAsync(id, ct);

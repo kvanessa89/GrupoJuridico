@@ -69,7 +69,11 @@ public record VentaDto(int Id, int? ProcedenciaVentaId, int? MetodoVentaId, deci
 public record PrimaDto(int Id, decimal Monto, decimal MontoCancelado, decimal SaldoPendiente,
     DateOnly? FechaEstimadaPago, DateOnly? FechaPago, int EstadoPrimaId);
 
-public record ClienteDto(int Id, int OrigenClienteId, int EstadoClienteId, string Notas);
+/// <summary>
+/// <c>EstadoClienteId</c> es el que se muestra: el manual (<c>EstadoManualId</c>) si hay uno; si no, el calculado
+/// con el plan de pago (<c>EstadoCalculadoId</c>: Al Día, Moroso o Estrella).
+/// </summary>
+public record ClienteDto(int Id, int OrigenClienteId, int EstadoClienteId, string Notas, int? EstadoManualId = null, int EstadoCalculadoId = 1);
 
 public record NumeroDto(int Id, string Numero, string Tipo, bool Principal, int PaisId);
 
@@ -124,6 +128,7 @@ public record ActualizarDatosRequest(
     string? TelefonoPrincipal,
     string? WhatsappPrincipal,
     string? CorreoPrincipal,
+    // Estado manual del cliente: 0 = automático (según el plan de pago), nulo = no cambia.
     int? EstadoClienteId,
     int? OrigenClienteId,
     int? TelefonoPrincipalPaisId = null,
@@ -143,6 +148,7 @@ public record FincaItem(int Id, string? Numero);
 public record FamiliarItem(int Id, string? NombreCompleto, int? ParentescoId, string? Telefono, string? CorreoElectronico,
     int? TelefonoPaisId = null);
 
+/// <summary><c>EstadoClienteId</c>: estado manual inicial; nulo o 0 = automático según el plan de pago.</summary>
 public record ConvertirClienteRequest(string? Expediente, int? OrigenClienteId, int? EstadoClienteId);
 
 public record ComentarioRequest(string Texto);

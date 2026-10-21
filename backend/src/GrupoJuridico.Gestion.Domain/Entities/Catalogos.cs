@@ -42,6 +42,9 @@ public class EstadoCliente : Catalogo
     public const int Terminado = 4;
     public const int Abandonado = 5;
     public const int SinExpediente = 6;
+
+    /// <summary>Al Día, Moroso y Estrella los asigna el sistema según el plan de pago; los demás se eligen a mano.</summary>
+    public static bool EsAutomatico(int id) => id is AlDia or Moroso or Estrella;
 }
 
 /// <summary>País de un teléfono. Codigo es el prefijo internacional ("+506").</summary>

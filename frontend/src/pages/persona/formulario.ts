@@ -20,6 +20,7 @@ export interface FormPersona {
     telefonoPrincipalPaisId: string
     whatsappPrincipalPaisId: string
     correoPrincipal: string
+    /** Estado manual del cliente; vacío = automático (según el plan de pago). */
     estadoClienteId: string
     origenClienteId: string
   }
@@ -59,7 +60,7 @@ export function formDesde(p: PersonaDetalle): FormPersona {
       telefonoPrincipal: p.telefonoPrincipal, whatsappPrincipal: p.whatsappPrincipal,
       telefonoPrincipalPaisId: s(p.telefonoPrincipalPaisId), whatsappPrincipalPaisId: s(p.whatsappPrincipalPaisId),
       correoPrincipal: p.correoPrincipal,
-      estadoClienteId: s(p.cliente?.estadoClienteId), origenClienteId: s(p.cliente?.origenClienteId),
+      estadoClienteId: s(p.cliente?.estadoManualId), origenClienteId: s(p.cliente?.origenClienteId),
     },
     venta: {
       procedenciaVentaId: s(p.venta?.procedenciaVentaId), metodoVentaId: s(p.venta?.metodoVentaId),
@@ -77,6 +78,9 @@ export function formDesde(p: PersonaDetalle): FormPersona {
 }
 
 export const idONull = (v: string) => (Number(v) > 0 ? Number(v) : null)
+
+/** Al Día, Moroso y Estrella los asigna el sistema según el plan de pago; no se eligen a mano. */
+export const esEstadoAutomatico = (id: number) => id >= 1 && id <= 3
 
 export function primaCalculada(f: FormPersona) {
   const monto = num(f.prima.monto)
@@ -100,7 +104,8 @@ export function payloadDatos(f: FormPersona, esCliente: boolean) {
     telefonoPrincipalPaisId: esCliente ? null : idONull(d.telefonoPrincipalPaisId),
     whatsappPrincipalPaisId: esCliente ? null : idONull(d.whatsappPrincipalPaisId),
     correoPrincipal: esCliente ? null : d.correoPrincipal,
-    estadoClienteId: esCliente ? idONull(d.estadoClienteId) : null,
+    // 0 le pide a la API volver al estado automático.
+    estadoClienteId: esCliente ? idONull(d.estadoClienteId) ?? 0 : null,
     origenClienteId: esCliente ? idONull(d.origenClienteId) : null,
   }
 }

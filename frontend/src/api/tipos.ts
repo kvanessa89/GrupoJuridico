@@ -127,8 +127,13 @@ export interface PrimaDto {
 export interface ClienteDto {
   id: number
   origenClienteId: number
+  /** Estado que se muestra: el manual si hay uno; si no, el calculado según el plan de pago. */
   estadoClienteId: number
   notas: string
+  /** Estado elegido a mano (Terminado, Abandonado…); nulo = automático. */
+  estadoManualId: number | null
+  /** Estado según el plan de pago (Al Día, Moroso o Estrella), aunque haya uno manual. */
+  estadoCalculadoId: number
 }
 
 export type TipoNumero = 'Teléfono' | 'WhatsApp'

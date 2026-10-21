@@ -88,6 +88,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.Property<int>("EstadoClienteId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("EstadoManualId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("ModificadoEn")
                         .HasColumnType("timestamp with time zone");
 
@@ -105,6 +108,8 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EstadoClienteId");
+
+                    b.HasIndex("EstadoManualId");
 
                     b.HasIndex("OrigenClienteId");
 
@@ -1295,6 +1300,11 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCliente", "EstadoManual")
+                        .WithMany()
+                        .HasForeignKey("EstadoManualId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.OrigenCliente", "OrigenCliente")
                         .WithMany()
                         .HasForeignKey("OrigenClienteId")
@@ -1302,6 +1312,8 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("EstadoCliente");
+
+                    b.Navigation("EstadoManual");
 
                     b.Navigation("OrigenCliente");
                 });

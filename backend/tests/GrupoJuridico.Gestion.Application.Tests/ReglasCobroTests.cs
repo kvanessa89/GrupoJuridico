@@ -75,20 +75,45 @@ public class ReglasCobroTests
         estados.Select(e => new Cuota { EstadoCuotaPagoId = e.Pago, EstadoCuotaVencimientoId = e.Venc }).ToList();
 
     [Fact]
-    public void Estado_del_cliente_segun_su_plan()
+    public void Estado_calculado_del_cliente_segun_su_plan()
     {
         var alDia = Cuotas((EstadoCuotaPago.Pagada, 1), (EstadoCuotaPago.Pendiente, 1));
-        var vencido = Cuotas((EstadoCuotaPago.Pagada, 1), (EstadoCuotaPago.Pendiente, EstadoCuotaVencimiento.Vencido));
+        var vencido = Cuotas((EstadoCuotaPago.Pagada, 1), (EstadoCuotaPago.Parcial, EstadoCuotaVencimiento.Vencido));
         var pagado = Cuotas((EstadoCuotaPago.Pagada, 1), (EstadoCuotaPago.Pagada, 1));
 
-        Assert.Equal(EstadoCliente.Moroso, ReglasCobro.EstadoClientePara(EstadoCliente.AlDia, vencido));
-        Assert.Equal(EstadoCliente.AlDia, ReglasCobro.EstadoClientePara(EstadoCliente.Moroso, alDia));
-        Assert.Equal(EstadoCliente.Estrella, ReglasCobro.EstadoClientePara(EstadoCliente.Moroso, pagado));
-        Assert.Equal(EstadoCliente.Moroso, ReglasCobro.EstadoClientePara(EstadoCliente.Estrella, vencido));
-        Assert.Equal(EstadoCliente.AlDia, ReglasCobro.EstadoClientePara(EstadoCliente.Estrella, alDia));
-        Assert.Equal(EstadoCliente.Terminado, ReglasCobro.EstadoClientePara(EstadoCliente.Terminado, vencido));
-        Assert.Equal(EstadoCliente.Abandonado, ReglasCobro.EstadoClientePara(EstadoCliente.Abandonado, pagado));
-        Assert.Equal(EstadoCliente.SinExpediente, ReglasCobro.EstadoClientePara(EstadoCliente.SinExpediente, alDia));
+        Assert.Equal(EstadoCliente.AlDia, ReglasCobro.EstadoCalculado(alDia));
+        Assert.Equal(EstadoCliente.Moroso, ReglasCobro.EstadoCalculado(vencido));
+        Assert.Equal(EstadoCliente.Estrella, ReglasCobro.EstadoCalculado(pagado));
+        Assert.Equal(EstadoCliente.AlDia, ReglasCobro.EstadoCalculado(new List<Cuota>()));
+    }
+
+    [Fact]
+    public void El_estado_manual_manda_sobre_el_calculado()
+    {
+        var vencido = Cuotas((EstadoCuotaPago.Pendiente, EstadoCuotaVencimiento.Vencido));
+        Assert.Equal(EstadoCliente.Moroso, ReglasCobro.EstadoEfectivo(null, vencido));
+        foreach (var manual in new[] { EstadoCliente.Terminado, EstadoCliente.Abandonado, EstadoCliente.SinExpediente, 99 })
+            Assert.Equal(manual, ReglasCobro.EstadoEfectivo(manual, vencido));
+        Assert.True(EstadoCliente.EsAutomatico(EstadoCliente.Estrella));
+        Assert.False(EstadoCliente.EsAutomatico(EstadoCliente.SinExpediente));
+    }
+
+    [Fact]
+    public void Al_normalizar_el_plan_el_cliente_toma_el_estado_que_corresponde()
+    {
+        var plan = new PlanPago { MontoTotal = 200m, CantidadCuotas = 2, MontoCuota = 100m, FechaInicio = Hoy.AddDays(-40), DiaPago = Hoy.AddDays(-5).Day };
+        plan.Cuotas.AddRange(ReglasCobro.GenerarCuotas(plan));
+        var cliente = new Cliente { EstadoClienteId = EstadoCliente.AlDia };
+        Assert.Equal((true, true), ReglasCobro.NormalizarPlan(plan, cliente, 2.5m, Hoy));
+        Assert.Equal(EstadoCliente.Moroso, cliente.EstadoClienteId);
+
+        // Con estado manual se muestra ese, aunque tenga cuotas vencidas; al quitarlo vuelve al calculado.
+        cliente.EstadoManualId = EstadoCliente.SinExpediente;
+        ReglasCobro.NormalizarPlan(plan, cliente, 2.5m, Hoy);
+        Assert.Equal(EstadoCliente.SinExpediente, cliente.EstadoClienteId);
+        cliente.EstadoManualId = null;
+        ReglasCobro.NormalizarPlan(plan, cliente, 2.5m, Hoy);
+        Assert.Equal(EstadoCliente.Moroso, cliente.EstadoClienteId);
     }
 
     [Fact]
