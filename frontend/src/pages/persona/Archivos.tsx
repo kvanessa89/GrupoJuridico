@@ -7,7 +7,7 @@ import { Modal, Select } from '../../components/Controles'
 import { BasureroLleno, Descargar, Documento } from '../../components/Iconos'
 import { guardarBlob } from '../../utils/descargas'
 import { fFecha, plural } from '../../utils/formato'
-import { ACEPTA_ARCHIVOS, agruparArchivos, fTamano } from './archivos'
+import { ACEPTA_ARCHIVOS, agruparArchivos, fTamano } from './archivosUtil'
 
 /**
  * Pestaña Archivos de la ficha del cliente: se elige el tipo de documento y se suben uno o varios archivos.

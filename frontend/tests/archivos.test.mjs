@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { agruparArchivos, fTamano } from '../src/pages/persona/archivos.ts'
+import { agruparArchivos, fTamano } from '../src/pages/persona/archivosUtil.ts'
 
 const tipos = [{ id: 1, nombre: 'Poderes' }, { id: 2, nombre: 'Contrato' }, { id: 3, nombre: 'Comprobantes de pago' }]
 const archivo = (id, tipoDocumentoId) => ({ id, tipoDocumentoId, nombre: 'a' + id + '.pdf', tamano: 10, fechaCarga: '2026-10-20', puedeEliminar: false })
