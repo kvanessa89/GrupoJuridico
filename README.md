@@ -92,6 +92,17 @@ npm run build:staging  # staging (.env.staging)
 
 `VITE_API_URL` define la URL de la API por entorno.
 
+## Archivos del expediente
+
+La ficha del cliente tiene la pestaña **Archivos**: se elige el tipo de documento y se suben uno o varios archivos (PDF, imágenes, Word o Excel; hasta 10 MB cada uno y 25 MB por envío). En **Configuración → Archivos** se administran los tipos de documento y la matriz de permisos: cada rol puede **subir** (y quitar) y/o **ver** cada tipo. Subir implica ver. Un tipo nuevo empieza habilitado solo para el Administrador.
+
+Los archivos (también los comprobantes de Cobros) se guardan con una clave interna en el almacenamiento elegido con `Archivos__Proveedor`:
+
+- `Local` (por defecto): disco del servidor, en `Archivos__Ruta` (`App_Data/archivos`). Hay que respaldar esa carpeta y excluirla al publicar.
+- `R2`: bucket **privado** de Cloudflare R2. Requiere `Archivos__R2__CuentaId`, `Archivos__R2__AccessKeyId`, `Archivos__R2__SecretAccessKey` y `Archivos__R2__Bucket`. Use una llave de R2 limitada a ese bucket. Si falta alguno, la API no arranca y nombra las variables que faltan.
+
+Las credenciales de R2 son secretos: van en variables de entorno del servidor (en IIS, `environmentVariables` del `web.config` publicado) y nunca en el repositorio. Los usuarios no acceden al bucket: la API revisa los permisos y entrega cada archivo.
+
 ## Diferencias con el prototipo
 
 - Las contraseñas se guardan cifradas (Identity), así que en "Usuarios del sistema" no se pueden mostrar:

@@ -27,14 +27,17 @@ public class PersonasService
     private readonly FamiliarItemValidator _familiarValidator = new();
 
     private readonly ActualizadorCobros _cobros;
+    private readonly IAlmacenArchivos _almacen;
 
-    public PersonasService(IApplicationDbContext db, IUsuarioActual usuario, IIdentityService identity, IFechaActual fecha, ActualizadorCobros cobros)
+    public PersonasService(IApplicationDbContext db, IUsuarioActual usuario, IIdentityService identity, IFechaActual fecha,
+        ActualizadorCobros cobros, IAlmacenArchivos almacen)
     {
         _db = db;
         _usuario = usuario;
         _identity = identity;
         _fecha = fecha;
         _cobros = cobros;
+        _almacen = almacen;
     }
 
     public Guid VersionGuardada { get; private set; }
@@ -511,9 +514,16 @@ public class PersonasService
         if (!_usuario.EsAdministrador) throw new ProhibidoException();
         var p = await CargarAsync(id, ct);
         var cliente = p.Cliente;
+        // Los registros se borran en cascada; los archivos guardados (expediente, incluidos los comprobantes) se borran después.
+        var claves = await _db.ArchivosPersona.Where(a => a.PersonaId == id).Select(a => a.Clave).ToListAsync(ct);
         _db.Personas.Remove(p);
         if (cliente != null) _db.Clientes.Remove(cliente);
         await _db.SaveChangesAsync(ct);
+        foreach (var clave in claves.Where(c => !string.IsNullOrEmpty(c)))
+        {
+            try { await _almacen.EliminarAsync(clave, CancellationToken.None); }
+            catch { /* La persona ya se eliminó: un archivo que no se pudo borrar solo queda huérfano. */ }
+        }
     }
 
     public async Task<ComentarioDto> ComentarAsync(int personaId, ComentarioRequest r, CancellationToken ct = default)

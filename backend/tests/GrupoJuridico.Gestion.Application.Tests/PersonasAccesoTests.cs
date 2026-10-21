@@ -1181,7 +1181,14 @@ public class PersonasAccesoTests
     }
 
     private static PersonasService CrearServicio(TestDb db, string rol) =>
-        new(db, new UsuarioPrueba(rol), new IdentityPrueba(), new FechaPrueba(), new ActualizadorCobros(db, new FechaPrueba()));
+        new(db, new UsuarioPrueba(rol), new IdentityPrueba(), new FechaPrueba(), new ActualizadorCobros(db, new FechaPrueba()), new AlmacenVacio());
+
+    private sealed class AlmacenVacio : IAlmacenArchivos
+    {
+        public Task<string> GuardarAsync(Stream contenido, string extension, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Stream?> AbrirAsync(string clave, CancellationToken ct = default) => Task.FromResult<Stream?>(null);
+        public Task EliminarAsync(string clave, CancellationToken ct = default) => Task.CompletedTask;
+    }
 
     private sealed class UsuarioPrueba(string rol) : IUsuarioActual
     {
@@ -1234,8 +1241,10 @@ public class PersonasAccesoTests
         public DbSet<PlanPago> PlanesPago => Set<PlanPago>();
         public DbSet<Cuota> Cuotas => Set<Cuota>();
         public DbSet<Pago> Pagos => Set<Pago>();
-        public DbSet<ArchivoPago> ArchivosPago => Set<ArchivoPago>();
         public DbSet<PromesaPago> PromesasPago => Set<PromesaPago>();
+        public DbSet<TipoDocumento> TiposDocumento => Set<TipoDocumento>();
+        public DbSet<PermisoDocumento> PermisosDocumento => Set<PermisoDocumento>();
+        public DbSet<ArchivoPersona> ArchivosPersona => Set<ArchivoPersona>();
         public DbSet<EstadoCuotaPago> EstadosCuotaPago => Set<EstadoCuotaPago>();
         public DbSet<EstadoCuotaVencimiento> EstadosCuotaVencimiento => Set<EstadoCuotaVencimiento>();
         public DbSet<EstadoPromesa> EstadosPromesa => Set<EstadoPromesa>();

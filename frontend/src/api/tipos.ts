@@ -37,9 +37,11 @@ export interface Catalogos {
   estadosCuotaPago: CatalogoItem[]
   estadosCuotaVencimiento: CatalogoItem[]
   estadosPromesa: CatalogoItem[]
+  /** Tipos de documento de los archivos del expediente. */
+  tiposDocumento: CatalogoItem[]
 }
 
-export type TipoCatalogo = 'vendedores' | 'procedencias' | 'metodos' | 'estados-prima' | 'origenes' | 'estados-cliente' | 'paises' | 'parentescos'
+export type TipoCatalogo = 'vendedores' | 'procedencias' | 'metodos' | 'estados-prima' | 'origenes' | 'estados-cliente' | 'paises' | 'parentescos' | 'tipos-documento'
 
 export interface FiltrosLista {
   q: string
@@ -329,6 +331,34 @@ export interface CrearPlan {
   cantidadCuotas: number
   fechaInicio: string | null
   diaPago: number
+}
+
+// ---------- Archivos del expediente ----------
+
+export interface ArchivoDto {
+  id: number
+  tipoDocumentoId: number
+  nombre: string
+  tamano: number
+  fechaCarga: string
+  /** Solo quien puede subir ese tipo de documento puede quitarlo (los comprobantes de un pago, nunca desde aquí). */
+  puedeEliminar: boolean
+  /** Número de cuota si es el comprobante de un pago de Cobros. */
+  cuotaPago?: number | null
+}
+
+export interface ArchivosPersona {
+  /** Solo los tipos de documento que el rol puede ver. */
+  archivos: ArchivoDto[]
+  /** Tipos de documento que el rol puede subir (vacío si no es cliente). */
+  tiposSubir: number[]
+}
+
+export interface PermisoDocumento {
+  tipoDocumentoId: number
+  rol: Rol
+  puedeVer: boolean
+  puedeSubir: boolean
 }
 
 /** Respuesta de error de ASP.NET Core (ValidationProblemDetails). */

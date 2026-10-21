@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { mensajeDe } from '../../api/cliente'
 import { api } from '../../api/endpoints'
-import type { CatalogoItem, TipoCatalogo } from '../../api/tipos'
+import type { CatalogoItem, PermisoDocumento, Rol, TipoCatalogo } from '../../api/tipos'
 import { useSesion } from '../../auth/Sesion'
 import { BasureroFino, Chevron, Mas } from '../../components/Iconos'
 
@@ -9,7 +9,7 @@ interface DefCatalogo {
   /** Null en los catálogos de solo lectura que no se editan desde aquí. */
   tipo: TipoCatalogo | null
   clave: 'vendedores' | 'procedencias' | 'metodos' | 'estadosPrima' | 'origenes' | 'estadosCliente' | 'paises' | 'parentescos' | 'roles'
-    | 'estadosCuotaPago' | 'estadosCuotaVencimiento' | 'estadosPromesa'
+    | 'estadosCuotaPago' | 'estadosCuotaVencimiento' | 'estadosPromesa' | 'tiposDocumento'
   titulo: string
   sing: string
   plur: string
@@ -23,7 +23,7 @@ interface DefCatalogo {
   codigoAyuda?: string
 }
 
-const GRUPOS: { titulo: string; interes?: boolean; catalogos: DefCatalogo[] }[] = [
+const GRUPOS: { titulo: string; interes?: boolean; permisos?: boolean; catalogos: DefCatalogo[] }[] = [
   {
     titulo: 'Ventas',
     interes: true,
@@ -64,6 +64,13 @@ const GRUPOS: { titulo: string; interes?: boolean; catalogos: DefCatalogo[] }[] 
   {
     titulo: 'Usuarios',
     catalogos: [{ tipo: null, clave: 'roles', titulo: 'Roles', sing: 'rol', plur: 'roles', soloLectura: true }],
+  },
+  {
+    titulo: 'Archivos',
+    permisos: true,
+    catalogos: [
+      { tipo: 'tipos-documento', clave: 'tiposDocumento', titulo: 'Tipos de documento', sing: 'tipo', plur: 'tipos', agregar: 'Agregar tipo de documento' },
+    ],
   },
 ]
 
@@ -239,6 +246,87 @@ function InteresMora() {
   )
 }
 
+const clavePermiso = (tipoId: number, rol: string) => tipoId + '|' + rol
+
+/** Matriz Subir / Ver por tipo de documento y rol. Cada casilla se guarda al marcarla; subir implica ver. */
+function PermisosDocumento({ abierto, onToggle }: { abierto: boolean; onToggle: () => void }) {
+  const { catalogos } = useSesion()
+  const tipos = (catalogos?.tiposDocumento ?? []).filter((t) => t.nombre.trim())
+  const roles = catalogos?.roles ?? []
+  const [permisos, setPermisos] = useState<Record<string, PermisoDocumento>>({})
+  const [error, setError] = useState('')
+
+  // Se lee al abrir, para incluir los tipos agregados mientras tanto.
+  useEffect(() => {
+    if (!abierto) return
+    let vivo = true
+    api.permisosDocumento()
+      .then((lista) => vivo && setPermisos(Object.fromEntries(lista.map((p) => [clavePermiso(p.tipoDocumentoId, p.rol), p]))))
+      .catch((e) => vivo && setError(mensajeDe(e, 'No se pudieron cargar los permisos.')))
+    return () => {
+      vivo = false
+    }
+  }, [abierto])
+
+  const cambiar = (tipoId: number, rol: Rol, campo: 'puedeVer' | 'puedeSubir') => {
+    const actual = permisos[clavePermiso(tipoId, rol)] ?? { tipoDocumentoId: tipoId, rol, puedeVer: false, puedeSubir: false }
+    const nuevo = { ...actual, [campo]: !actual[campo] }
+    if (nuevo.puedeSubir) nuevo.puedeVer = true
+    setPermisos((ps) => ({ ...ps, [clavePermiso(tipoId, rol)]: nuevo }))
+    setError('')
+    api.guardarPermisoDocumento(nuevo)
+      .then((g) => setPermisos((ps) => ({ ...ps, [clavePermiso(g.tipoDocumentoId, g.rol)]: g })))
+      .catch((e) => {
+        setPermisos((ps) => ({ ...ps, [clavePermiso(tipoId, rol)]: actual }))
+        setError(mensajeDe(e, 'No se pudo guardar el permiso.'))
+      })
+  }
+
+  return (
+    <div className="tarjeta" style={{ overflow: 'hidden' }}>
+      <button className="plegable-cabecera" onClick={onToggle}>
+        <span>Permisos por tipo de documento</span>
+        <span className="plegable-resumen">
+          <span>{tipos.length} {tipos.length === 1 ? 'tipo' : 'tipos'} · {roles.length} {roles.length === 1 ? 'rol' : 'roles'}</span>
+          <Chevron color="var(--gold)" estilo={{ transition: 'transform 0.15s', transform: abierto ? 'rotate(180deg)' : 'none', flex: 'none' }} />
+        </span>
+      </button>
+      {abierto && (
+        <div className="plegable-cuerpo" style={{ overflowX: 'auto' }}>
+          <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--ink2)', maxWidth: '70ch' }}>
+            Marque qué rol puede subir y qué rol puede ver cada tipo de documento. Si un rol puede subir un tipo de documento, siempre puede verlo
+            (y también quitar sus archivos).
+          </p>
+          <div className="permisos-grilla" style={{ gridTemplateColumns: `minmax(140px, 1.2fr) repeat(${roles.length}, minmax(150px, 1fr))` }}>
+            <span className="permisos-cabecera">Tipo de documento</span>
+            {roles.map((r) => <span key={r.id} className="permisos-cabecera">{r.nombre}</span>)}
+            {tipos.map((t) => [
+              <span key={t.id} style={{ fontSize: 13, fontWeight: 600 }}>{t.nombre}</span>,
+              ...roles.map((r) => {
+                const p = permisos[clavePermiso(t.id, r.nombre)]
+                const subir = !!p?.puedeSubir
+                return (
+                  <span key={t.id + '-' + r.id} className="permisos-celda">
+                    <label>
+                      <input type="checkbox" checked={subir} aria-label={`${r.nombre} puede subir ${t.nombre}`} onChange={() => cambiar(t.id, r.nombre, 'puedeSubir')} />
+                      Subir
+                    </label>
+                    <label className={subir ? 'bloqueado' : undefined} title={subir ? 'Si puede subir, siempre puede ver' : undefined}>
+                      <input type="checkbox" checked={subir || !!p?.puedeVer} disabled={subir} aria-label={`${r.nombre} puede ver ${t.nombre}`} onChange={() => cambiar(t.id, r.nombre, 'puedeVer')} />
+                      Ver
+                    </label>
+                  </span>
+                )
+              }),
+            ])}
+          </div>
+          {error && <p className="texto-error">{error}</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ConfiguracionPage() {
   // Todas las tarjetas entran colapsadas.
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>({})
@@ -258,6 +346,7 @@ export function ConfiguracionPage() {
               <Catalogo key={c.clave} def={c} abierto={!!abiertos[c.clave]} onToggle={() => setAbiertos((a) => ({ ...a, [c.clave]: !a[c.clave] }))} />
             ))}
             {g.interes && <InteresMora />}
+            {g.permisos && <PermisosDocumento abierto={!!abiertos.permisos} onToggle={() => setAbiertos((a) => ({ ...a, permisos: !a.permisos }))} />}
           </div>
         ))}
       </div>

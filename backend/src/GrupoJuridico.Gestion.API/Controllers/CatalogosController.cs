@@ -18,7 +18,7 @@ public class CatalogosController : ControllerBase
     [HttpGet]
     public Task<CatalogosDto> Obtener(CancellationToken ct) => _catalogos.ObtenerAsync(ct);
 
-    /// <summary>tipo: vendedores, procedencias, metodos, estados-prima, origenes, estados-cliente, paises, parentescos.</summary>
+    /// <summary>tipo: vendedores, procedencias, metodos, estados-prima, origenes, estados-cliente, paises, parentescos, tipos-documento.</summary>
     [Authorize(Roles = Roles.Administrador)]
     [HttpPost("{tipo}")]
     public Task<CatalogoItemDto> Crear(string tipo, GuardarCatalogoItemRequest request, CancellationToken ct) =>

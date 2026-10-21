@@ -79,20 +79,11 @@ public class Pago : BaseEntity
     public Cuota? Cuota { get; set; }
     public decimal MontoPago { get; set; }
     public DateOnly FechaPago { get; set; }
-    public List<ArchivoPago> Archivos { get; set; } = new();
-}
-
-/// <summary>Comprobante de un pago. El archivo se guarda en el almacenamiento con una clave interna.</summary>
-public class ArchivoPago : BaseEntity
-{
-    public int PagoId { get; set; }
-    /// <summary>Nombre original del archivo (solo para mostrar y descargar).</summary>
-    public string Nombre { get; set; } = string.Empty;
-    public string TipoContenido { get; set; } = string.Empty;
-    public long Tamano { get; set; }
-    public DateOnly FechaCarga { get; set; }
-    /// <summary>Clave del archivo en el almacenamiento; vacía en los datos de demostración.</summary>
-    public string Clave { get; set; } = string.Empty;
+    /// <summary>
+    /// Comprobante del pago: es un archivo del expediente del cliente, de tipo "Comprobantes de pago"
+    /// (<see cref="TipoDocumento.CodigoComprobantesPago"/>).
+    /// </summary>
+    public List<ArchivoPersona> Comprobantes { get; set; } = new();
 }
 
 /// <summary>Acuerdo del cliente para pagar una cuota en una fecha. Los pagos posteriores se suman a la promesa pendiente.</summary>

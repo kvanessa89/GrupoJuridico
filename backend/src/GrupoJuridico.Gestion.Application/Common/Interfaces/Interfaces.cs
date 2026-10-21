@@ -29,8 +29,10 @@ public interface IApplicationDbContext
     DbSet<PlanPago> PlanesPago { get; }
     DbSet<Cuota> Cuotas { get; }
     DbSet<Pago> Pagos { get; }
-    DbSet<ArchivoPago> ArchivosPago { get; }
     DbSet<PromesaPago> PromesasPago { get; }
+    DbSet<TipoDocumento> TiposDocumento { get; }
+    DbSet<PermisoDocumento> PermisosDocumento { get; }
+    DbSet<ArchivoPersona> ArchivosPersona { get; }
     DbSet<EstadoCuotaPago> EstadosCuotaPago { get; }
     DbSet<EstadoCuotaVencimiento> EstadosCuotaVencimiento { get; }
     DbSet<EstadoPromesa> EstadosPromesa { get; }

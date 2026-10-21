@@ -33,8 +33,10 @@ public class ApplicationDbContext : IdentityDbContext<Usuario, Rol, int>, IAppli
     public DbSet<PlanPago> PlanesPago => Set<PlanPago>();
     public DbSet<Cuota> Cuotas => Set<Cuota>();
     public DbSet<Pago> Pagos => Set<Pago>();
-    public DbSet<ArchivoPago> ArchivosPago => Set<ArchivoPago>();
     public DbSet<PromesaPago> PromesasPago => Set<PromesaPago>();
+    public DbSet<TipoDocumento> TiposDocumento => Set<TipoDocumento>();
+    public DbSet<PermisoDocumento> PermisosDocumento => Set<PermisoDocumento>();
+    public DbSet<ArchivoPersona> ArchivosPersona => Set<ArchivoPersona>();
     public DbSet<EstadoCuotaPago> EstadosCuotaPago => Set<EstadoCuotaPago>();
     public DbSet<EstadoCuotaVencimiento> EstadosCuotaVencimiento => Set<EstadoCuotaVencimiento>();
     public DbSet<EstadoPromesa> EstadosPromesa => Set<EstadoPromesa>();

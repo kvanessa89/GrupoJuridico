@@ -1,5 +1,6 @@
 using System.Globalization;
 using FluentValidation;
+using GrupoJuridico.Gestion.Application.Archivos;
 using GrupoJuridico.Gestion.Application.Auth;
 using GrupoJuridico.Gestion.Application.Catalogos;
 using GrupoJuridico.Gestion.Application.Cobros;
@@ -23,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<PersonasService>();
         services.AddScoped<ActualizadorCobros>();
         services.AddScoped<CobrosService>();
+        services.AddScoped<ArchivosService>();
         return services;
     }
 }

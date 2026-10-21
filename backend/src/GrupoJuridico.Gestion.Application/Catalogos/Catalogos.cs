@@ -6,6 +6,7 @@ using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
 using GrupoJuridico.Gestion.Application.Usuarios;
 using GrupoJuridico.Gestion.Domain.Common;
+using GrupoJuridico.Gestion.Domain.Constants;
 using GrupoJuridico.Gestion.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,7 +27,8 @@ public record CatalogosDto(
     decimal InteresMora,
     IReadOnlyList<CatalogoItemDto> EstadosCuotaPago,
     IReadOnlyList<CatalogoItemDto> EstadosCuotaVencimiento,
-    IReadOnlyList<CatalogoItemDto> EstadosPromesa);
+    IReadOnlyList<CatalogoItemDto> EstadosPromesa,
+    IReadOnlyList<CatalogoItemDto> TiposDocumento);
 
 public record GuardarCatalogoItemRequest(string Nombre, string? Codigo, string? Apellidos);
 
@@ -46,7 +48,7 @@ public class GuardarCatalogoItemValidator : AbstractValidator<GuardarCatalogoIte
 public class CatalogosService
 {
     /// <summary>Tipos de catálogo expuestos por la API (segmento de la ruta).</summary>
-    public static readonly string[] Tipos = { "vendedores", "procedencias", "metodos", "estados-prima", "origenes", "estados-cliente", "paises", "parentescos" };
+    public static readonly string[] Tipos = { "vendedores", "procedencias", "metodos", "estados-prima", "origenes", "estados-cliente", "paises", "parentescos", "tipos-documento" };
 
     private readonly IApplicationDbContext _db;
     private readonly IIdentityService _identity;
@@ -81,7 +83,8 @@ public class CatalogosService
             // Estados de Cobros: solo lectura, se calculan de los pagos y fechas.
             (await _db.EstadosCuotaPago.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             (await _db.EstadosCuotaVencimiento.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
-            (await _db.EstadosPromesa.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList());
+            (await _db.EstadosPromesa.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
+            (await _db.TiposDocumento.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList());
     }
 
     public async Task<CatalogoItemDto> CrearAsync(string tipo, GuardarCatalogoItemRequest request, CancellationToken ct = default)
@@ -121,6 +124,13 @@ public class CatalogosService
                 return await AgregarAsync(_db.Parentescos, new Parentesco { Nombre = nombre }, ct, "PA-");
             case "paises":
                 return await AgregarAsync(_db.Paises, new Pais { Codigo = Prefijo(request.Codigo), Nombre = nombre }, ct);
+            case "tipos-documento":
+            {
+                // Un tipo nuevo empieza solo con el Administrador; los demás roles se habilitan en la matriz de permisos.
+                var tipoDoc = new TipoDocumento { Nombre = nombre };
+                tipoDoc.Permisos.Add(new PermisoDocumento { Rol = Roles.Administrador, PuedeVer = true, PuedeSubir = true });
+                return await AgregarAsync(_db.TiposDocumento, tipoDoc, ct, "TD-");
+            }
             case "estados-prima":
                 throw new ValidacionException("tipo", "Los estados de prima son fijos: solo se puede cambiar su nombre.");
             default:
@@ -141,6 +151,7 @@ public class CatalogosService
             "estados-cliente" => await _db.EstadosCliente.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Estado del cliente", id),
             "paises" => await _db.Paises.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("País", id),
             "parentescos" => await _db.Parentescos.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Parentesco", id),
+            "tipos-documento" => await _db.TiposDocumento.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Tipo de documento", id),
             _ => throw new NoEncontradoException("Catálogo", tipo)
         };
         item.Nombre = request.Nombre.Trim();
@@ -213,6 +224,16 @@ public class CatalogosService
                     + await _db.Familiares.CountAsync(f => f.TelefonoPaisId == id, ct);
                 if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} teléfono(s) usan este país.");
                 _db.Paises.Remove(x);
+                break;
+            }
+            case "tipos-documento":
+            {
+                var x = await _db.TiposDocumento.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Tipo de documento", id);
+                if (x.Codigo == TipoDocumento.CodigoComprobantesPago)
+                    throw new ValidacionException("id", "Este tipo lo usan los comprobantes de pago de Cobros y no se puede eliminar; sí se puede renombrar.");
+                var enUso = await _db.ArchivosPersona.CountAsync(a => a.TipoDocumentoId == id, ct);
+                if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} archivo(s) tienen este tipo de documento.");
+                _db.TiposDocumento.Remove(x);
                 break;
             }
             case "estados-prima":

@@ -1,3 +1,4 @@
+using GrupoJuridico.Gestion.Application.Archivos;
 using GrupoJuridico.Gestion.Application.Cobros;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
@@ -31,6 +32,11 @@ public sealed class CobrosServiceTests : IDisposable
         db.EstadosCuotaPago.AddRange(new EstadoCuotaPago { Id = 1, Nombre = "Pendiente" }, new EstadoCuotaPago { Id = 2, Nombre = "Parcial" }, new EstadoCuotaPago { Id = 3, Nombre = "Pagada" });
         db.EstadosCuotaVencimiento.AddRange(new EstadoCuotaVencimiento { Id = 1, Nombre = "Al día" }, new EstadoCuotaVencimiento { Id = 2, Nombre = "Vencido" });
         db.EstadosPromesa.AddRange(new EstadoPromesa { Id = 1, Nombre = "Pendiente" }, new EstadoPromesa { Id = 2, Nombre = "Cumplida" }, new EstadoPromesa { Id = 3, Nombre = "Incumplida" });
+        // Tipo de los comprobantes (lo crea la carga inicial): Administrador y Cobros suben y ven.
+        var comprobantes = new TipoDocumento { Codigo = TipoDocumento.CodigoComprobantesPago, Nombre = "Comprobantes de pago" };
+        foreach (var rol in new[] { Roles.Administrador, Roles.Cobros })
+            comprobantes.Permisos.Add(new PermisoDocumento { Rol = rol, PuedeVer = true, PuedeSubir = true });
+        db.TiposDocumento.Add(comprobantes);
         db.Configuracion.Add(new ConfiguracionSistema { Clave = ConfiguracionSistema.InteresMora, Valor = "2.5" });
         db.SaveChanges();
     }
@@ -189,10 +195,35 @@ public sealed class CobrosServiceTests : IDisposable
         Assert.DoesNotContain(anterior, _almacen.Archivos.Keys);
         Assert.Equal("b.pdf", r.Plan!.Cuotas[0].Pagos[0].Comprobantes.Single().Nombre);
 
-        var (contenido, nombre, tipo) = await s.ComprobanteAsync(r.Plan.Cuotas[0].Pagos[0].Comprobantes[0].Id);
+        // El comprobante es un archivo del expediente: se descarga como cualquier archivo y el anterior ya no está.
+        var archivos = new ArchivosService(db, new UsuarioPrueba(Roles.Cobros), new FechaPrueba(), _almacen);
+        var (contenido, nombre, tipo) = await archivos.DescargarAsync(r.Plan.Cuotas[0].Pagos[0].Comprobantes[0].Id);
         Assert.Equal("b.pdf", nombre);
         Assert.Equal("application/pdf", tipo);
         Assert.Equal(4, contenido.Length);
+        Assert.Equal(1, await db.ArchivosPersona.CountAsync());
+    }
+
+    [Fact]
+    public async Task El_comprobante_queda_en_los_archivos_del_cliente_y_no_se_quita_desde_ahi()
+    {
+        var (personaId, dto) = await PlanConCuotaVencidaAsync();
+        using var db = Db();
+        var r = await Servicio(db).RegistrarPagoAsync(dto.Plan!.Cuotas[0].Id, new RegistrarPagoRequest(1000m, Hoy, true), Pdf("recibo.pdf"));
+        var comprobanteId = r.Plan!.Cuotas[0].Pagos[0].Comprobantes.Single().Id;
+
+        var archivos = new ArchivosService(db, new UsuarioPrueba(Roles.Cobros), new FechaPrueba(), _almacen);
+        var lista = await archivos.ListarAsync(personaId);
+        var archivo = Assert.Single(lista.Archivos);
+        Assert.Equal(comprobanteId, archivo.Id);
+        Assert.Equal("recibo.pdf", archivo.Nombre);
+        Assert.Equal(1, archivo.CuotaPago);
+        Assert.False(archivo.PuedeEliminar);
+        Assert.Equal(TipoDocumento.CodigoComprobantesPago, (await db.TiposDocumento.SingleAsync(t => t.Id == archivo.TipoDocumentoId)).Codigo);
+
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => archivos.EliminarAsync(comprobanteId));
+        Assert.Contains("cuota 1", ex.Errores["archivo"][0]);
+        Assert.Single(_almacen.Archivos);
     }
 
     [Fact]

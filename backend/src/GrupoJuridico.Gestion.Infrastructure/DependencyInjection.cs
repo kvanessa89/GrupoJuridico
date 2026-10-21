@@ -48,7 +48,14 @@ public static class DependencyInjection
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddSingleton<IFechaActual, FechaActual>();
-        services.AddSingleton<IAlmacenArchivos, AlmacenArchivosLocal>();
+        // Archivos (comprobantes y documentos del expediente): disco del servidor o Cloudflare R2.
+        var proveedor = configuration[$"{AlmacenArchivosOptions.Seccion}:Proveedor"] ?? AlmacenArchivosOptions.ProveedorLocal;
+        if (proveedor.Equals(AlmacenArchivosOptions.ProveedorR2, StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<IAlmacenArchivos, AlmacenArchivosR2>();
+        else if (proveedor.Equals(AlmacenArchivosOptions.ProveedorLocal, StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<IAlmacenArchivos, AlmacenArchivosLocal>();
+        else
+            throw new InvalidOperationException($"Archivos:Proveedor debe ser 'Local' o 'R2' (se recibió '{proveedor}').");
         services.AddScoped<DbSeeder>();
         return services;
     }
