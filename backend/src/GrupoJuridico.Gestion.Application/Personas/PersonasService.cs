@@ -1,4 +1,4 @@
-using GrupoJuridico.Gestion.Application.Cobros;
+﻿using GrupoJuridico.Gestion.Application.Cobros;
 using GrupoJuridico.Gestion.Application.Common;
 using GrupoJuridico.Gestion.Application.Common.Exceptions;
 using GrupoJuridico.Gestion.Application.Common.Interfaces;
@@ -231,7 +231,8 @@ public class PersonasService
                     DateTime.SpecifyKind(c.Fecha, DateTimeKind.Utc), c.UsuarioId == _usuario.Id);
             }).ToList(), p.Versiones.ToDictionary(x => x.Seccion, x => x.Version),
             p.NumeroPrincipal(TipoNumero.Telefono)?.PaisId,
-            p.NumeroPrincipal(TipoNumero.WhatsApp)?.PaisId);
+            p.NumeroPrincipal(TipoNumero.WhatsApp)?.PaisId,
+            p.Fincas.OrderBy(f => f.Id).Select(f => new FincaDto(f.Id, f.Numero)).ToList());
     }
 
     public async Task<PersonaDetalleDto> CrearProspectoAsync(CrearProspectoRequest r, CancellationToken ct = default)
@@ -300,6 +301,8 @@ public class PersonasService
     {
         var p = await CargarAsync(id, ct);
         await _datosValidator.ValidarAsync(r, ct);
+        if (r.Finca == null && !p.EsCliente)
+            throw new ValidacionException(nameof(r.Finca), "Campo requerido.");
         ValidarIdCatalogo(r.TelefonoPrincipalPaisId, nameof(r.TelefonoPrincipalPaisId));
         ValidarIdCatalogo(r.WhatsappPrincipalPaisId, nameof(r.WhatsappPrincipalPaisId));
         ValidarIdCatalogo(r.EstadoClienteId, nameof(r.EstadoClienteId));
@@ -335,10 +338,13 @@ public class PersonasService
         p.FechaIngreso = r.FechaIngreso;
         p.VendedorId = r.VendedorId is > 0 ? r.VendedorId : null;
 
-        // Una persona tiene una sola finca.
-        var finca = p.Finca;
-        if (finca == null) p.Fincas.Add(new Finca { Numero = r.Finca?.Trim() ?? "" });
-        else finca.Numero = r.Finca?.Trim() ?? "";
+        // El prospecto edita una sola finca (la primera); el cliente las edita todas en ReemplazarFincasAsync.
+        if (r.Finca != null)
+        {
+            var finca = p.Finca;
+            if (finca == null) p.Fincas.Add(new Finca { Numero = r.Finca.Trim() });
+            else finca.Numero = r.Finca.Trim();
+        }
 
         if (r.TelefonoPrincipal != null || r.WhatsappPrincipal != null)
         {
@@ -463,6 +469,40 @@ public class PersonasService
         return resultado.Select(c => new CorreoDto(c.Id, c.Correo, c.Principal)).ToList();
     }
 
+    /// <summary>Reemplaza la lista de fincas. Queda al menos una, sin repetir el número.</summary>
+    public async Task<IReadOnlyList<FincaDto>> ReemplazarFincasAsync(int id, IReadOnlyList<FincaItem> items, CancellationToken ct = default, Guid? version = null)
+    {
+        for (var indice = 0; indice < items.Count; indice++)
+        {
+            var numero = items[indice].Numero?.Trim() ?? "";
+            if (numero.Length == 0)
+                throw new ValidacionException($"fincas[{indice}].numero", "Complete la finca o quite la fila vacía.");
+            if (!Validacion.FincaValida(numero))
+                throw new ValidacionException($"fincas[{indice}].numero", Validacion.MensajeFinca);
+        }
+        var p = await CargarAsync(id, ct);
+        ValidarIdsPropios(items.Select(i => i.Id), p.Fincas.Select(x => x.Id), "fincas");
+        if (items.Count == 0) throw new ValidacionException("fincas", "Ingrese al menos una finca.");
+        var vistas = new HashSet<string>();
+        for (var indice = 0; indice < items.Count; indice++)
+            if (!vistas.Add(items[indice].Numero!.Trim()))
+                throw new ValidacionException($"fincas[{indice}].numero", "La finca ya está en la lista.");
+        ValidarCantidad(items.Count, Persona.MaxFincas, "fincas", "fincas");
+        await PrepararVersionAsync(p, "datos", version);
+        var conservar = items.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
+        _db.Fincas.RemoveRange(p.Fincas.Where(f => !conservar.Contains(f.Id)));
+        var resultado = new List<Finca>();
+        foreach (var i in items)
+        {
+            var f = i.Id > 0 ? p.Fincas.FirstOrDefault(x => x.Id == i.Id) : null;
+            if (f == null) { f = new Finca { PersonaId = p.Id }; _db.Fincas.Add(f); }
+            f.Numero = i.Numero!.Trim();
+            resultado.Add(f);
+        }
+        await _db.SaveChangesAsync(ct);
+        return resultado.Select(f => new FincaDto(f.Id, f.Numero)).ToList();
+    }
+
     public async Task<IReadOnlyList<FamiliarDto>> ReemplazarFamiliaresAsync(int id, IReadOnlyList<FamiliarItem> items, CancellationToken ct = default, Guid? version = null)
     {
         // La validación conserva la ruta de cada fila de la solicitud.
@@ -508,7 +548,7 @@ public class PersonasService
         return await ObtenerAsync(id, ct);
     }
 
-    /// <summary>Borra la persona con su venta, prima, contactos, finca, familiares, comentarios y cliente.</summary>
+    /// <summary>Borra la persona con su venta, prima, contactos, fincas, familiares, comentarios y cliente.</summary>
     public async Task EliminarAsync(int id, CancellationToken ct = default)
     {
         if (!_usuario.EsAdministrador) throw new ProhibidoException();

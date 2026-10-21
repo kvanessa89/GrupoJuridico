@@ -1,6 +1,6 @@
 import { http } from './cliente'
 import type {
-  ArchivosPersona, Catalogos, CobrosFiltros, CobrosLista, CrearPlan, PlanPersona, CatalogoItem, ClientesLista, ComentarioDto, CorreoDto, CrearProspecto, FamiliarDto, FiltrosLista,
+  ArchivosPersona, Catalogos, CobrosFiltros, CobrosLista, CrearPlan, PlanPersona, CatalogoItem, ClientesLista, ComentarioDto, CorreoDto, CrearProspecto, FamiliarDto, FincaDto, FiltrosLista,
   LoginResponse, NumeroDto, PermisoDocumento, PersonaDetalle, PrimaDto, TipoCatalogo, Usuario, VentaDto, VentasLista,
 } from './tipos'
 
@@ -61,6 +61,7 @@ export const api = {
     http.put<PrimaDto>(`/personas/${id}/prima`, prima, condicion(version)).then(versionado),
   guardarNumeros: (id: number, numeros: NumeroDto[], version: string) => http.put<NumeroDto[]>(`/personas/${id}/numeros`, numeros, condicion(version)).then(versionado),
   guardarCorreos: (id: number, correos: CorreoDto[], version: string) => http.put<CorreoDto[]>(`/personas/${id}/correos`, correos, condicion(version)).then(versionado),
+  guardarFincas: (id: number, fincas: FincaDto[], version: string) => http.put<FincaDto[]>(`/personas/${id}/fincas`, fincas, condicion(version)).then(versionado),
   guardarFamiliares: (id: number, familiares: FamiliarDto[], version: string) =>
     http.put<FamiliarDto[]>(`/personas/${id}/familiares`, familiares, condicion(version)).then(versionado),
   convertir: (id: number, datos: { expediente: string | null; origenClienteId: number | null; estadoClienteId: number | null }, version: string) =>

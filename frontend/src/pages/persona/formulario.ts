@@ -1,6 +1,6 @@
 import { errorTelefono, type PaisTelefono } from '../../utils/telefonos.ts'
-import type { CorreoDto, CrearProspecto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
-import { limiteFamiliares, limiteNumeros, limiteCorreos } from './limitesContactos.ts'
+import type { CorreoDto, CrearProspecto, FamiliarDto, FincaDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
+import { limiteFamiliares, limiteFincas, limiteNumeros, limiteCorreos } from './limitesContactos.ts'
 import { estadoDePrima, hoyIso, num } from '../../utils/formato.ts'
 
 /** Estado editable de la ficha. Los montos y selects se guardan como texto, igual que en los campos. */
@@ -9,6 +9,7 @@ export interface FormPersona {
     nombres: string
     apellidos: string
     cedula: string
+    /** Finca única del prospecto; el cliente usa `fincas`. */
     finca: string
     expediente: string
     fechaIngreso: string
@@ -26,6 +27,7 @@ export interface FormPersona {
   prima: { monto: string; montoCancelado: string; fechaEstimadaPago: string; fechaPago: string }
   numeros: NumeroDto[]
   correos: CorreoDto[]
+  fincas: FincaDto[]
   familiares: FamiliarDto[]
 }
 
@@ -44,6 +46,7 @@ export function formVacio(): FormPersona {
     prima: { monto: '0', montoCancelado: '0', fechaEstimadaPago: hoy, fechaPago: '' },
     numeros: [],
     correos: [],
+    fincas: [],
     familiares: [],
   }
 }
@@ -68,6 +71,7 @@ export function formDesde(p: PersonaDetalle): FormPersona {
     },
     numeros: p.numeros,
     correos: p.correos,
+    fincas: p.fincas,
     familiares: p.familiares,
   }
 }
@@ -85,11 +89,11 @@ export function faltaFechaPago(f: FormPersona): boolean {
   return primaCalculada(f).estado === 3 && !f.prima.fechaPago.trim()
 }
 
-/** Datos para PUT /personas/{id}/datos. Los contactos principales solo se envían para prospectos. */
+/** Datos para PUT /personas/{id}/datos. Los contactos principales y la finca solo se envían para prospectos. */
 export function payloadDatos(f: FormPersona, esCliente: boolean) {
   const d = f.datos
   return {
-    nombres: d.nombres, apellidos: d.apellidos, cedula: d.cedula, finca: d.finca, expediente: d.expediente,
+    nombres: d.nombres, apellidos: d.apellidos, cedula: d.cedula, finca: esCliente ? null : d.finca, expediente: d.expediente,
     fechaIngreso: d.fechaIngreso, vendedorId: idONull(d.vendedorId),
     telefonoPrincipal: esCliente ? null : d.telefonoPrincipal,
     whatsappPrincipal: esCliente ? null : d.whatsappPrincipal,
@@ -207,6 +211,23 @@ function fechaValida(v: string): boolean {
     !isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v
 }
 
+const fincaValida = (v: string) => /^[0-9]{2}-[0-9]{5}$/.test(v.trim())
+export const MSG_FINCA_VACIA = 'Complete la finca o quite la fila vacía.'
+export const MSG_FINCA_REPETIDA = 'La finca ya está en la lista.'
+
+/** Error de una fila de la lista de fincas del cliente. */
+export function errorFinca(fincas: FincaDto[], i: number): string | undefined {
+  const numero = fincas[i].numero.trim()
+  if (!numero) return MSG_FINCA_VACIA
+  if (!fincaValida(numero)) return MSG_FINCA
+  if (fincas.slice(0, i).some(x => x.numero.trim() === numero)) return MSG_FINCA_REPETIDA
+}
+
+export function errorFincas(fincas: FincaDto[]): string | undefined {
+  return limiteFincas(fincas) ?? (fincas.length === 0 ? 'Ingrese al menos una finca.' :
+    fincas.map((_, i) => errorFinca(fincas, i)).find(Boolean))
+}
+
 export function errorExpediente(v: string): string | undefined {
   if (v.trim() && !/^[0-9]{2}-[0-9]{6}-[0-9]{4}-[A-Za-z]{2}$/.test(v.trim())) return MSG_EXPEDIENTE
 }
@@ -214,8 +235,11 @@ export function errorExpediente(v: string): string | undefined {
 export function erroresDatos(f: FormPersona, esCliente: boolean, paises: readonly PaisTelefono[] = []): Record<string, string> {
   const e: Record<string, string> = {}
   const d = f.datos
-  for (const k of ['nombres', 'apellidos', 'cedula', 'finca'] as const) if (vacio(d[k])) e[k] = 'Campo requerido.'
-  if (d.finca.trim() && !/^[0-9]{2}-[0-9]{5}$/.test(d.finca.trim())) e.finca = MSG_FINCA
+  for (const k of ['nombres', 'apellidos', 'cedula'] as const) if (vacio(d[k])) e[k] = 'Campo requerido.'
+  if (!esCliente) {
+    if (vacio(d.finca)) e.finca = 'Campo requerido.'
+    else if (!fincaValida(d.finca)) e.finca = MSG_FINCA
+  }
   const expediente = errorExpediente(d.expediente)
   if (expediente) e.expediente = expediente
   if (!fechaValida(d.fechaIngreso)) e.fechaIngreso = 'Ingrese una fecha válida.'

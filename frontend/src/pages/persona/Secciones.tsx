@@ -1,14 +1,14 @@
 let siguienteIdLocal = -1
 import { useState } from 'react'
-import type { ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, TipoNumero } from '../../api/tipos'
+import type { ComentarioDto, CorreoDto, FamiliarDto, FincaDto, NumeroDto, TipoNumero } from '../../api/tipos'
 import { Select, TarjetaSeccion, Telefono } from '../../components/Controles'
-import { BasureroLleno, Estrella } from '../../components/Iconos'
+import { BasureroLleno, Estrella, IconoWhatsApp, Llamar } from '../../components/Iconos'
 import { useSesion } from '../../auth/Sesion'
 import { colorAutor } from '../../utils/colores'
-import { fFecha, iniciales } from '../../utils/formato'
-import { correoValido, faltaNombreFamiliar, faltaContactoFamiliar, MSG_CONTACTO_FAMILIAR, MAX_CORREO, MAX_NOMBRE_FAMILIAR, MSG_CORREO, MSG_NOMBRE_FAMILIAR } from './formulario'
+import { enlaceTel, fFecha, iniciales, paisPorDefecto } from '../../utils/formato'
+import { correoValido, errorFinca, faltaNombreFamiliar, faltaContactoFamiliar, MSG_CONTACTO_FAMILIAR, MAX_CORREO, MAX_FINCA, MAX_NOMBRE_FAMILIAR, MSG_CORREO, MSG_NOMBRE_FAMILIAR } from './formulario'
 
-import { MAX_TELEFONOS, MAX_WHATSAPP, MAX_CORREOS, MAX_FAMILIARES, limiteNumeros, limiteCorreos, limiteFamiliares } from './limitesContactos'
+import { MAX_TELEFONOS, MAX_WHATSAPP, MAX_CORREOS, MAX_FAMILIARES, MAX_FINCAS, limiteNumeros, limiteCorreos, limiteFamiliares, limiteFincas } from './limitesContactos'
 
 function BotonEliminar({ onClick, titulo = 'Eliminar' }: { onClick: () => void; titulo?: string }) {
   return (
@@ -18,22 +18,26 @@ function BotonEliminar({ onClick, titulo = 'Eliminar' }: { onClick: () => void; 
   )
 }
 
-/** Teléfonos y correos del cliente oficial: la estrella marca el principal (uno por tipo). */
+/** Teléfonos, correos y fincas del cliente oficial: la estrella marca el principal (uno por tipo). */
 export function Contactos({
-  numeros, correos, onNumeros, onCorreos, mostrarErrores = false,
-}: { numeros: NumeroDto[]; correos: CorreoDto[]; onNumeros: (n: NumeroDto[]) => void; onCorreos: (c: CorreoDto[]) => void; mostrarErrores?: boolean }) {
+  numeros, correos, fincas, onNumeros, onCorreos, onFincas, mostrarErrores = false,
+}: {
+  numeros: NumeroDto[]; correos: CorreoDto[]; fincas: FincaDto[]
+  onNumeros: (n: NumeroDto[]) => void; onCorreos: (c: CorreoDto[]) => void; onFincas: (f: FincaDto[]) => void
+  mostrarErrores?: boolean
+}) {
   const [tocados, setTocados] = useState<Record<number, boolean>>({})
+  const { catalogos } = useSesion()
+  const prefijo = (n: NumeroDto) => catalogos?.paises.find(p => p.id === (n.paisId ?? paisPorDefecto(catalogos.paises)))?.codigo ?? ''
+  // Una finca nueva se marca en rojo al salir del campo (o al intentar salir de la ficha); las guardadas, siempre.
+  const errorFila = (i: number) => (mostrarErrores || fincas[i].id > 0 || !!tocados[fincas[i].id]) ? errorFinca(fincas, i) : undefined
+  const erroresFincas = fincas.map((_, i) => errorFila(i))
   const errorVacio = (n: NumeroDto) => !n.numero.trim() && (mostrarErrores || n.id > 0 || !!tocados[n.id])
   const telefonos = numeros.filter(n => n.tipo === 'Teléfono').length
   const whatsapps = numeros.filter(n => n.tipo === 'WhatsApp').length
   const agregarNumero = (tipo: TipoNumero) => {
     if ((tipo === 'Teléfono' ? telefonos >= MAX_TELEFONOS : whatsapps >= MAX_WHATSAPP)) return
     onNumeros([...numeros, { id: siguienteIdLocal--, numero: '', tipo, principal: !numeros.some(x => x.tipo === tipo && x.principal), paisId: null }])
-  }
-  const cambiarTipo = (i: number, tipo: TipoNumero) => {
-    if (numeros[i].tipo !== tipo && (tipo === 'Teléfono' ? telefonos >= MAX_TELEFONOS : whatsapps >= MAX_WHATSAPP)) return
-    const hay = numeros.some((x, j) => j !== i && x.tipo === tipo && x.principal)
-    onNumeros(numeros.map((x, j) => (j === i ? { ...x, tipo, principal: !hay } : x)))
   }
   const marcarNumero = (i: number) => {
     const tipo = numeros[i].tipo
@@ -81,18 +85,23 @@ export function Contactos({
                   onBlur={() => setTocados(actual => ({ ...actual, [n.id]: true }))}
                   onPais={(paisId) => onNumeros(numeros.map((x, j) => (j === i ? { ...x, paisId } : x)))}
                   onNumero={(numero) => onNumeros(numeros.map((x, j) => (j === i ? { ...x, numero } : x)))}
+                  llamar={false}
                 />
-                <span style={{ flex: 'none' }}>
-                  <Select
-                    valor={n.tipo}
-                    onChange={(v) => cambiarTipo(i, v as TipoNumero)}
-                    opciones={[{ v: 'Teléfono', l: 'Teléfono' }, { v: 'WhatsApp', l: 'WhatsApp' }].filter(o => o.v === n.tipo || (o.v === 'Teléfono' ? telefonos < MAX_TELEFONOS : whatsapps < MAX_WHATSAPP))}
-                    className="tipo-numero"
-                    ariaLabel="Tipo de número"
-                    chevronTamano={12}
-                    chevronDerecha={10}
-                  />
-                </span>
+                {/* El tipo se elige al agregar la fila (+ Teléfono / + WhatsApp); el ícono lo indica y, con número, llama. */}
+                {n.numero ? (
+                  <a
+                    className={'tipo-numero' + (n.tipo === 'WhatsApp' ? ' whatsapp' : '')}
+                    href={enlaceTel(prefijo(n) + n.numero)}
+                    title={`${n.tipo}: llamar al ${prefijo(n)} ${n.numero}`}
+                    aria-label={`${n.tipo}: llamar al ${prefijo(n)} ${n.numero}`}
+                  >
+                    {n.tipo === 'WhatsApp' ? <IconoWhatsApp /> : <Llamar tamano={16} />}
+                  </a>
+                ) : (
+                  <span className={'tipo-numero' + (n.tipo === 'WhatsApp' ? ' whatsapp' : '')} role="img" title={n.tipo} aria-label={n.tipo}>
+                    {n.tipo === 'WhatsApp' ? <IconoWhatsApp /> : <Llamar tamano={16} />}
+                  </span>
+                )}
                 <button className={'estrella' + (n.principal ? ' on' : '')} title={titulo} aria-label={titulo} onClick={() => marcarNumero(i)}>
                   <Estrella llena={n.principal} />
                 </button>
@@ -103,7 +112,7 @@ export function Contactos({
           {numeros.some(errorVacio) && <span className="msg-error">Complete el número o quite la fila vacía.</span>}
           {numeros.length === 0 && <span className="vacio">Sin números registrados.</span>}
         </div>
-        <p className="ayuda">Teléfonos: {telefonos}/{MAX_TELEFONOS} · WhatsApp: {whatsapps}/{MAX_WHATSAPP}.</p>
+        <p className="ayuda">Teléfonos: {telefonos}/{MAX_TELEFONOS} · WhatsApp: {whatsapps}/{MAX_WHATSAPP}</p>
         {limiteNumeros(numeros) && <span className="msg-error">{limiteNumeros(numeros)}</span>}
         <p className="ayuda">La estrella marca el principal de cada tipo: un teléfono y un WhatsApp.</p>
       </TarjetaSeccion>
@@ -137,10 +146,41 @@ export function Contactos({
               </div>
             )
           })}
-          <span className="ayuda">Correos: {correos.length}/{MAX_CORREOS}.</span>
+          <span className="ayuda">Correos: {correos.length}/{MAX_CORREOS}</span>
           {limiteCorreos(correos) && <span className="msg-error">{limiteCorreos(correos)}</span>}
           {correos.length === 0 && <span className="vacio">Sin correos registrados.</span>}
           {!correos.every((c) => correoValido(c.correo)) && <span className="msg-error">{MSG_CORREO}</span>}
+        </div>
+      </TarjetaSeccion>
+
+      <TarjetaSeccion
+        titulo="Fincas"
+        accion={
+          <button className="btn-enlace" disabled={fincas.length >= MAX_FINCAS} onClick={() => fincas.length < MAX_FINCAS && onFincas([...fincas, { id: siguienteIdLocal--, numero: '' }])}>
+            + Finca
+          </button>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {fincas.map((f, i) => (
+            <div key={i} className="fila-contacto">
+              <input
+                className={'campo' + (erroresFincas[i] ? ' error' : '')}
+                value={f.numero}
+                maxLength={MAX_FINCA}
+                aria-label="Número de finca"
+                aria-invalid={!!erroresFincas[i] || undefined}
+                title={erroresFincas[i]}
+                onBlur={() => setTocados(actual => ({ ...actual, [f.id]: true }))}
+                onChange={(e) => onFincas(fincas.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)))}
+              />
+              <BotonEliminar onClick={() => onFincas(fincas.filter((_, j) => j !== i))} />
+            </div>
+          ))}
+          <span className="ayuda">Fincas: {fincas.length}/{MAX_FINCAS}</span>
+          {limiteFincas(fincas) && <span className="msg-error">{limiteFincas(fincas)}</span>}
+          {fincas.length === 0 && <span className="msg-error">Ingrese al menos una finca.</span>}
+          {erroresFincas.find(Boolean) && <span className="msg-error">{erroresFincas.find(Boolean)}</span>}
         </div>
       </TarjetaSeccion>
     </div>

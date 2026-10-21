@@ -57,8 +57,10 @@ public class ActualizarDatosValidator : AbstractValidator<ActualizarDatosRequest
         RuleFor(x => x.Nombres).NotEmpty().WithMessage("Campo requerido.");
         RuleFor(x => x.Apellidos).NotEmpty().WithMessage("Campo requerido.");
         RuleFor(x => x.Cedula).Must(c => Validacion.SoloDigitos(c).Length > 0).WithMessage("Campo requerido.");
+        // Nula no toca las fincas (cliente); el servicio la exige al prospecto.
         RuleFor(x => x.Finca).Cascade(CascadeMode.Stop).NotEmpty().WithMessage("Campo requerido.")
-            .Must(Validacion.FincaValida).WithMessage(Validacion.MensajeFinca);
+            .Must(Validacion.FincaValida).WithMessage(Validacion.MensajeFinca)
+            .When(x => x.Finca != null);
         RuleFor(x => x.Expediente).Must(Validacion.ExpedienteValido).WithMessage(Validacion.MensajeExpediente);
         RuleFor(x => x.FechaIngreso).NotEqual(default(DateOnly)).WithMessage("Campo requerido.");
         RuleFor(x => x.VendedorId).Must(v => v is > 0).WithMessage("Campo requerido.");

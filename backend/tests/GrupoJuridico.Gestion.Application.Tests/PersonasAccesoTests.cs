@@ -51,6 +51,7 @@ public class PersonasAccesoTests
     [InlineData("prima")]
     [InlineData("numeros")]
     [InlineData("correos")]
+    [InlineData("fincas")]
     [InlineData("familiares")]
     [InlineData("convertir")]
     [InlineData("comentar")]
@@ -72,6 +73,7 @@ public class PersonasAccesoTests
             "prima" => servicio.ActualizarPrimaAsync(id, new ActualizarPrimaRequest(100m, 0m, null, null)),
             "numeros" => servicio.ReemplazarNumerosAsync(id, new[] { new NumeroItem(0, "99999999", "Teléfono", true) }),
             "correos" => servicio.ReemplazarCorreosAsync(id, Array.Empty<CorreoItem>()),
+            "fincas" => servicio.ReemplazarFincasAsync(id, new[] { new FincaItem(0, "12-12345") }),
             "familiares" => servicio.ReemplazarFamiliaresAsync(id, Array.Empty<FamiliarItem>()),
             "convertir" => servicio.ConvertirEnClienteAsync(id, new ConvertirClienteRequest("", 1, null)),
             "comentar" => servicio.ComentarAsync(id, new ComentarioRequest("Nuevo")),
@@ -563,6 +565,8 @@ public class PersonasAccesoTests
 
     [Theory]
     [InlineData("correos", "correos[1].correo")]
+    [InlineData("fincas", "fincas[1].numero")]
+    [InlineData("fincas-repetida", "fincas[1].numero")]
     [InlineData("familiares", "familiares[1].correoElectronico")]
     [InlineData("parentesco", "familiares[1].parentescoId")]
     [InlineData("numeros", "numeros[1].numero")]
@@ -576,6 +580,9 @@ public class PersonasAccesoTests
         {
             "correos" => servicio.ReemplazarCorreosAsync(id,
                 new[] { new CorreoItem(0, "uno@mail.cr", true), new CorreoItem(0, "incorrecto", false) },
+                version: antes.Versiones["datos"]),
+            "fincas" or "fincas-repetida" => servicio.ReemplazarFincasAsync(id,
+                new[] { new FincaItem(0, "12-12345"), new FincaItem(0, tipo == "fincas" ? "12-123" : " 12-12345 ") },
                 version: antes.Versiones["datos"]),
             "numeros" => servicio.ReemplazarNumerosAsync(id,
                 new[] { new NumeroItem(0, "88887777", "Teléfono", true), new NumeroItem(0, "", "WhatsApp", true) },
@@ -592,6 +599,7 @@ public class PersonasAccesoTests
         Assert.Equal(antes.Versiones.OrderBy(x => x.Key), despues.Versiones.OrderBy(x => x.Key));
         Assert.Equal(System.Text.Json.JsonSerializer.Serialize(antes.Numeros), System.Text.Json.JsonSerializer.Serialize(despues.Numeros));
         Assert.Equal(System.Text.Json.JsonSerializer.Serialize(antes.Correos), System.Text.Json.JsonSerializer.Serialize(despues.Correos));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(antes.Fincas), System.Text.Json.JsonSerializer.Serialize(despues.Fincas));
         Assert.Equal(System.Text.Json.JsonSerializer.Serialize(antes.Familiares), System.Text.Json.JsonSerializer.Serialize(despues.Familiares));
     }
 
@@ -600,6 +608,8 @@ public class PersonasAccesoTests
     [InlineData("numeros", false)]
     [InlineData("correos", true)]
     [InlineData("correos", false)]
+    [InlineData("fincas", true)]
+    [InlineData("fincas", false)]
     [InlineData("familiares", true)]
     [InlineData("familiares", false)]
     public async Task Id_positivo_ajeno_o_inexistente_rechaza_toda_la_lista_sin_mutaciones(string tipo, bool ajeno)
@@ -616,6 +626,8 @@ public class PersonasAccesoTests
                 filas.Select(x => new NumeroItem(x.Id, x.Valor, "Teléfono", true)).ToArray(), version: version),
             "correos" => servicio.ReemplazarCorreosAsync(personaId,
                 filas.Select(x => new CorreoItem(x.Id, x.Valor, true)).ToArray(), version: version),
+            "fincas" => servicio.ReemplazarFincasAsync(personaId,
+                filas.Select(x => new FincaItem(x.Id, x.Valor)).ToArray(), version: version),
             _ => servicio.ReemplazarFamiliaresAsync(personaId,
                 filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "88887777", "")).ToArray(), version: version)
         };
@@ -623,16 +635,19 @@ public class PersonasAccesoTests
         {
             "numeros" => ficha.Numeros[0].Id,
             "correos" => ficha.Correos[0].Id,
+            "fincas" => ficha.Fincas[0].Id,
             _ => ficha.Familiares[0].Id
         };
         string Lista(PersonaDetalleDto ficha) => tipo switch
         {
             "numeros" => System.Text.Json.JsonSerializer.Serialize(ficha.Numeros),
             "correos" => System.Text.Json.JsonSerializer.Serialize(ficha.Correos),
+            "fincas" => System.Text.Json.JsonSerializer.Serialize(ficha.Fincas),
             _ => System.Text.Json.JsonSerializer.Serialize(ficha.Familiares)
         };
         var valores = tipo == "numeros" ? new[] { "11111111", "22222222", "33333333", "99999999" } :
             tipo == "correos" ? new[] { "uno@mail.cr", "dos@mail.cr", "ajeno@mail.cr", "cambio@mail.cr" } :
+            tipo == "fincas" ? new[] { "11-11111", "22-22222", "33-33333", "99-99999" } :
             new[] { "Uno", "Dos", "Ajeno", "Cambio" };
 
         await Guardar(id, new[] { (0, valores[0]), (-1, valores[1]) }, (await servicio.ObtenerAsync(id)).Versiones[seccion]);
@@ -658,6 +673,7 @@ public class PersonasAccesoTests
     [Theory]
     [InlineData("numeros")]
     [InlineData("correos")]
+    [InlineData("fincas")]
     [InlineData("familiares")]
     public async Task Id_propio_se_conserva_y_ids_cero_o_negativos_siguen_creando_filas(string tipo)
     {
@@ -671,6 +687,8 @@ public class PersonasAccesoTests
                 filas.Select((x, i) => new NumeroItem(x.Id, x.Valor, i == 2 ? "WhatsApp" : "Teléfono", true)).ToArray(), version: version),
             "correos" => servicio.ReemplazarCorreosAsync(id,
                 filas.Select(x => new CorreoItem(x.Id, x.Valor, true)).ToArray(), version: version),
+            "fincas" => servicio.ReemplazarFincasAsync(id,
+                filas.Select(x => new FincaItem(x.Id, x.Valor)).ToArray(), version: version),
             _ => servicio.ReemplazarFamiliaresAsync(id,
                 filas.Select(x => new FamiliarItem(x.Id, x.Valor, null, "88887777", "")).ToArray(), version: version)
         };
@@ -678,10 +696,12 @@ public class PersonasAccesoTests
         {
             "numeros" => ficha.Numeros.Select(x => x.Id).ToArray(),
             "correos" => ficha.Correos.Select(x => x.Id).ToArray(),
+            "fincas" => ficha.Fincas.Select(x => x.Id).ToArray(),
             _ => ficha.Familiares.Select(x => x.Id).ToArray()
         };
         var valores = tipo == "numeros" ? new[] { "11111111", "22222222", "33333333", "44444444" } :
             tipo == "correos" ? new[] { "uno@mail.cr", "dos@mail.cr", "tres@mail.cr", "cuatro@mail.cr" } :
+            tipo == "fincas" ? new[] { "11-11111", "22-22222", "33-33333", "44-44444" } :
             new[] { "Uno", "Dos", "Tres", "Cuatro" };
         await Guardar(new[] { (0, valores[0]) }, (await servicio.ObtenerAsync(id)).Versiones[seccion]);
         var antes = await servicio.ObtenerAsync(id);
@@ -695,6 +715,7 @@ public class PersonasAccesoTests
         Assert.Equal(3, ids.Distinct().Count());
         var valorEditado = tipo == "numeros" ? despues.Numeros.Single(x => x.Id == propio).Numero :
             tipo == "correos" ? despues.Correos.Single(x => x.Id == propio).Correo :
+            tipo == "fincas" ? despues.Fincas.Single(x => x.Id == propio).Numero :
             despues.Familiares.Single(x => x.Id == propio).NombreCompleto;
         Assert.Equal(valores[1], valorEditado);
     }
@@ -703,6 +724,7 @@ public class PersonasAccesoTests
     [InlineData("telefonos", 2)]
     [InlineData("whatsapp", 2)]
     [InlineData("correos", 3)]
+    [InlineData("fincas", 5)]
     [InlineData("familiares", 4)]
     public async Task Listas_aceptan_maximo_y_rechazan_exceso_sin_cambiar_datos_ni_version(string tipo, int maximo)
     {
@@ -716,6 +738,8 @@ public class PersonasAccesoTests
                 .Select(i => new NumeroItem(-i, "8888000" + i, tipo == "telefonos" ? "Teléfono" : "WhatsApp", i == 0)).ToArray(), version: version),
             "correos" => servicio.ReemplazarCorreosAsync(id, Enumerable.Range(0, cantidad)
                 .Select(i => new CorreoItem(-i, "correo" + i + "@mail.cr", i == 0)).ToArray(), version: version),
+            "fincas" => servicio.ReemplazarFincasAsync(id, Enumerable.Range(0, cantidad)
+                .Select(i => new FincaItem(-i, "12-1234" + i)).ToArray(), version: version),
             _ => servicio.ReemplazarFamiliaresAsync(id, Enumerable.Range(0, cantidad)
                 .Select(i => new FamiliarItem(-i, "Familiar " + i, null, "88887777", "")).ToArray(), version: version)
         };
@@ -723,6 +747,7 @@ public class PersonasAccesoTests
         {
             "telefonos" or "whatsapp" => System.Text.Json.JsonSerializer.Serialize(ficha.Numeros),
             "correos" => System.Text.Json.JsonSerializer.Serialize(ficha.Correos),
+            "fincas" => System.Text.Json.JsonSerializer.Serialize(ficha.Fincas),
             _ => System.Text.Json.JsonSerializer.Serialize(ficha.Familiares)
         };
         await Guardar(maximo, (await servicio.ObtenerAsync(id)).Versiones[seccion]);
@@ -788,6 +813,59 @@ public class PersonasAccesoTests
 
     private static TestDb CrearDb() => new(new DbContextOptionsBuilder<TestDb>()
         .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+
+    [Fact]
+    public async Task Fincas_no_se_pueden_quitar_todas_y_la_ficha_las_devuelve_en_orden()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        await servicio.ReemplazarFincasAsync(id, new[] { new FincaItem(0, " 01-20013 "), new FincaItem(-1, "02-30014") },
+            version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        var antes = await servicio.ObtenerAsync(id);
+        Assert.Equal(new[] { "01-20013", "02-30014" }, antes.Fincas.Select(f => f.Numero));
+        Assert.Equal("01-20013", antes.Finca);
+
+        var error = await Assert.ThrowsAsync<ValidacionException>(() =>
+            servicio.ReemplazarFincasAsync(id, Array.Empty<FincaItem>(), version: antes.Versiones["datos"]));
+        Assert.Contains("fincas", error.Errores.Keys);
+        db.ChangeTracker.Clear();
+        var despues = await servicio.ObtenerAsync(id);
+        Assert.Equal(antes.Fincas, despues.Fincas);
+        Assert.Equal(antes.Versiones["datos"], despues.Versiones["datos"]);
+
+        // Al quitar la primera, la siguiente pasa a ser la que muestran las listas.
+        await servicio.ReemplazarFincasAsync(id, new[] { new FincaItem(antes.Fincas[1].Id, "02-30014") },
+            version: despues.Versiones["datos"]);
+        Assert.Equal("02-30014", (await servicio.ObtenerAsync(id)).Finca);
+    }
+
+    [Fact]
+    public async Task Datos_del_cliente_sin_finca_conservan_sus_fincas_y_el_prospecto_la_exige()
+    {
+        using var db = CrearDb();
+        var id = await SembrarAsync(db, EstadoPrima.Pendiente);
+        var servicio = CrearServicio(db, Roles.Administrador);
+        await servicio.ReemplazarFincasAsync(id, new[] { new FincaItem(0, "01-20013"), new FincaItem(-1, "02-30014") },
+            version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        var sinFinca = new ActualizarDatosRequest("Ana", "Vargas", "123", null, "", new DateOnly(2026, 10, 9),
+            1, "88888888", "", "", null, null);
+
+        var error = await Assert.ThrowsAsync<ValidacionException>(async () =>
+            await servicio.ActualizarDatosAsync(id, sinFinca, version: (await servicio.ObtenerAsync(id)).Versiones["datos"]));
+        Assert.Contains("finca", error.Errores.Keys);
+
+        db.OrigenesCliente.Add(new OrigenCliente { Nombre = "Origen" });
+        await db.SaveChangesAsync();
+        var origen = await db.OrigenesCliente.Select(o => o.Id).FirstAsync();
+        await servicio.ConvertirEnClienteAsync(id, new ConvertirClienteRequest("", origen, null),
+            version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        await servicio.ActualizarDatosAsync(id, sinFinca with { Nombres = "Ana María", TelefonoPrincipal = null, WhatsappPrincipal = null, CorreoPrincipal = null },
+            version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
+        var ficha = await servicio.ObtenerAsync(id);
+        Assert.Equal("Ana María", ficha.Nombres);
+        Assert.Equal(new[] { "01-20013", "02-30014" }, ficha.Fincas.Select(f => f.Numero));
+    }
 
     private static async Task<int> SembrarAsync(TestDb db, int estado)
     {

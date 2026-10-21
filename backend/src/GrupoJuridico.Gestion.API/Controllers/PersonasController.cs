@@ -64,6 +64,10 @@ public class PersonasController : ControllerBase
     public Task<IReadOnlyList<CorreoDto>> Correos(int id, IReadOnlyList<CorreoItem> items, CancellationToken ct) =>
         Guardar(version => _personas.ReemplazarCorreosAsync(id, items, ct, version));
 
+    [HttpPut("{id:int}/fincas")]
+    public Task<IReadOnlyList<FincaDto>> Fincas(int id, IReadOnlyList<FincaItem> items, CancellationToken ct) =>
+        Guardar(version => _personas.ReemplazarFincasAsync(id, items, ct, version));
+
     [HttpPut("{id:int}/familiares")]
     public Task<IReadOnlyList<FamiliarDto>> Familiares(int id, IReadOnlyList<FamiliarItem> items, CancellationToken ct) =>
         Guardar(version => _personas.ReemplazarFamiliaresAsync(id, items, ct, version));

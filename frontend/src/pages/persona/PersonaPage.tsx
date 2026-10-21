@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavigationType, useBlocker, useLocation, useNavigate, useParams } from 'react-router'
 import { erroresDe, mensajeDe } from '../../api/cliente'
 import { api } from '../../api/endpoints'
-import type { ArchivosPersona, ComentarioDto, CorreoDto, FamiliarDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
+import type { ArchivosPersona, ComentarioDto, CorreoDto, FamiliarDto, FincaDto, NumeroDto, PersonaDetalle } from '../../api/tipos'
 import { useSesion } from '../../auth/Sesion'
 import { EtiquetaEstadoGrande, EtiquetaPrimaGrande } from '../../components/Chips'
 import { CampoMonto, CampoNotas, CampoSelect, CampoTelefono, CampoTexto, Select, TarjetaSeccion, type Opcion } from '../../components/Controles'
@@ -12,14 +12,15 @@ import { EditorSecciones, SeccionBloqueadaError, type SeccionVersion } from '../
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
 import { fFecha, fNumero, iniciales, num, origenEtiqueta, soloDigitos, vendedorEtiqueta } from '../../utils/formato'
 import {
-  correoValido, avisoPendiente, ETIQUETAS, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
+  correoValido, avisoPendiente, ETIQUETAS, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFincas, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
 import { Archivos } from './Archivos'
 import { Comentarios, Contactos, Familiares } from './Secciones'
 import { PlanPagoFicha } from '../cobros/PlanPagoFicha'
 
-type ParteGuardada = 'datos' | 'venta' | 'prima' | 'numeros' | 'correos' | 'familiares'
+type ParteGuardada = 'datos' | 'venta' | 'prima' | 'numeros' | 'correos' | 'fincas' | 'familiares'
+type Lista = 'numeros' | 'correos' | 'fincas' | 'familiares'
 
 type Pestana = 'general' | 'ventas' | 'familiares' | 'archivos' | 'actividad'
 
@@ -61,7 +62,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const pestanaInicial: Pestana = (useLocation().state as { pestana?: Pestana } | null)?.pestana ?? 'general'
 
   const editor = useRef(new EditorSecciones())
-  const idsNuevos = useRef({ numeros: new Map<number, number>(), correos: new Map<number, number>(), familiares: new Map<number, number>() })
+  const idsNuevos = useRef({ numeros: new Map<number, number>(), correos: new Map<number, number>(), fincas: new Map<number, number>(), familiares: new Map<number, number>() })
   const [recargando, setRecargando] = useState(false)
   const [conflictos, setConflictos] = useState<Conflicto[]>([])
   const [persona, setPersona] = useState<PersonaDetalle | null>(null)
@@ -140,9 +141,9 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     if (ultimoForm.current[parte] === enviado[parte]) sucias.current.delete(parte)
     ok()
   }
-  const traducirIds = <T extends { id: number }>(lista: 'numeros' | 'correos' | 'familiares', items: T[]) =>
+  const traducirIds = <T extends { id: number }>(lista: Lista, items: T[]) =>
     items.map(x => ({ ...x, id: idsNuevos.current[lista].get(x.id) ?? x.id }))
-  const confirmarIds = <T extends { id: number }>(lista: 'numeros' | 'correos' | 'familiares', enviados: T[], recibidos: T[]) => {
+  const confirmarIds = <T extends { id: number }>(lista: Lista, enviados: T[], recibidos: T[]) => {
     if ((ultimoForm.current[lista] as readonly { id: number }[]) === enviados) sucias.current.delete(lista)
     const existentes = new Set(traducirIds(lista, enviados).filter(x => x.id > 0).map(x => x.id))
     const nuevos = recibidos.filter(x => !existentes.has(x.id))
@@ -177,14 +178,18 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     (c: CorreoDto[], vigente) => enviar('datos', v => api.guardarCorreos(personaId, traducirIds('correos', c), v), vigente),
     (r, _hayMas, enviado) => confirmarIds('correos', enviado, r), fallo('datos'),
   )
+  const gFincas = useGuardadoDiferido(
+    (fs: FincaDto[], vigente) => enviar('datos', v => api.guardarFincas(personaId, traducirIds('fincas', fs), v), vigente),
+    (r, _hayMas, enviado) => confirmarIds('fincas', enviado, r), fallo('datos'),
+  )
   const gFamiliares = useGuardadoDiferido(
     (fs: FamiliarDto[], vigente) => enviar('familiares', v => api.guardarFamiliares(personaId,
       traducirIds('familiares', fs), v), vigente),
     (r, _hayMas, enviado) => confirmarIds('familiares', enviado, r), fallo('familiares'),
   )
-  const todos = [gDatos, gVenta, gPrima, gNumeros, gCorreos, gFamiliares]
+  const todos = [gDatos, gVenta, gPrima, gNumeros, gCorreos, gFincas, gFamiliares]
   useEffect(() => { guardadoresRef.current = todos })
-  const grupo = (seccion: SeccionVersion) => seccion === 'datos' ? [gDatos, gNumeros, gCorreos] :
+  const grupo = (seccion: SeccionVersion) => seccion === 'datos' ? [gDatos, gNumeros, gCorreos, gFincas] :
     seccion === 'venta' ? [gVenta] : seccion === 'prima' ? [gPrima] : [gFamiliares]
   /**
    * Campos requeridos que impiden salir de la ficha, con la pestaña donde están. Mientras falten,
@@ -201,8 +206,10 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     if (esCliente) {
       const numeros = errorNumeros(f.numeros, catalogos?.paises)
       const correos = errorCorreos(f.correos)
+      const fincas = errorFincas(f.fincas)
       if (numeros) lista.push({ campo: numeros, pestana: 'general' })
       if (correos) lista.push({ campo: correos, pestana: 'general' })
+      if (fincas) lista.push({ campo: fincas, pestana: 'general' })
     }
     const familiares = errorFamiliares(f.familiares, catalogos?.paises)
     if (familiares) lista.push({ campo: familiares, pestana: 'familiares' })
@@ -274,11 +281,11 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       await Promise.all(grupo(seccion).map(g => g.flush()))
       const actual = await api.persona(personaId)
       grupo(seccion).forEach(g => g.cancelar())
-      const partes: ParteGuardada[] = seccion === 'datos' ? ['datos', 'numeros', 'correos'] : [seccion]
+      const partes: ParteGuardada[] = seccion === 'datos' ? ['datos', 'numeros', 'correos', 'fincas'] : [seccion]
       partes.forEach(p => sucias.current.delete(p))
       editor.current.resolver(seccion, actual.versiones[seccion])
       const remoto = formDesde(actual)
-      setForm(f => seccion === 'datos' ? { ...f, datos: remoto.datos, numeros: remoto.numeros, correos: remoto.correos } : { ...f, [seccion]: remoto[seccion] })
+      setForm(f => seccion === 'datos' ? { ...f, datos: remoto.datos, numeros: remoto.numeros, correos: remoto.correos, fincas: remoto.fincas } : { ...f, [seccion]: remoto[seccion] })
       if (seccion === 'datos') setPersona(p => p ? { ...p, esCliente: actual.esCliente, cliente: actual.cliente } : p)
       setConflictos(cs => cs.filter(c => c.seccion !== seccion))
     } catch (e) {
@@ -296,7 +303,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     return <>Otro usuario modificó la sección {seccionTxt}{cuando}.</>
   }
 
-  // Datos, números y correos comparten sección/version. Si uno es inválido se retiran
+  // Datos, números, correos y fincas comparten sección/version. Si uno es inválido se retiran
   // todos sus envíos pendientes; al corregirlo se programan los últimos valores editados.
   const programarValidos = (f: FormPersona, parte: ParteGuardada) => {
     ultimoForm.current = f
@@ -304,13 +311,14 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     pendientesRef.current = pendientesDe(f)
     if (nuevo) return
     const grupoDatosValido = !Object.keys(erroresDatos(f, esCliente, catalogos?.paises)).length &&
-      (!esCliente || (!errorNumeros(f.numeros, catalogos?.paises) && !errorCorreos(f.correos)))
-    if (['datos', 'numeros', 'correos'].includes(parte)) {
-      if (!grupoDatosValido) [gDatos, gNumeros, gCorreos].forEach(g => g.suspender())
+      (!esCliente || (!errorNumeros(f.numeros, catalogos?.paises) && !errorCorreos(f.correos) && !errorFincas(f.fincas)))
+    if (['datos', 'numeros', 'correos', 'fincas'].includes(parte)) {
+      if (!grupoDatosValido) [gDatos, gNumeros, gCorreos, gFincas].forEach(g => g.suspender())
       else {
         if (sucias.current.has('numeros')) gNumeros.programar(f.numeros)
         if (sucias.current.has('datos')) gDatos.programar(f)
         if (sucias.current.has('correos')) gCorreos.programar(f.correos)
+        if (sucias.current.has('fincas')) gFincas.programar(f.fincas)
       }
     }
     if (parte === 'venta') {
@@ -333,7 +341,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
     setForm(siguiente)
     programarValidos(siguiente, parte)
   }
-  const cambiarLista = <K extends 'numeros' | 'correos' | 'familiares'>(lista: K, valor: FormPersona[K]) => {
+  const cambiarLista = <K extends Lista>(lista: K, valor: FormPersona[K]) => {
     if ((lista === 'familiares' || lista === 'numeros') && valor.some(f => !form[lista].some(actual => actual.id === f.id))) {
       setVolverIntento(false)
       setCrearIntento(false)
@@ -428,7 +436,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
         <CampoTexto label={ETIQUETAS.nombres} valor={d.nombres} onChange={(v) => cambiar('datos', 'nombres', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('nombres')} />
         <CampoTexto label={ETIQUETAS.apellidos} valor={d.apellidos} onChange={(v) => cambiar('datos', 'apellidos', v)} maxLength={MAX_NOMBRE} requerido={req} error={err('apellidos')} />
         <CampoTexto label={ETIQUETAS.cedula} valor={d.cedula} onChange={(v) => cambiar('datos', 'cedula', soloDigitos(v))} inputMode="numeric" maxLength={MAX_CEDULA} requerido={req} error={err('cedula')} />
-        <CampoTexto label={ETIQUETAS.finca} valor={d.finca} onChange={(v) => cambiar('datos', 'finca', v)} placeholder="" maxLength={MAX_FINCA} requerido={req} error={err('finca')} />
+        {!esCliente && <CampoTexto label={ETIQUETAS.finca} valor={d.finca} onChange={(v) => cambiar('datos', 'finca', v)} placeholder="" maxLength={MAX_FINCA} requerido={req} error={err('finca')} />}
         <CampoTexto label={ETIQUETAS.expediente} valor={d.expediente} onChange={(v) => cambiar('datos', 'expediente', v)} placeholder="" maxLength={MAX_EXPEDIENTE} error={err('expediente')} />
         <CampoTexto label={ETIQUETAS.fechaIngreso} tipo="date" valor={d.fechaIngreso} onChange={(v) => cambiar('datos', 'fechaIngreso', v)} requerido={req} error={err('fechaIngreso')} />
         <CampoSelect
@@ -626,7 +634,10 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
 
         {en('general') && bloqueDatos}
         {esCliente && en('general') && (
-          <Contactos mostrarErrores={volverIntento} numeros={form.numeros} correos={form.correos} onNumeros={(n) => cambiarLista('numeros', n)} onCorreos={(c) => cambiarLista('correos', c)} />
+          <Contactos
+            mostrarErrores={volverIntento} numeros={form.numeros} correos={form.correos} fincas={form.fincas}
+            onNumeros={(n) => cambiarLista('numeros', n)} onCorreos={(c) => cambiarLista('correos', c)} onFincas={(f) => cambiarLista('fincas', f)}
+          />
         )}
         {en('ventas') && persona?.venta !== null && bloqueVenta}
         {en('ventas') && persona?.prima !== null && bloquePrima}

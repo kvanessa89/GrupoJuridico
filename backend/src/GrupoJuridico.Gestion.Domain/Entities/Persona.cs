@@ -12,6 +12,7 @@ public class Persona : BaseEntity
     public const int MaxWhatsApp = 2;
     public const int MaxCorreos = 3;
     public const int MaxFamiliares = 4;
+    public const int MaxFincas = 5;
     /// <summary>Largo máximo de Nombres y de Apellidos (regla de negocio; la columna admite más).</summary>
     public const int MaxNombre = 20;
     /// <summary>Largo máximo de la cédula (solo dígitos).</summary>
@@ -48,6 +49,7 @@ public class Persona : BaseEntity
     /// <summary>La venta de la persona. Hay una sola: la base lo garantiza con un índice único en Ventas.PersonaId.</summary>
     public Venta? Venta => Ventas.OrderBy(v => v.Id).FirstOrDefault();
     public Prima? Prima => Venta?.Prima;
+    /// <summary>La primera finca: la que muestran las listas y la que edita el prospecto.</summary>
     public Finca? Finca => Fincas.OrderBy(f => f.Id).FirstOrDefault();
 
     public Numero? NumeroPrincipal(TipoNumero tipo)

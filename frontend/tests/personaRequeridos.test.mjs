@@ -22,25 +22,30 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     const cat={id:1,nombre:'Opción',codigo:'1'}
     api.yo=async()=>({id:1,nombre:'Admin',rol:'Administrador'})
     api.catalogos=async()=>({vendedores:[cat],procedencias:[cat],metodos:[cat],estadosCliente:[cat],origenes:[cat],estadosPrima:[{id:1,nombre:'Pendiente'}],paises:[{id:1,codigo:'+506',nombre:'Costa Rica'},{id:2,codigo:'+1',nombre:'Estados Unidos'}],parentescos:[]})
-    api.persona=async()=>({id:1,esCliente:true,nombres:'Ana',apellidos:'Vargas',cedula:'123',finca:'01-20013',expediente:'',fechaIngreso:'2026-10-13',vendedorId:1,telefonoPrincipal:'88888888',whatsappPrincipal:'',correoPrincipal:'',venta:{id:1,procedenciaVentaId:1,metodoVentaId:1,monto:1000,notas:''},prima:{id:1,monto:100,montoCancelado:0,fechaEstimadaPago:null,fechaPago:null},cliente:{id:1,estadoClienteId:1,origenClienteId:1},numeros:[{id:1,numero:'88888888',tipo:'Teléfono',principal:true,paisId:1}],correos:[{id:1,correo:'ana@mail.cr',principal:true}],familiares:[],comentarios:[],versiones:{datos:'d1',venta:'v1',prima:'p1',familiares:'f1'}})
+    api.persona=async()=>({id:1,esCliente:true,nombres:'Ana',apellidos:'Vargas',cedula:'123',finca:'01-20013',expediente:'',fechaIngreso:'2026-10-13',vendedorId:1,telefonoPrincipal:'88888888',whatsappPrincipal:'',correoPrincipal:'',venta:{id:1,procedenciaVentaId:1,metodoVentaId:1,monto:1000,notas:''},prima:{id:1,monto:100,montoCancelado:0,fechaEstimadaPago:null,fechaPago:null},cliente:{id:1,estadoClienteId:1,origenClienteId:1},numeros:[{id:1,numero:'88888888',tipo:'Teléfono',principal:true,paisId:1}],correos:[{id:1,correo:'ana@mail.cr',principal:true}],fincas:[{id:1,numero:'01-20013'}],familiares:[],comentarios:[],versiones:{datos:'d1',venta:'v1',prima:'p1',familiares:'f1'}})
     const enviados=[]
     api.guardarDatos=async(_id,d)=>{enviados.push(['datos',d]);return {data:null,version:'d2'}}
     api.guardarNumeros=async(_id,n)=>{enviados.push(['numeros',n]);return {data:n,version:'d4'}}
     api.guardarCorreos=async(_id,c)=>{enviados.push(['correos',c]);return {data:c,version:'d3'}}
+    // Aparte de `enviados` para no mover las posiciones que revisa el resto de la prueba.
+    const fincasEnviadas=[]
+    api.guardarFincas=async(_id,f)=>{fincasEnviadas.push(f);return {data:f,version:'d5'}}
     const router=createMemoryRouter([{path:'/gestion/clientes/:id',element:createElement(SesionProvider,null,createElement(PersonaPage,{seccion:'clientes'}))}],{initialEntries:['/gestion/clientes/1']})
     root=createRoot(document.getElementById('root'))
     await act(async()=>{root.render(createElement(RouterProvider,{router}));await new Promise(r=>setTimeout(r,20))})
     const input=label=>[...document.querySelectorAll('label')].find(l=>l.querySelector('.etiqueta')?.textContent.startsWith(label))?.querySelector('input')
     const props=el=>el[Object.keys(el).find(k=>k.startsWith('__reactProps'))]
-    assert.equal(input('Número de finca').placeholder,'')
+    const finca=()=>document.querySelector('.fila-contacto input[aria-label="Número de finca"]')
+    assert.equal(input('Número de finca'),undefined,'El cliente no tiene el campo único de finca en Datos')
+    assert.equal(finca().value,'01-20013')
     assert.equal(input('Número de expediente').placeholder,'')
     assert.equal(input('Número de expediente').maxLength,17)
     const boton=texto=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===texto)
-    await act(async()=>props(input('Número de finca')).onChange({target:{value:'12-123456'}}))
-    assert.ok(input('Número de finca').classList.contains('error'))
+    await act(async()=>props(finca()).onChange({target:{value:'12-123456'}}))
+    assert.ok(finca().classList.contains('error'))
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
-    assert.equal(enviados.length,0,'Una finca con formato incorrecto no se autoguarda')
-    await act(async()=>props(input('Número de finca')).onChange({target:{value:'01-20013'}}))
+    assert.equal(enviados.length+fincasEnviadas.length,0,'Una finca con formato incorrecto no se autoguarda')
+    await act(async()=>props(finca()).onChange({target:{value:'01-20013'}}))
     await act(async()=>props(input('Número de expediente')).onChange({target:{value:'12-123456-1234-A1'}}))
     assert.ok(input('Número de expediente').classList.contains('error'))
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
@@ -54,6 +59,8 @@ test('ficha real: rojo en cliente, cancela correo pendiente y reanuda al corregi
     await act(async()=>props(input('Nombres')).onChange({target:{value:'Ana María'}}))
     await act(async()=>{await new Promise(r=>setTimeout(r,650))})
     assert.equal(enviados.length,1);assert.equal(enviados[0][1].nombres,'Ana María')
+    assert.equal(enviados[0][1].finca,null,'Los datos del cliente no envían la finca única')
+    assert.deepEqual(fincasEnviadas,[[{id:1,numero:'01-20013'}]],'La finca corregida se guarda junto con los datos')
     assert.ok(!input('Nombres').classList.contains('error'))
     let correo=document.querySelector('.fila-contacto input[type=email]')
     assert.ok(correo)

@@ -97,6 +97,16 @@ export function Llamar({ tamano = 14 }: { tamano?: number }) {
   )
 }
 
+/** Globo de WhatsApp con el auricular adentro. */
+export function IconoWhatsApp({ tamano = 16 }: { tamano?: number }) {
+  return (
+    <svg width={tamano} height={tamano} viewBox="0 0 24 24" {...trazo} strokeWidth="1.9">
+      <path d="M3.5 20.5 4.8 16A8.6 8.6 0 1 1 8 19.2Z" />
+      <path d="M8.6 7.6h1.7l.9 2.2-1.1.7a5 5 0 0 0 2.4 2.4l.7-1.1 2.2.9v1.7a1 1 0 0 1-1 1 7.2 7.2 0 0 1-6.8-6.8 1 1 0 0 1 1-1" />
+    </svg>
+  )
+}
+
 export function Estrella({ llena }: { llena: boolean }) {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill={llena ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">

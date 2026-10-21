@@ -148,6 +148,11 @@ export interface CorreoDto {
   principal: boolean
 }
 
+export interface FincaDto {
+  id: number
+  numero: string
+}
+
 export interface FamiliarDto {
   id: number
   nombreCompleto: string
@@ -189,6 +194,8 @@ export interface PersonaDetalle {
   cliente: ClienteDto | null
   numeros: NumeroDto[]
   correos: CorreoDto[]
+  /** Todas las fincas, en orden; `finca` es la primera. */
+  fincas: FincaDto[]
   familiares: FamiliarDto[]
   comentarios: ComentarioDto[]
 }

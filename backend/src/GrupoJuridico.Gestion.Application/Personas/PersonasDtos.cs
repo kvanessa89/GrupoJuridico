@@ -75,6 +75,8 @@ public record NumeroDto(int Id, string Numero, string Tipo, bool Principal, int 
 
 public record CorreoDto(int Id, string Correo, bool Principal);
 
+public record FincaDto(int Id, string Numero);
+
 public record FamiliarDto(int Id, string NombreCompleto, int? ParentescoId, string Telefono, string CorreoElectronico, int? TelefonoPaisId);
 
 public record ComentarioDto(int Id, int UsuarioId, string Autor, string? Rol, string Texto, DateTime Fecha, bool PuedeEliminar);
@@ -101,19 +103,21 @@ public record PersonaDetalleDto(
     IReadOnlyList<ComentarioDto> Comentarios,
     IReadOnlyDictionary<string, Guid> Versiones,
     int? TelefonoPrincipalPaisId,
-    int? WhatsappPrincipalPaisId);
+    int? WhatsappPrincipalPaisId,
+    IReadOnlyList<FincaDto> Fincas);
 
 // ---------- Comandos ----------
 
 /// <summary>
-/// Datos de la persona (autoguardado). Los campos de contacto principal solo se envían
-/// para prospectos; si llegan nulos no se tocan. Estado y origen solo aplican a clientes.
+/// Datos de la persona (autoguardado). Los campos de contacto principal y la finca solo se envían
+/// para prospectos; si llegan nulos no se tocan (el cliente edita sus fincas en PUT fincas).
+/// Estado y origen solo aplican a clientes.
 /// </summary>
 public record ActualizarDatosRequest(
     string Nombres,
     string Apellidos,
     string Cedula,
-    string Finca,
+    string? Finca,
     string Expediente,
     [property: JsonRequired] DateOnly FechaIngreso,
     int? VendedorId,
@@ -133,6 +137,8 @@ public record ActualizarPrimaRequest([property: JsonRequired] decimal Monto, [pr
 public record NumeroItem(int Id, string Numero, string Tipo, bool Principal, int? PaisId = null);
 
 public record CorreoItem(int Id, string Correo, bool Principal);
+
+public record FincaItem(int Id, string? Numero);
 
 public record FamiliarItem(int Id, string? NombreCompleto, int? ParentescoId, string? Telefono, string? CorreoElectronico,
     int? TelefonoPaisId = null);

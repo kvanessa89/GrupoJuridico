@@ -12,7 +12,7 @@ function valido() {
 test('prospecto y cliente comparten los datos requeridos; correo permanece opcional', () => {
   for (const cliente of [false, true]) {
     const f=valido(); assert.deepEqual(erroresDatos(f,cliente),{})
-    for (const k of ['nombres','apellidos','cedula','finca','fechaIngreso','vendedorId']) {
+    for (const k of ['nombres','apellidos','cedula',...(cliente ? [] : ['finca']),'fechaIngreso','vendedorId']) {
       const vacio=structuredClone(f); vacio.datos[k]=''
       assert.ok(erroresDatos(vacio,cliente)[k],k)
     }

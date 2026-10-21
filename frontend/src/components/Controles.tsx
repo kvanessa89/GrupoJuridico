@@ -134,7 +134,7 @@ export function CampoSelect({
 
 /** Número de teléfono con su país: prefijo del catálogo de países + número. */
 export function Telefono({
-  paisId, numero, onPais, onNumero, error, placeholder = 'Número', ariaLabel, mostrarError = true, requerido, onBlur,
+  paisId, numero, onPais, onNumero, error, placeholder = 'Número', ariaLabel, mostrarError = true, requerido, onBlur, llamar = true,
 }: {
   paisId: number | null
   numero: string
@@ -146,6 +146,8 @@ export function Telefono({
   onBlur?: () => void
   placeholder?: string
   ariaLabel?: string
+  /** Muestra el botón de llamar dentro del campo; la lista de contactos del cliente lo pone aparte. */
+  llamar?: boolean
 }) {
   const { catalogos } = useSesion()
   const paises = catalogos?.paises ?? []
@@ -178,8 +180,8 @@ export function Telefono({
           onBlur={onBlur}
           onChange={(e) => onNumero(soloDigitos(e.target.value))}
         />
-        {requerido && <span className="requerido" aria-hidden="true" style={{ position: 'absolute', right: numero ? 60 : 12, top: 14 }}>*</span>}
-        {numero && (
+        {requerido && <span className="requerido" aria-hidden="true" style={{ position: 'absolute', right: numero && llamar ? 60 : 12, top: 14 }}>*</span>}
+        {numero && llamar && (
           <a className="btn-llamar" href={enlaceTel(prefijo + numero)} title={`Llamar al ${prefijo} ${numero}`} aria-label={`Llamar al ${prefijo} ${numero}`}>
             <Llamar />
           </a>
