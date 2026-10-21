@@ -91,7 +91,7 @@ public class CobrosService
     }
 
     private static bool EsMoroso(Cliente cliente, Resumen? r) =>
-        (r != null && r.Vencidas.Count > 0) || cliente.EstadoCalculadoId == EstadoCliente.Moroso;
+        (r != null && r.Vencidas.Count > 0) || cliente.EstadoClienteCalculadoId == EstadoClienteCalculado.Moroso;
 
     /// <summary>Moroso con todo el plan vencido (pasó la última cuota) y todavía con saldo.</summary>
     private static bool EsCobroJudicial(Cliente cliente, Resumen? r, DateOnly hoy) =>
@@ -115,8 +115,8 @@ public class CobrosService
         var resumenes = planes.ToDictionary(p => p.ClienteId, p => Resumir(p, porcentaje, hoy));
 
         var personas = await _db.Personas.AsNoTracking()
-            .Include(p => p.Cliente).ThenInclude(c => c!.EstadoCalculado)
-            .Include(p => p.Cliente).ThenInclude(c => c!.EstadoManual)
+            .Include(p => p.Cliente).ThenInclude(c => c!.EstadoCliente)
+            .Include(p => p.Cliente).ThenInclude(c => c!.EstadoClienteCalculado)
             .Include(p => p.Numeros).ThenInclude(n => n.Pais)
             .Where(p => p.ClienteId != null)
             .AsSplitQuery()
@@ -158,7 +158,7 @@ public class CobrosService
         var orden = q.Orden ?? (vista == VistasCobros.Recordatorios ? "expediente" : "atraso");
         object Clave(CobroFilaDto f) => orden switch
         {
-            "estadoCliente" => f.EstadoClienteId,
+            "estadoCliente" => EstadoCliente.Orden(f.EstadoClienteId, f.EstadoClienteCalculadoId),
             "cuotasVenc" => f.CuotasVencidas,
             "vencido" => f.MontoVencido,
             "atraso" => f.Atraso,
@@ -189,7 +189,7 @@ public class CobrosService
             p.Id, p.Expediente, p.NombreCompleto,
             Completo(p.NumeroPrincipal(TipoNumero.Telefono)),
             Completo(p.NumeroPrincipal(TipoNumero.WhatsApp)),
-            c.EstadoId, c.Estado?.Nombre ?? "",
+            c.EstadoClienteId, c.EstadoClienteCalculadoId, c.NombreEstado,
             r != null,
             r?.Plan.CantidadCuotas ?? 0,
             r?.Vencidas.Count ?? 0,
@@ -227,12 +227,12 @@ public class CobrosService
             await _actualizador.ActualizarClienteAsync(clienteId, ct);
             plan = await PlanesCompletos().FirstOrDefaultAsync(p => p.ClienteId == clienteId, ct);
         }
-        var estadoCliente = plan?.Cliente?.EstadoId ?? persona.Cliente?.EstadoId;
+        var cliente = plan?.Cliente ?? persona.Cliente;
         var venta = persona.Venta;
         var sugerido = Math.Max(0, (venta?.Monto ?? 0) - (venta?.Prima?.Monto ?? 0));
         return new PlanPersonaDto(
             persona.Id, persona.EsCliente, persona.Expediente, persona.Nombres, persona.Apellidos, persona.FechaIngreso,
-            estadoCliente, porcentaje, sugerido, PuedeGestionar, _fecha.Hoy,
+            cliente?.EstadoClienteId, cliente?.EstadoClienteCalculadoId, porcentaje, sugerido, PuedeGestionar, _fecha.Hoy,
             plan == null ? null : Detalle(plan, porcentaje, _fecha.Hoy));
     }
 

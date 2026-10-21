@@ -85,10 +85,10 @@ public static class ReglasCobro
     /// </summary>
     public static int EstadoCalculado(IReadOnlyCollection<Cuota> cuotas)
     {
-        if (cuotas.Count == 0) return EstadoCliente.AlDia;
-        if (cuotas.All(c => c.EstadoCuotaPagoId == EstadoCuotaPago.Pagada)) return EstadoCliente.Estrella;
-        if (cuotas.Any(c => c.EstadoCuotaVencimientoId == EstadoCuotaVencimiento.Vencido)) return EstadoCliente.Moroso;
-        return EstadoCliente.AlDia;
+        if (cuotas.Count == 0) return EstadoClienteCalculado.AlDia;
+        if (cuotas.All(c => c.EstadoCuotaPagoId == EstadoCuotaPago.Pagada)) return EstadoClienteCalculado.Estrella;
+        if (cuotas.Any(c => c.EstadoCuotaVencimientoId == EstadoCuotaVencimiento.Vencido)) return EstadoClienteCalculado.Moroso;
+        return EstadoClienteCalculado.AlDia;
     }
 
     /// <summary>
@@ -105,8 +105,8 @@ public static class ReglasCobro
         }
         if (cliente == null) return (cambios, false);
         var estado = EstadoCalculado(plan.Cuotas);
-        if (estado == cliente.EstadoCalculadoId) return (cambios, false);
-        cliente.EstadoCalculadoId = estado;
+        if (estado == cliente.EstadoClienteCalculadoId) return (cambios, false);
+        cliente.EstadoClienteCalculadoId = estado;
         return (true, true);
     }
 

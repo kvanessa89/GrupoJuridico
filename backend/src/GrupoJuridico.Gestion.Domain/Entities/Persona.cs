@@ -70,23 +70,22 @@ public class Cliente : BaseEntity
     public OrigenCliente? OrigenCliente { get; set; }
 
     /// <summary>
-    /// Estado que calcula el sistema con el plan de pago: Al Día, Moroso o Estrella
-    /// (<see cref="ReglasCobro.EstadoCalculado"/>). Siempre se guarda, aunque haya un estado manual. No se asigna a mano.
+    /// Estado elegido en la ficha. <see cref="EstadoCliente.Activo"/> (el de por defecto) es el automático:
+    /// se muestra <see cref="EstadoClienteCalculado"/>.
     /// </summary>
-    public int EstadoCalculadoId { get; set; }
-    public EstadoCliente? EstadoCalculado { get; set; }
+    public int EstadoClienteId { get; set; } = Entities.EstadoCliente.Activo;
+    public EstadoCliente? EstadoCliente { get; set; }
 
     /// <summary>
-    /// Estado elegido a mano (Terminado, Abandonado, Sin Expediente u otro creado en Configuración).
-    /// Nulo = automático: se muestra el calculado.
+    /// Al Día, Moroso o Estrella según el plan de pago (<see cref="ReglasCobro.EstadoCalculado"/>).
+    /// Lo mantiene el sistema, aunque el cliente no esté Activo. No se asigna a mano.
     /// </summary>
-    public int? EstadoManualId { get; set; }
-    public EstadoCliente? EstadoManual { get; set; }
+    public int EstadoClienteCalculadoId { get; set; } = Entities.EstadoClienteCalculado.AlDia;
+    public EstadoClienteCalculado? EstadoClienteCalculado { get; set; }
 
-    /// <summary>Estado que se muestra y por el que se filtra: el manual si hay uno; si no, el calculado. No se guarda.</summary>
-    public int EstadoId => EstadoManualId ?? EstadoCalculadoId;
-    /// <summary>Catálogo de <see cref="EstadoId"/> (requiere cargar <see cref="EstadoCalculado"/> y <see cref="EstadoManual"/>).</summary>
-    public EstadoCliente? Estado => EstadoManualId != null ? EstadoManual : EstadoCalculado;
+    public bool EsAutomatico => EstadoClienteId == Entities.EstadoCliente.Activo;
+    /// <summary>Nombre del estado que se muestra (requiere cargar los dos catálogos).</summary>
+    public string NombreEstado => (EsAutomatico ? EstadoClienteCalculado?.Nombre : EstadoCliente?.Nombre) ?? "";
 
     public Persona? Persona { get; set; }
 }

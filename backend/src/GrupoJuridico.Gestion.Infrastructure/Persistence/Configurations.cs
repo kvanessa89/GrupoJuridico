@@ -69,6 +69,15 @@ internal class EstadoClienteConfig : IEntityTypeConfiguration<EstadoCliente>
     public void Configure(EntityTypeBuilder<EstadoCliente> b) => CatalogoConfig.Configurar(b, "EstadosCliente");
 }
 
+internal class EstadoClienteCalculadoConfig : IEntityTypeConfiguration<EstadoClienteCalculado>
+{
+    public void Configure(EntityTypeBuilder<EstadoClienteCalculado> b)
+    {
+        CatalogoConfig.Configurar(b, "EstadosClienteCalculado");
+        b.Property(x => x.Id).ValueGeneratedNever();
+    }
+}
+
 internal class ConfiguracionSistemaConfig : IEntityTypeConfiguration<ConfiguracionSistema>
 {
     public void Configure(EntityTypeBuilder<ConfiguracionSistema> b)
@@ -119,11 +128,10 @@ internal class ClienteConfig : IEntityTypeConfiguration<Cliente>
         b.ToTable("Clientes");
         b.Property(x => x.Notas).HasMaxLength(4000);
         b.HasOne(x => x.OrigenCliente).WithMany().HasForeignKey(x => x.OrigenClienteId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.EstadoCalculado).WithMany().HasForeignKey(x => x.EstadoCalculadoId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.EstadoManual).WithMany().HasForeignKey(x => x.EstadoManualId).OnDelete(DeleteBehavior.Restrict);
-        // El estado que se muestra se deriva de los dos anteriores; no tiene columna.
-        b.Ignore(x => x.EstadoId);
-        b.Ignore(x => x.Estado);
+        b.HasOne(x => x.EstadoCliente).WithMany().HasForeignKey(x => x.EstadoClienteId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.EstadoClienteCalculado).WithMany().HasForeignKey(x => x.EstadoClienteCalculadoId).OnDelete(DeleteBehavior.Restrict);
+        b.Ignore(x => x.EsAutomatico);
+        b.Ignore(x => x.NombreEstado);
     }
 }
 

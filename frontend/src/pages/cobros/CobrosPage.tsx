@@ -9,6 +9,7 @@ import { Buscador, Celda, type Columna, EnlaceTelefono, type FilaDef, Paginacion
 import { useListado } from '../../hooks/useListado'
 import { useFiltrosCobros } from '../../layout/Filtros'
 import { fCorta, fDiaLargo, fMonto, plural } from '../../utils/formato'
+import { estadoMostrado } from '../../utils/estadoCliente'
 
 const POR_PAGINA = 10
 
@@ -83,7 +84,6 @@ export function CobrosPage() {
     tarjeta('cobro-judicial', String(t?.cobroJudicial), 'Plan vencido con saldo pendiente'),
   ]
 
-  const nombreEstado = (id: number, texto: string) => catalogos?.estadosCliente.find((x) => x.id === id)?.nombre ?? texto
   const promesa = (f: CobroFila) => f.promesa
     ? <ChipTono tono={TONO_PROMESA[f.promesa.estadoId]} texto={(catalogos?.estadosPromesa.find((x) => x.id === f.promesa!.estadoId)?.nombre ?? '') + ' · ' + fCorta(f.promesa.fecha)} />
     : <Celda t="—" />
@@ -101,7 +101,8 @@ export function CobrosPage() {
   )
 
   const filas: FilaDef[] = (datos?.filas ?? []).map((f) => {
-    const estado = <ChipEstadoCliente estadoId={f.estadoClienteId} texto={nombreEstado(f.estadoClienteId, f.estadoCliente)} />
+    const mostrado = estadoMostrado(catalogos, f.estadoClienteId, f.estadoClienteCalculadoId, f.estadoCliente)
+    const estado = <ChipEstadoCliente estadoId={mostrado.clave} texto={mostrado.nombre} />
     if (vista === 'recordatorios') {
       const r = f.recordatorio
       return {

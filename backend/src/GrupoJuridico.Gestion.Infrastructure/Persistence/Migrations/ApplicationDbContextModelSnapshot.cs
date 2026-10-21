@@ -85,10 +85,10 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("EstadoCalculadoId")
+                    b.Property<int>("EstadoClienteCalculadoId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("EstadoManualId")
+                    b.Property<int>("EstadoClienteId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("ModificadoEn")
@@ -107,9 +107,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EstadoCalculadoId");
+                    b.HasIndex("EstadoClienteCalculadoId");
 
-                    b.HasIndex("EstadoManualId");
+                    b.HasIndex("EstadoClienteId");
 
                     b.HasIndex("OrigenClienteId");
 
@@ -292,6 +292,32 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("EstadosCliente", (string)null);
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.EstadoClienteCalculado", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EstadosClienteCalculado", (string)null);
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.EstadoCuotaPago", b =>
@@ -1294,16 +1320,17 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Cliente", b =>
                 {
-                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCliente", "EstadoCalculado")
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoClienteCalculado", "EstadoClienteCalculado")
                         .WithMany()
-                        .HasForeignKey("EstadoCalculadoId")
+                        .HasForeignKey("EstadoClienteCalculadoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCliente", "EstadoManual")
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCliente", "EstadoCliente")
                         .WithMany()
-                        .HasForeignKey("EstadoManualId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("EstadoClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.OrigenCliente", "OrigenCliente")
                         .WithMany()
@@ -1311,9 +1338,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("EstadoCalculado");
+                    b.Navigation("EstadoCliente");
 
-                    b.Navigation("EstadoManual");
+                    b.Navigation("EstadoClienteCalculado");
 
                     b.Navigation("OrigenCliente");
                 });

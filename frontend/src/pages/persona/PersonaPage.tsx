@@ -12,9 +12,10 @@ import { EditorSecciones, SeccionBloqueadaError, type SeccionVersion } from '../
 import { useGuardadoDiferido } from '../../hooks/useGuardadoDiferido'
 import { fFecha, fNumero, iniciales, num, origenEtiqueta, soloDigitos, vendedorEtiqueta } from '../../utils/formato'
 import {
-  correoValido, avisoPendiente, ETIQUETAS, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFincas, errorFamiliares, esEstadoAutomatico, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
+  correoValido, avisoPendiente, ETIQUETAS, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFincas, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
+import { ESTADO_ACTIVO, estadoMostrado } from '../../utils/estadoCliente'
 import { Archivos } from './Archivos'
 import { Comentarios, Contactos, Familiares } from './Secciones'
 import { PlanPagoFicha } from '../cobros/PlanPagoFicha'
@@ -395,7 +396,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
       await enviar('datos', v => api.convertir(personaId, {
         expediente: conv.expediente.trim(),
         origenClienteId: Number(conv.origen),
-        estadoClienteId: idONull(conv.estado),
+        estadoClienteId: idONull(conv.estado) ?? ESTADO_ACTIVO,
       }, v))
       navegar(`/gestion/clientes/${personaId}`)
     } catch (e) {
@@ -427,10 +428,13 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   const nombre = (d.nombres + ' ' + d.apellidos).trim()
   // El título identifica a la persona por expediente y nombre; al registrar una nueva solo se ve el nombre.
   const titulo = nuevo ? nombre || 'Nueva persona' : (d.expediente.trim() || 'Sin expediente') + ' | ' + (nombre || 'Sin nombre')
-  // Se muestra el estado manual si hay uno; si no, el que corresponde según el plan de pago.
-  const estadoCalculado = cats?.estadosCliente.find((x) => x.id === persona?.cliente?.estadoCalculadoId)
-  const estadoCliente = cats?.estadosCliente.find((x) => String(x.id) === d.estadoClienteId) ?? estadoCalculado
-  const estadosManuales = (cats?.estadosCliente ?? []).filter((x) => !esEstadoAutomatico(x.id)).map((x) => ({ v: String(x.id), l: x.nombre }))
+  // Activo muestra el estado calculado con el plan de pago; los demás se muestran tal cual.
+  const calculadoId = persona?.cliente?.estadoClienteCalculadoId ?? 1
+  const estadoCliente = estadoMostrado(cats, Number(d.estadoClienteId), calculadoId)
+  const nombreCalculado = estadoMostrado(cats, ESTADO_ACTIVO, calculadoId).nombre
+  const opcionesEstado = (cats?.estadosCliente ?? []).map((x) => ({
+    v: String(x.id), l: x.id === ESTADO_ACTIVO && nombreCalculado ? `${x.nombre} (${nombreCalculado})` : x.nombre,
+  }))
   const nombrePrima = cats?.estadosPrima.find((x) => x.id === prima.estado)?.nombre ?? ''
 
   const bloqueDatos = (
@@ -450,7 +454,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
           <>
             <CampoSelect
               label="Estado del cliente" valor={d.estadoClienteId} onChange={(v) => cambiar('datos', 'estadoClienteId', v)}
-              opciones={sel('Automático' + (estadoCalculado ? ' (' + estadoCalculado.nombre + ')' : ''), estadosManuales)}
+              opciones={opcionesEstado}
             />
             <CampoSelect
               label="Origen del cliente" span={2} valor={d.origenClienteId} onChange={(v) => cambiar('datos', 'origenClienteId', v)}
@@ -564,9 +568,9 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
             <span className="guardado"><Check /><span>Cambios guardados</span></span>
           )}
           {!nuevo && nombrePrima && <EtiquetaPrimaGrande estadoId={prima.estado} texto={nombrePrima} />}
-          {esCliente && seccion === 'clientes' && estadoCliente && <EtiquetaEstadoGrande estadoId={estadoCliente.id} texto={estadoCliente.nombre} />}
+          {esCliente && seccion === 'clientes' && estadoCliente.nombre && <EtiquetaEstadoGrande estadoId={estadoCliente.clave} texto={estadoCliente.nombre} />}
           {!nuevo && !esCliente && (
-            <button className="btn-primario" style={{ padding: '11px 17px' }} onClick={() => setConv({ expediente: d.expediente, origen: '', estado: '', error: '' })}>
+            <button className="btn-primario" style={{ padding: '11px 17px' }} onClick={() => setConv({ expediente: d.expediente, origen: '', estado: String(ESTADO_ACTIVO), error: '' })}>
               <Check tamano={15} grosor={2.2} />
               <span>Convertir en cliente</span>
             </button>
@@ -605,7 +609,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
             )}
             <label style={{ flex: 1, minWidth: 180 }}>
               <span className="etiqueta">Estado del cliente</span>
-              <Select valor={conv.estado} onChange={(v) => setConv({ ...conv, estado: v })} opciones={sel('Automático (según el plan de pago)', estadosManuales)} />
+              <Select valor={conv.estado} onChange={(v) => setConv({ ...conv, estado: v })} opciones={(cats?.estadosCliente ?? []).map((x) => ({ v: String(x.id), l: x.id === ESTADO_ACTIVO ? x.nombre + ' (según el plan de pago)' : x.nombre }))} />
             </label>
             <label style={{ flex: 1.6, minWidth: 240 }}>
               <span className="etiqueta">Origen del cliente <span className="requerido">*</span></span>

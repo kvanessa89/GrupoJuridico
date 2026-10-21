@@ -5,6 +5,7 @@ import type {
 } from './tipos'
 
 import type { AxiosResponse } from 'axios'
+import { PREFIJO_CALCULADO } from '../utils/estadoCliente'
 
 function versionado<T>(r: AxiosResponse<T>) {
   const version = String(r.headers.etag ?? '').replaceAll('"', '')
@@ -17,8 +18,11 @@ function condicion(version: string) { return { headers: { 'If-Match': `"${versio
 function params(f: FiltrosLista, porPagina: number) {
   const p: Record<string, string | number | boolean> = { orden: f.orden, asc: f.asc, pagina: f.pagina, porPagina }
   if (f.q.trim()) p.q = f.q.trim()
-  for (const k of ['vendedorId', 'estadoPrimaId', 'procedenciaId', 'mes', 'anio', 'origenId', 'estadoClienteId'] as const)
+  for (const k of ['vendedorId', 'estadoPrimaId', 'procedenciaId', 'mes', 'anio', 'origenId'] as const)
     if (f[k]) p[k] = f[k]
+  // El filtro de estado puede ser un estado calculado ("c2" = Moroso) o uno elegido ("4" = Terminado).
+  if (f.estadoClienteId.startsWith(PREFIJO_CALCULADO)) p.estadoClienteCalculadoId = f.estadoClienteId.slice(PREFIJO_CALCULADO.length)
+  else if (f.estadoClienteId) p.estadoClienteId = f.estadoClienteId
   return p
 }
 

@@ -16,6 +16,8 @@ public record ListaQuery
     public int? Anio { get; init; }
     public int? OrigenId { get; init; }
     public int? EstadoClienteId { get; init; }
+    /// <summary>Clientes Activos con este estado calculado (Al Día, Moroso o Estrella).</summary>
+    public int? EstadoClienteCalculadoId { get; init; }
     public string? Orden { get; init; }
     public bool Asc { get; init; } = true;
     public int Pagina { get; init; } = 1;
@@ -55,6 +57,8 @@ public record ClienteFilaDto(
     int? EstadoPrimaId,
     string? EstadoPrima,
     int EstadoClienteId,
+    int EstadoClienteCalculadoId,
+    /// <summary>Nombre del estado que se muestra: el calculado si el cliente está Activo; si no, el elegido.</summary>
     string EstadoCliente,
     string? Origen);
 
@@ -70,10 +74,10 @@ public record PrimaDto(int Id, decimal Monto, decimal MontoCancelado, decimal Sa
     DateOnly? FechaEstimadaPago, DateOnly? FechaPago, int EstadoPrimaId);
 
 /// <summary>
-/// <c>EstadoClienteId</c> es el que se muestra: el manual (<c>EstadoManualId</c>) si hay uno; si no, el calculado
-/// con el plan de pago (<c>EstadoCalculadoId</c>: Al Día, Moroso o Estrella).
+/// <c>EstadoClienteId</c> es el elegido en la ficha (Activo = automático) y <c>EstadoClienteCalculadoId</c> el que
+/// calcula el sistema con el plan de pago (Al Día, Moroso o Estrella).
 /// </summary>
-public record ClienteDto(int Id, int OrigenClienteId, int EstadoClienteId, string Notas, int? EstadoManualId, int EstadoCalculadoId);
+public record ClienteDto(int Id, int OrigenClienteId, int EstadoClienteId, int EstadoClienteCalculadoId, string Notas);
 
 public record NumeroDto(int Id, string Numero, string Tipo, bool Principal, int PaisId);
 
@@ -128,7 +132,7 @@ public record ActualizarDatosRequest(
     string? TelefonoPrincipal,
     string? WhatsappPrincipal,
     string? CorreoPrincipal,
-    // Estado manual del cliente: 0 = automático (según el plan de pago), nulo = no cambia.
+    // Estado del cliente (Activo = automático según el plan de pago); nulo o 0 = no cambia.
     int? EstadoClienteId,
     int? OrigenClienteId,
     int? TelefonoPrincipalPaisId = null,
@@ -148,7 +152,7 @@ public record FincaItem(int Id, string? Numero);
 public record FamiliarItem(int Id, string? NombreCompleto, int? ParentescoId, string? Telefono, string? CorreoElectronico,
     int? TelefonoPaisId = null);
 
-/// <summary><c>EstadoClienteId</c>: estado manual inicial; nulo o 0 = automático según el plan de pago.</summary>
+/// <summary><c>EstadoClienteId</c>: estado inicial; nulo o 0 = Activo (automático según el plan de pago).</summary>
 public record ConvertirClienteRequest(string? Expediente, int? OrigenClienteId, int? EstadoClienteId);
 
 public record ComentarioRequest(string Texto);

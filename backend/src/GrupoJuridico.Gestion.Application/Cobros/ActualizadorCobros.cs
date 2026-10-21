@@ -54,10 +54,10 @@ public class ActualizadorCobros
         // El estado calculado del cliente no coincide con sus cuotas (ReglasCobro.EstadoCalculado).
         || (p.Cliente != null && p.Cuotas.Any() && (
             p.Cuotas.Any(c => c.EstadoCuotaVencimientoId == EstadoCuotaVencimiento.Vencido)
-                ? p.Cliente.EstadoCalculadoId != EstadoCliente.Moroso
+                ? p.Cliente.EstadoClienteCalculadoId != EstadoClienteCalculado.Moroso
                 : p.Cuotas.All(c => c.EstadoCuotaPagoId == EstadoCuotaPago.Pagada)
-                    ? p.Cliente.EstadoCalculadoId != EstadoCliente.Estrella
-                    : p.Cliente.EstadoCalculadoId != EstadoCliente.AlDia));
+                    ? p.Cliente.EstadoClienteCalculadoId != EstadoClienteCalculado.Estrella
+                    : p.Cliente.EstadoClienteCalculadoId != EstadoClienteCalculado.AlDia));
 
     /// <summary>Recalcula los planes que lo necesitan (antes de la tabla de Cobros o de Clientes).</summary>
     public Task ActualizarPendientesAsync(CancellationToken ct = default) => ActualizarAsync(_db.PlanesPago, ct);

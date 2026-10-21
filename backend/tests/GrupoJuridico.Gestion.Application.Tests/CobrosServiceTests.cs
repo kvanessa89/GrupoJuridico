@@ -24,8 +24,7 @@ public sealed class CobrosServiceTests : IDisposable
         _opciones = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_conexion).Options;
         using var db = new ApplicationDbContext(_opciones);
         db.Database.EnsureCreated();
-        db.EstadosCliente.AddRange(new[] { "Al Día", "Moroso", "Estrella", "Terminado", "Abandonado", "Sin Expediente" }
-            .Select((n, i) => new EstadoCliente { Codigo = "EC-" + (i + 1), Nombre = n }));
+        EstadosClientePrueba.Agregar(db);
         db.OrigenesCliente.Add(new OrigenCliente { Codigo = "P1", Nombre = "Origen" });
         db.EstadosPrima.AddRange(
             new EstadoPrima { Id = 1, Nombre = "Pendiente" }, new EstadoPrima { Id = 2, Nombre = "Incompleta" }, new EstadoPrima { Id = 3, Nombre = "Pagada" });
@@ -55,7 +54,7 @@ public sealed class CobrosServiceTests : IDisposable
         prima.Recalcular();
         var p = new Persona { Nombres = nombre, Apellidos = "Vargas", Expediente = "EXP-" + nombre, FechaIngreso = Hoy };
         p.Ventas.Add(new Venta { Monto = 1100m, Prima = prima });
-        if (cliente) p.Cliente = new Cliente { OrigenClienteId = 1, EstadoCalculadoId = EstadoCliente.AlDia };
+        if (cliente) p.Cliente = new Cliente { OrigenClienteId = 1, EstadoClienteCalculadoId = EstadoClienteCalculado.AlDia };
         db.Personas.Add(p);
         db.SaveChanges();
         return p.Id;
@@ -82,7 +81,7 @@ public sealed class CobrosServiceTests : IDisposable
         Assert.Equal(300000m, dto.Plan.MontoCuota);
         Assert.Equal(EstadoCuotaVencimiento.Vencido, dto.Plan.Cuotas[0].EstadoVencimientoId);
         Assert.Equal(7500m, dto.Plan.Cuotas[0].Mora);
-        Assert.Equal(EstadoCliente.Moroso, dto.EstadoClienteId);
+        Assert.Equal(EstadoClienteCalculado.Moroso, dto.EstadoClienteCalculadoId);
         Assert.Equal(1000m, dto.MontoSugerido);
 
         using var db = Db();
@@ -130,14 +129,14 @@ public sealed class CobrosServiceTests : IDisposable
 
         var r = await s.RegistrarPagoAsync(dto.Plan!.Cuotas[0].Id, new RegistrarPagoRequest(307500m, Hoy, true), Pdf());
         Assert.Equal(EstadoCuotaPago.Pagada, r.Plan!.Cuotas[0].EstadoPagoId);
-        Assert.Equal(EstadoCliente.AlDia, r.EstadoClienteId);
+        Assert.Equal(EstadoClienteCalculado.AlDia, r.EstadoClienteCalculadoId);
         Assert.False(r.Plan.Cuotas[0].SinMora);
         Assert.Single(_almacen.Archivos);
         Assert.True(r.Plan.Cuotas[0].Pagos[0].Comprobantes[0].Disponible);
 
         foreach (var c in r.Plan.Cuotas.Skip(1))
             r = await s.RegistrarPagoAsync(c.Id, new RegistrarPagoRequest(c.Saldo, Hoy, true), Pdf());
-        Assert.Equal(EstadoCliente.Estrella, r.EstadoClienteId);
+        Assert.Equal(EstadoClienteCalculado.Estrella, r.EstadoClienteCalculadoId);
         Assert.Equal(0m, r.Plan!.Saldo);
     }
 
@@ -276,7 +275,7 @@ public sealed class CobrosServiceTests : IDisposable
         using (var db = Db()) await Servicio(db).CrearPlanAsync(id, new CrearPlanRequest(300000m, 1, Hoy.AddDays(-10), Hoy.AddDays(-5).Day));
         using var db2 = Db();
         Assert.NotEqual(antes, db2.Set<VersionSeccion>().Single(v => v.PersonaId == id && v.Seccion == "datos").Version);
-        Assert.Equal(EstadoCliente.Moroso, db2.Clientes.Single().EstadoCalculadoId);
+        Assert.Equal(EstadoClienteCalculado.Moroso, db2.Clientes.Single().EstadoClienteCalculadoId);
     }
 
     [Fact]

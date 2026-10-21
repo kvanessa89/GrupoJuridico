@@ -30,8 +30,8 @@ public class ListasService
 
     private IQueryable<Persona> PersonasCompletas() => _db.Personas.AsNoTracking()
         .Include(p => p.Cliente).ThenInclude(c => c!.OrigenCliente)
-        .Include(p => p.Cliente).ThenInclude(c => c!.EstadoCalculado)
-        .Include(p => p.Cliente).ThenInclude(c => c!.EstadoManual)
+        .Include(p => p.Cliente).ThenInclude(c => c!.EstadoCliente)
+        .Include(p => p.Cliente).ThenInclude(c => c!.EstadoClienteCalculado)
         .Include(p => p.Vendedor)
         .Include(p => p.Ventas).ThenInclude(v => v.Prima).ThenInclude(pr => pr!.EstadoPrima)
         .Include(p => p.Ventas).ThenInclude(v => v.ProcedenciaVenta)
@@ -134,7 +134,9 @@ public class ListasService
             if (f.Anio.HasValue && p.FechaIngreso.Year != f.Anio) return false;
             if (f.ProcedenciaId.HasValue && p.Venta != null && p.Venta.ProcedenciaVentaId != f.ProcedenciaId) return false;
             if (f.OrigenId.HasValue && p.Cliente!.OrigenClienteId != f.OrigenId) return false;
-            if (f.EstadoClienteId.HasValue && p.Cliente!.EstadoId != f.EstadoClienteId) return false;
+            if (f.EstadoClienteId.HasValue && p.Cliente!.EstadoClienteId != f.EstadoClienteId) return false;
+            if (f.EstadoClienteCalculadoId.HasValue
+                && (!p.Cliente!.EsAutomatico || p.Cliente.EstadoClienteCalculadoId != f.EstadoClienteCalculadoId)) return false;
             if (f.EstadoPrimaId.HasValue && (p.Prima == null || p.Prima.EstadoPrimaId != f.EstadoPrimaId)) return false;
             return Coincide(p, f.Q, conExpediente: true);
         }).ToList();
@@ -145,7 +147,7 @@ public class ListasService
             "nombre" => p.NombreCompleto.ToLowerInvariant(),
             "ingreso" => p.FechaIngreso.ToString("yyyy-MM-dd"),
             "estado" => p.Prima?.EstadoPrimaId ?? 9,
-            "estadoCliente" => p.Cliente!.EstadoId,
+            "estadoCliente" => EstadoCliente.Orden(p.Cliente!.EstadoClienteId, p.Cliente.EstadoClienteCalculadoId),
             "origen" => p.Cliente!.OrigenCliente?.Etiqueta ?? "",
             _ => p.Expediente
         });
@@ -158,8 +160,9 @@ public class ListasService
             p.FechaIngreso,
             p.Prima?.EstadoPrimaId,
             p.Prima?.EstadoPrima?.Nombre,
-            p.Cliente!.EstadoId,
-            p.Cliente.Estado?.Nombre ?? "",
+            p.Cliente!.EstadoClienteId,
+            p.Cliente.EstadoClienteCalculadoId,
+            p.Cliente.NombreEstado,
             // Cobros no ve el origen del cliente.
             _usuario.Rol == Roles.Cobros ? null : p.Cliente.OrigenCliente?.Etiqueta)).ToList();
 

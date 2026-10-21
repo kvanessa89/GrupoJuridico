@@ -21,7 +21,7 @@ test('salir de la ficha: se queda con campos inválidos o error del servidor; si
     const {api}=await vite.ssrLoadModule('/src/api/endpoints.ts')
     const cat={id:1,nombre:'Opción',codigo:'1'}
     api.yo=async()=>({id:1,nombre:'Admin',rol:'Administrador'})
-    api.catalogos=async()=>({vendedores:[cat],procedencias:[cat],metodos:[cat],estadosCliente:[cat],origenes:[cat],estadosPrima:[{id:1,nombre:'Pendiente'}],paises:[{id:1,codigo:'+506',nombre:'Costa Rica'}],parentescos:[]})
+    api.catalogos=async()=>({vendedores:[cat],procedencias:[cat],metodos:[cat],estadosCliente:[cat],estadosClienteCalculado:[cat],origenes:[cat],estadosPrima:[{id:1,nombre:'Pendiente'}],paises:[{id:1,codigo:'+506',nombre:'Costa Rica'}],parentescos:[]})
     api.persona=async()=>({id:1,esCliente:false,nombres:'Ana',apellidos:'Vargas',cedula:'123',finca:'01-20013',expediente:'',fechaIngreso:'2026-10-13',vendedorId:1,telefonoPrincipal:'88888888',telefonoPrincipalPaisId:1,whatsappPrincipal:'',correoPrincipal:'',venta:{id:1,procedenciaVentaId:1,metodoVentaId:1,monto:1000,notas:''},prima:{id:1,monto:100,montoCancelado:0,fechaEstimadaPago:null,fechaPago:null},cliente:null,numeros:[],correos:[],familiares:[],comentarios:[],versiones:{datos:'d1',venta:'v1',prima:'p1',familiares:'f1'}})
     // El guardado de datos responde cuando el test lo libera, para ver el "Guardando…".
     const enviados=[];let liberar;let fallar=false

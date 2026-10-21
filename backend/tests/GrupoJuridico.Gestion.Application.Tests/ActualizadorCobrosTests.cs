@@ -30,7 +30,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
     public void La_consulta_detecta_exactamente_los_planes_que_cambian_con_la_fecha()
     {
         var azar = new Random(20261020);
-        var estados = new[] { EstadoCliente.AlDia, EstadoCliente.Moroso, EstadoCliente.Estrella, EstadoCliente.Terminado, EstadoCliente.Abandonado };
+        var estados = new[] { EstadoClienteCalculado.AlDia, EstadoClienteCalculado.Moroso, EstadoClienteCalculado.Estrella };
         var consultas = new Dictionary<DateOnly, Func<PlanPago, bool>>();
         var revisados = 0;
         var conCambios = 0;
@@ -40,7 +40,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
             var cuotas = azar.Next(1, 7);
             var plan = new PlanPago { MontoTotal = 1000m * cuotas, CantidadCuotas = cuotas, MontoCuota = 1000m, FechaInicio = inicio, DiaPago = azar.Next(1, 32) };
             plan.Cuotas.AddRange(ReglasCobro.GenerarCuotas(plan));
-            plan.Cliente = new Cliente { EstadoCalculadoId = estados[azar.Next(estados.Length)] };
+            plan.Cliente = new Cliente { EstadoClienteCalculadoId = estados[azar.Next(estados.Length)] };
             ReglasCobro.NormalizarPlan(plan, plan.Cliente, 2.5m, inicio);
 
             var fin = plan.Cuotas[^1].FechaVencimiento.AddDays(45);
@@ -66,14 +66,14 @@ public sealed class ActualizadorCobrosTests : IDisposable
                 }
                 else if (evento < 11)
                 {
-                    // Estado manual elegido o quitado en la ficha: no cambia el calculado ni pide recálculo.
-                    var manuales = new int?[] { null, EstadoCliente.Terminado, EstadoCliente.Abandonado, EstadoCliente.SinExpediente };
-                    plan.Cliente.EstadoManualId = manuales[azar.Next(manuales.Length)];
+                    // Estado elegido en la ficha: no cambia el calculado ni pide recálculo.
+                    var elegidos = new[] { EstadoCliente.Activo, EstadoCliente.Terminado, EstadoCliente.Abandonado, EstadoCliente.SinExpediente };
+                    plan.Cliente.EstadoClienteId = elegidos[azar.Next(elegidos.Length)];
                 }
                 else if (evento < 12)
                 {
                     // Estado calculado inconsistente (por ejemplo, datos cargados a mano).
-                    plan.Cliente.EstadoCalculadoId = estados[azar.Next(estados.Length)];
+                    plan.Cliente.EstadoClienteCalculadoId = estados[azar.Next(estados.Length)];
                 }
 
                 // Lectura: no todos los días alguien abre la aplicación.
@@ -105,8 +105,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
         _opciones = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_conexion).Options;
         using var db = new ApplicationDbContext(_opciones);
         db.Database.EnsureCreated();
-        db.EstadosCliente.AddRange(new[] { "Al Día", "Moroso", "Estrella", "Terminado", "Abandonado", "Sin Expediente" }
-            .Select((n, i) => new EstadoCliente { Codigo = "EC-" + (i + 1), Nombre = n }));
+        EstadosClientePrueba.Agregar(db);
         db.OrigenesCliente.Add(new OrigenCliente { Codigo = "P1", Nombre = "Origen" });
         db.EstadosPrima.AddRange(
             new EstadoPrima { Id = 1, Nombre = "Pendiente" }, new EstadoPrima { Id = 2, Nombre = "Incompleta" }, new EstadoPrima { Id = 3, Nombre = "Pagada" });
@@ -141,7 +140,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
             prima.Recalcular();
             var p = new Persona { Nombres = nombre, Apellidos = "Vargas", Expediente = "EXP-" + nombre, FechaIngreso = _hoy };
             p.Ventas.Add(new Venta { Monto = 1100m, Prima = prima });
-            p.Cliente = new Cliente { OrigenClienteId = 1, EstadoCalculadoId = EstadoCliente.AlDia };
+            p.Cliente = new Cliente { OrigenClienteId = 1, EstadoClienteCalculadoId = EstadoClienteCalculado.AlDia };
             foreach (var s in VersionSeccion.Secciones) p.Versiones.Add(new VersionSeccion { Seccion = s });
             db.Personas.Add(p);
             db.SaveChanges();
@@ -161,7 +160,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
     private async Task<int> EstadoGuardadoAsync(int personaId)
     {
         using var db = Db();
-        return await db.Personas.Where(p => p.Id == personaId).Select(p => p.Cliente!.EstadoManualId ?? p.Cliente.EstadoCalculadoId).SingleAsync();
+        return await db.Personas.Where(p => p.Id == personaId).Select(p => p.Cliente!.EstadoClienteCalculadoId).SingleAsync();
     }
 
     [Fact]
@@ -175,10 +174,11 @@ public sealed class ActualizadorCobrosTests : IDisposable
         var lista = await Cobros(db).ListarAsync(new CobrosQuery { Vista = VistasCobros.Morosos });
         Assert.Equal(1, lista.Totales.Morosos);
         var fila = Assert.Single(lista.Filas);
-        Assert.Equal(EstadoCliente.Moroso, fila.EstadoClienteId);
+        Assert.Equal(EstadoClienteCalculado.Moroso, fila.EstadoClienteCalculadoId);
+        Assert.Equal("Moroso", fila.EstadoCliente);
         Assert.Equal(1, fila.CuotasVencidas);
         Assert.Equal(1, fila.Atraso);
-        Assert.Equal(EstadoCliente.Moroso, await EstadoGuardadoAsync(id));
+        Assert.Equal(EstadoClienteCalculado.Moroso, await EstadoGuardadoAsync(id));
         // Ya quedó guardado: la siguiente lectura no recalcula nada.
         Assert.Equal(0, await PlanesQueNecesitanRecalculoAsync());
     }
@@ -190,10 +190,11 @@ public sealed class ActualizadorCobrosTests : IDisposable
         _hoy = _hoy.AddDays(2);
 
         using var db = Db();
-        var lista = await Listas(db).ClientesAsync(new ListaQuery { EstadoClienteId = EstadoCliente.Moroso });
+        var lista = await Listas(db).ClientesAsync(new ListaQuery { EstadoClienteCalculadoId = EstadoClienteCalculado.Moroso });
         var fila = Assert.Single(lista.Filas);
         Assert.Equal(id, fila.Id);
-        Assert.Equal(EstadoCliente.Moroso, fila.EstadoClienteId);
+        Assert.Equal(EstadoClienteCalculado.Moroso, fila.EstadoClienteCalculadoId);
+        Assert.Equal("Moroso", fila.EstadoCliente);
     }
 
     [Fact]
@@ -208,7 +209,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
         using (var db = Db())
         {
             var ficha = await Personas(db).ObtenerAsync(id);
-            Assert.Equal(EstadoCliente.Moroso, ficha.Cliente!.EstadoClienteId);
+            Assert.Equal(EstadoClienteCalculado.Moroso, ficha.Cliente!.EstadoClienteCalculadoId);
             // El cambio de estado cambió la versión antes de entregar la ficha: el autoguardado no tendrá un conflicto falso.
             Assert.NotEqual(versionAnterior, ficha.Versiones["datos"]);
             using var otra = Db();
@@ -219,7 +220,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
         using (var db = Db())
         {
             await Cobros(db).ObtenerPlanAsync(id);
-            Assert.Equal(EstadoCliente.Moroso, await EstadoGuardadoAsync(id));
+            Assert.Equal(EstadoClienteCalculado.Moroso, await EstadoGuardadoAsync(id));
             var ficha = await Personas(db).ObtenerAsync(id);
             using var otra = Db();
             Assert.Equal(await otra.Set<VersionSeccion>().Where(v => v.PersonaId == id && v.Seccion == "datos").Select(v => v.Version).SingleAsync(), ficha.Versiones["datos"]);
@@ -240,7 +241,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
         {
             var plan = await Cobros(db).ObtenerPlanAsync(id);
             Assert.Equal(EstadoPromesa.Incumplida, plan.Plan!.Cuotas[0].Promesas.Single().EstadoId);
-            Assert.Equal(EstadoCliente.Moroso, plan.EstadoClienteId);
+            Assert.Equal(EstadoClienteCalculado.Moroso, plan.EstadoClienteCalculadoId);
         }
     }
 
@@ -254,26 +255,27 @@ public sealed class ActualizadorCobrosTests : IDisposable
         using (var db = Db())
         {
             var cliente = await db.Clientes.SingleAsync();
-            cliente.EstadoCalculadoId = EstadoCliente.AlDia;
+            cliente.EstadoClienteCalculadoId = EstadoClienteCalculado.AlDia;
             await db.SaveChangesAsync();
         }
         Assert.Equal(1, await PlanesQueNecesitanRecalculoAsync());
         using (var db = Db())
         {
             var lista = await Listas(db).ClientesAsync(new ListaQuery());
-            Assert.Equal(EstadoCliente.Moroso, Assert.Single(lista.Filas).EstadoClienteId);
+            Assert.Equal(EstadoClienteCalculado.Moroso, Assert.Single(lista.Filas).EstadoClienteCalculadoId);
         }
         // Un estado manual (Terminado) se muestra aunque tenga cuotas vencidas, sin pedir recálculo;
         // el calculado sigue en Moroso.
         using (var db = Db())
         {
             var cliente = await db.Clientes.SingleAsync();
-            cliente.EstadoManualId = EstadoCliente.Terminado;
+            cliente.EstadoClienteId = EstadoCliente.Terminado;
             await db.SaveChangesAsync();
         }
         Assert.Equal(0, await PlanesQueNecesitanRecalculoAsync());
-        Assert.Equal(EstadoCliente.Terminado, await EstadoGuardadoAsync(id));
-        using (var db = Db()) Assert.Equal(EstadoCliente.Moroso, (await db.Clientes.SingleAsync()).EstadoCalculadoId);
+        Assert.Equal(EstadoClienteCalculado.Moroso, await EstadoGuardadoAsync(id));
+        using (var db = Db())
+            Assert.Equal("Terminado", Assert.Single((await Listas(db).ClientesAsync(new ListaQuery())).Filas).EstadoCliente);
     }
 
     [Fact]
@@ -300,7 +302,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
             await Cobros(db).RegistrarPagoAsync(plan.Plan!.Cuotas[0].Id, new RegistrarPagoRequest(307500m, _hoy, true),
                 new ArchivoSubido("r.pdf", "application/pdf", 4, new MemoryStream(new byte[] { 1, 2, 3, 4 })));
         }
-        Assert.Equal(EstadoCliente.AlDia, await EstadoGuardadoAsync(id));
+        Assert.Equal(EstadoClienteCalculado.AlDia, await EstadoGuardadoAsync(id));
 
         using (var db = Db())
             await new CatalogosService(db, new SinUsuarios(), Actualizador(db)).GuardarInteresMoraAsync(new InteresMoraRequest(5m));
@@ -311,7 +313,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
             Assert.Equal(EstadoCuotaPago.Parcial, cuota.EstadoCuotaPagoId);
             Assert.Equal(EstadoCuotaVencimiento.Vencido, cuota.EstadoCuotaVencimientoId);
         }
-        Assert.Equal(EstadoCliente.Moroso, await EstadoGuardadoAsync(id));
+        Assert.Equal(EstadoClienteCalculado.Moroso, await EstadoGuardadoAsync(id));
     }
 
     // ---------- Estado manual en la ficha ----------
@@ -333,7 +335,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
     }
 
     [Fact]
-    public async Task En_la_ficha_se_elige_un_estado_manual_y_se_vuelve_al_automatico()
+    public async Task En_la_ficha_se_elige_un_estado_y_al_volver_a_Activo_se_ve_el_calculado()
     {
         var id = await ClienteConCuotaQueVenceMananaAsync();
         _hoy = _hoy.AddDays(2);
@@ -341,49 +343,48 @@ public sealed class ActualizadorCobrosTests : IDisposable
         using (var db = Db())
         {
             var ficha = await Personas(db).ObtenerAsync(id);
-            Assert.Equal(EstadoCliente.Moroso, ficha.Cliente!.EstadoClienteId);
-            Assert.Null(ficha.Cliente.EstadoManualId);
+            Assert.Equal(EstadoCliente.Activo, ficha.Cliente!.EstadoClienteId);
+            Assert.Equal(EstadoClienteCalculado.Moroso, ficha.Cliente.EstadoClienteCalculadoId);
             await Personas(db).ActualizarDatosAsync(id, Datos(EstadoCliente.Abandonado), version: ficha.Versiones["datos"]);
         }
         using (var db = Db())
         {
             var ficha = await Personas(db).ObtenerAsync(id);
             Assert.Equal(EstadoCliente.Abandonado, ficha.Cliente!.EstadoClienteId);
-            Assert.Equal(EstadoCliente.Abandonado, ficha.Cliente.EstadoManualId);
-            Assert.Equal(EstadoCliente.Moroso, ficha.Cliente.EstadoCalculadoId);
-            // Cobros lo sigue listando por sus cuotas vencidas, con el estado que se muestra.
-            var lista = await Cobros(db).ListarAsync(new CobrosQuery());
-            Assert.Equal(EstadoCliente.Abandonado, Assert.Single(lista.Filas).EstadoClienteId);
-            // 0 = automático: vuelve al estado calculado.
-            await Personas(db).ActualizarDatosAsync(id, Datos(0), version: ficha.Versiones["datos"]);
+            Assert.Equal(EstadoClienteCalculado.Moroso, ficha.Cliente.EstadoClienteCalculadoId);
+            // Cobros lo sigue listando por sus cuotas vencidas, con el estado elegido.
+            var fila = Assert.Single((await Cobros(db).ListarAsync(new CobrosQuery())).Filas);
+            Assert.Equal("Abandonado", fila.EstadoCliente);
+            // El filtro por un estado calculado solo trae clientes Activos.
+            Assert.Empty((await Listas(db).ClientesAsync(new ListaQuery { EstadoClienteCalculadoId = EstadoClienteCalculado.Moroso })).Filas);
+            Assert.Single((await Listas(db).ClientesAsync(new ListaQuery { EstadoClienteId = EstadoCliente.Abandonado })).Filas);
+            await Personas(db).ActualizarDatosAsync(id, Datos(EstadoCliente.Activo), version: ficha.Versiones["datos"]);
         }
         using (var db = Db())
         {
             var ficha = await Personas(db).ObtenerAsync(id);
-            Assert.Equal(EstadoCliente.Moroso, ficha.Cliente!.EstadoClienteId);
-            Assert.Null(ficha.Cliente.EstadoManualId);
+            Assert.Equal(EstadoCliente.Activo, ficha.Cliente!.EstadoClienteId);
+            Assert.Equal("Moroso", Assert.Single((await Listas(db).ClientesAsync(new ListaQuery())).Filas).EstadoCliente);
             // Nulo = no cambia el estado.
             await Personas(db).ActualizarDatosAsync(id, Datos(null), version: ficha.Versiones["datos"]);
-            Assert.Equal(EstadoCliente.Moroso, await EstadoGuardadoAsync(id));
+            Assert.Equal(EstadoCliente.Activo, (await db.Clientes.AsNoTracking().SingleAsync()).EstadoClienteId);
         }
     }
 
-    [Theory]
-    [InlineData(EstadoCliente.AlDia)]
-    [InlineData(EstadoCliente.Moroso)]
-    [InlineData(EstadoCliente.Estrella)]
-    public async Task Los_estados_automaticos_no_se_eligen_a_mano(int estado)
+    [Fact]
+    public async Task Un_estado_que_ya_no_existe_no_se_elige()
     {
         var id = await ClienteConCuotaQueVenceMananaAsync();
         using var db = Db();
         var ficha = await Personas(db).ObtenerAsync(id);
+        // Al Día, Moroso y Estrella están en otra tabla: los ids 2 y 3 no existen entre los estados que se eligen.
         var ex = await Assert.ThrowsAsync<ValidacionException>(() =>
-            Personas(db).ActualizarDatosAsync(id, Datos(estado), version: ficha.Versiones["datos"]));
-        Assert.Contains("los asigna el sistema", ex.Errores["estadoClienteId"][0]);
+            Personas(db).ActualizarDatosAsync(id, Datos(EstadoClienteCalculado.Moroso), version: ficha.Versiones["datos"]));
+        Assert.Contains("ya no existe", ex.Errores["estadoClienteId"][0]);
     }
 
     [Fact]
-    public async Task Al_convertir_en_cliente_el_estado_es_automatico_o_uno_manual()
+    public async Task Al_convertir_en_cliente_queda_Activo_o_con_el_estado_elegido()
     {
         int Prospecto(string nombre)
         {
@@ -401,15 +402,14 @@ public sealed class ActualizadorCobrosTests : IDisposable
             return await Personas(db).ConvertirEnClienteAsync(id, new ConvertirClienteRequest(null, 1, estado), version: ficha.Versiones["datos"]);
         }
 
-        var automatico = await Convertir(Prospecto("Luis"), null);
-        Assert.Equal(EstadoCliente.AlDia, automatico.Cliente!.EstadoClienteId);
-        Assert.Null(automatico.Cliente.EstadoManualId);
+        var activo = await Convertir(Prospecto("Luis"), null);
+        Assert.Equal(EstadoCliente.Activo, activo.Cliente!.EstadoClienteId);
+        Assert.Equal(EstadoClienteCalculado.AlDia, activo.Cliente.EstadoClienteCalculadoId);
 
-        var manual = await Convertir(Prospecto("Eva"), EstadoCliente.SinExpediente);
-        Assert.Equal(EstadoCliente.SinExpediente, manual.Cliente!.EstadoClienteId);
-        Assert.Equal(EstadoCliente.SinExpediente, manual.Cliente.EstadoManualId);
+        var elegido = await Convertir(Prospecto("Eva"), EstadoCliente.SinExpediente);
+        Assert.Equal(EstadoCliente.SinExpediente, elegido.Cliente!.EstadoClienteId);
 
-        await Assert.ThrowsAsync<ValidacionException>(() => Convertir(Prospecto("Ana"), EstadoCliente.Estrella));
+        await Assert.ThrowsAsync<ValidacionException>(() => Convertir(Prospecto("Ana"), EstadoClienteCalculado.Estrella));
     }
 
     // ---------- Dobles de prueba ----------

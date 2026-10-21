@@ -5,6 +5,7 @@ import { api } from '../../api/endpoints'
 import type { PlanPersona } from '../../api/tipos'
 import { useSesion } from '../../auth/Sesion'
 import { EtiquetaEstadoGrande } from '../../components/Chips'
+import { estadoMostrado } from '../../utils/estadoCliente'
 import { Cargando } from '../../components/Cargando'
 import { Atras, Check } from '../../components/Iconos'
 import { fFecha, iniciales, plural } from '../../utils/formato'
@@ -59,7 +60,9 @@ export function PlanPagoPage({ desde }: { desde: 'cobros' | 'ficha' }) {
   if (!datos) return <div className="contenedor-ficha"><Cargando /></div>
 
   const plan = datos.plan
-  const estado = catalogos?.estadosCliente.find((x) => x.id === datos.estadoClienteId)
+  const estado = datos.estadoClienteId != null && datos.estadoClienteCalculadoId != null
+    ? estadoMostrado(catalogos, datos.estadoClienteId, datos.estadoClienteCalculadoId)
+    : null
   const hoy = datos.hoy
 
   return (
@@ -83,7 +86,7 @@ export function PlanPagoPage({ desde }: { desde: 'cobros' | 'ficha' }) {
         </div>
         <div className="ficha-acciones">
           {guardado && <span className="guardado"><Check /><span>Cambios guardados</span></span>}
-          {estado && <EtiquetaEstadoGrande estadoId={estado.id} texto={estado.nombre} />}
+          {estado?.nombre && <EtiquetaEstadoGrande estadoId={estado.clave} texto={estado.nombre} />}
           <button className="btn-primario" style={{ padding: '11px 17px', fontWeight: 600 }} onClick={verFicha}>Ver ficha del cliente</button>
         </div>
       </div>

@@ -81,27 +81,32 @@ public class ReglasCobroTests
         var vencido = Cuotas((EstadoCuotaPago.Pagada, 1), (EstadoCuotaPago.Parcial, EstadoCuotaVencimiento.Vencido));
         var pagado = Cuotas((EstadoCuotaPago.Pagada, 1), (EstadoCuotaPago.Pagada, 1));
 
-        Assert.Equal(EstadoCliente.AlDia, ReglasCobro.EstadoCalculado(alDia));
-        Assert.Equal(EstadoCliente.Moroso, ReglasCobro.EstadoCalculado(vencido));
-        Assert.Equal(EstadoCliente.Estrella, ReglasCobro.EstadoCalculado(pagado));
-        Assert.Equal(EstadoCliente.AlDia, ReglasCobro.EstadoCalculado(new List<Cuota>()));
+        Assert.Equal(EstadoClienteCalculado.AlDia, ReglasCobro.EstadoCalculado(alDia));
+        Assert.Equal(EstadoClienteCalculado.Moroso, ReglasCobro.EstadoCalculado(vencido));
+        Assert.Equal(EstadoClienteCalculado.Estrella, ReglasCobro.EstadoCalculado(pagado));
+        Assert.Equal(EstadoClienteCalculado.AlDia, ReglasCobro.EstadoCalculado(new List<Cuota>()));
     }
 
     [Fact]
-    public void El_estado_manual_manda_sobre_el_calculado()
+    public void Activo_muestra_el_estado_calculado_y_los_demas_se_muestran_tal_cual()
     {
-        var moroso = new Cliente { EstadoCalculadoId = EstadoCliente.Moroso, EstadoCalculado = new EstadoCliente { Nombre = "Moroso" } };
-        Assert.Equal(EstadoCliente.Moroso, moroso.EstadoId);
-        Assert.Equal("Moroso", moroso.Estado?.Nombre);
-        foreach (var manual in new[] { EstadoCliente.Terminado, EstadoCliente.Abandonado, EstadoCliente.SinExpediente, 99 })
+        var cliente = new Cliente
         {
-            moroso.EstadoManualId = manual;
-            moroso.EstadoManual = new EstadoCliente { Nombre = "Manual" };
-            Assert.Equal(manual, moroso.EstadoId);
-            Assert.Equal("Manual", moroso.Estado?.Nombre);
-        }
-        Assert.True(EstadoCliente.EsAutomatico(EstadoCliente.Estrella));
-        Assert.False(EstadoCliente.EsAutomatico(EstadoCliente.SinExpediente));
+            EstadoClienteCalculadoId = EstadoClienteCalculado.Moroso,
+            EstadoClienteCalculado = new EstadoClienteCalculado { Nombre = "Moroso" },
+            EstadoCliente = new EstadoCliente { Nombre = "Activo" },
+        };
+        Assert.Equal(EstadoCliente.Activo, cliente.EstadoClienteId);
+        Assert.True(cliente.EsAutomatico);
+        Assert.Equal("Moroso", cliente.NombreEstado);
+
+        cliente.EstadoClienteId = EstadoCliente.Abandonado;
+        cliente.EstadoCliente = new EstadoCliente { Nombre = "Abandonado" };
+        Assert.False(cliente.EsAutomatico);
+        Assert.Equal("Abandonado", cliente.NombreEstado);
+
+        // Al listar por estado van primero los calculados y después los elegidos.
+        Assert.True(EstadoCliente.Orden(EstadoCliente.Activo, EstadoClienteCalculado.Estrella) < EstadoCliente.Orden(EstadoCliente.Terminado, EstadoClienteCalculado.AlDia));
     }
 
     [Fact]
@@ -109,15 +114,13 @@ public class ReglasCobroTests
     {
         var plan = new PlanPago { MontoTotal = 200m, CantidadCuotas = 2, MontoCuota = 100m, FechaInicio = Hoy.AddDays(-40), DiaPago = Hoy.AddDays(-5).Day };
         plan.Cuotas.AddRange(ReglasCobro.GenerarCuotas(plan));
-        var cliente = new Cliente { EstadoCalculadoId = EstadoCliente.AlDia, EstadoManualId = EstadoCliente.SinExpediente };
+        var cliente = new Cliente { EstadoClienteId = EstadoCliente.SinExpediente, EstadoClienteCalculadoId = EstadoClienteCalculado.AlDia };
         Assert.Equal((true, true), ReglasCobro.NormalizarPlan(plan, cliente, 2.5m, Hoy));
-        Assert.Equal(EstadoCliente.Moroso, cliente.EstadoCalculadoId);
-        // El manual no se toca: se muestra ese, y al quitarlo se ve el calculado.
-        Assert.Equal(EstadoCliente.SinExpediente, cliente.EstadoManualId);
-        Assert.Equal(EstadoCliente.SinExpediente, cliente.EstadoId);
-        cliente.EstadoManualId = null;
+        Assert.Equal(EstadoClienteCalculado.Moroso, cliente.EstadoClienteCalculadoId);
+        // El estado elegido no se toca.
+        Assert.Equal(EstadoCliente.SinExpediente, cliente.EstadoClienteId);
+        cliente.EstadoClienteId = EstadoCliente.Activo;
         Assert.Equal((false, false), ReglasCobro.NormalizarPlan(plan, cliente, 2.5m, Hoy));
-        Assert.Equal(EstadoCliente.Moroso, cliente.EstadoId);
     }
 
     [Fact]

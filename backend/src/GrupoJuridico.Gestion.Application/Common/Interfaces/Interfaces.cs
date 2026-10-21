@@ -22,6 +22,7 @@ public interface IApplicationDbContext
     DbSet<EstadoPrima> EstadosPrima { get; }
     DbSet<OrigenCliente> OrigenesCliente { get; }
     DbSet<EstadoCliente> EstadosCliente { get; }
+    DbSet<EstadoClienteCalculado> EstadosClienteCalculado { get; }
     DbSet<Pais> Paises { get; }
     DbSet<Parentesco> Parentescos { get; }
     DbSet<ConfiguracionSistema> Configuracion { get; }

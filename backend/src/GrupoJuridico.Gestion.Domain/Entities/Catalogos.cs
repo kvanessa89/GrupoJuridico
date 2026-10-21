@@ -34,17 +34,29 @@ public class OrigenCliente : Catalogo
 }
 
 /// <summary>Estado del cliente oficial: Al Día, Moroso, Estrella, Terminado, Abandonado, Sin Expediente.</summary>
+/// <summary>
+/// Estado del cliente que se elige a mano en la ficha. <see cref="Activo"/> es el automático: se muestra el
+/// <see cref="EstadoClienteCalculado"/>. Los demás (Terminado, Abandonado, Sin Expediente y los que se agreguen
+/// en Configuración) se muestran tal cual.
+/// </summary>
 public class EstadoCliente : Catalogo
 {
-    public const int AlDia = 1;
-    public const int Moroso = 2;
-    public const int Estrella = 3;
+    public const int Activo = 1;
     public const int Terminado = 4;
     public const int Abandonado = 5;
     public const int SinExpediente = 6;
 
-    /// <summary>Al Día, Moroso y Estrella los asigna el sistema según el plan de pago; los demás se eligen a mano.</summary>
-    public static bool EsAutomatico(int id) => id is AlDia or Moroso or Estrella;
+    /// <summary>Orden para listar por estado: primero los calculados (clientes Activos), luego los demás.</summary>
+    public static int Orden(int estadoClienteId, int estadoCalculadoId) =>
+        estadoClienteId == Activo ? estadoCalculadoId : 100 + estadoClienteId;
+}
+
+/// <summary>Estado que calcula el sistema con el plan de pago (<see cref="ReglasCobro.EstadoCalculado"/>). Ids fijos.</summary>
+public class EstadoClienteCalculado : Catalogo
+{
+    public const int AlDia = 1;
+    public const int Moroso = 2;
+    public const int Estrella = 3;
 }
 
 /// <summary>País de un teléfono. Codigo es el prefijo internacional ("+506").</summary>

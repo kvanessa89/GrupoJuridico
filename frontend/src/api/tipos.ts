@@ -27,7 +27,10 @@ export interface Catalogos {
   metodos: CatalogoItem[]
   estadosPrima: CatalogoItem[]
   origenes: CatalogoItem[]
+  /** Estados que se eligen en la ficha; Activo (id 1) es el automático. */
   estadosCliente: CatalogoItem[]
+  /** Al Día, Moroso y Estrella: los asigna el sistema según el plan de pago. */
+  estadosClienteCalculado: CatalogoItem[]
   /** Países de los teléfonos: `codigo` es el prefijo ("+506"). */
   paises: CatalogoItem[]
   parentescos: CatalogoItem[]
@@ -94,6 +97,8 @@ export interface ClienteFila {
   estadoPrimaId: number | null
   estadoPrima: string | null
   estadoClienteId: number
+  estadoClienteCalculadoId: number
+  /** Nombre del estado que se muestra. */
   estadoCliente: string
   origen: string | null
 }
@@ -127,13 +132,11 @@ export interface PrimaDto {
 export interface ClienteDto {
   id: number
   origenClienteId: number
-  /** Estado que se muestra: el manual si hay uno; si no, el calculado según el plan de pago. */
+  /** Estado elegido en la ficha; Activo (1) = automático. */
   estadoClienteId: number
+  /** Al Día, Moroso o Estrella según el plan de pago. */
+  estadoClienteCalculadoId: number
   notas: string
-  /** Estado elegido a mano (Terminado, Abandonado…); nulo = automático. */
-  estadoManualId: number | null
-  /** Estado según el plan de pago (Al Día, Moroso o Estrella), aunque haya uno manual. */
-  estadoCalculadoId: number
 }
 
 export type TipoNumero = 'Teléfono' | 'WhatsApp'
@@ -249,6 +252,8 @@ export interface CobroFila {
   telefono: string | null
   whatsapp: string | null
   estadoClienteId: number
+  estadoClienteCalculadoId: number
+  /** Nombre del estado que se muestra. */
   estadoCliente: string
   tienePlan: boolean
   cantidadCuotas: number
@@ -330,6 +335,7 @@ export interface PlanPersona {
   apellidos: string
   fechaIngreso: string
   estadoClienteId: number | null
+  estadoClienteCalculadoId: number | null
   interesMora: number
   /** Monto de la venta menos la prima: se propone al crear el plan. */
   montoSugerido: number

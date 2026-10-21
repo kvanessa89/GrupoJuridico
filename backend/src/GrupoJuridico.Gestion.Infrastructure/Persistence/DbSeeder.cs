@@ -136,8 +136,23 @@ public class DbSeeder
         }
         if (!await _db.EstadosCliente.AnyAsync())
         {
-            var estados = new[] { "Al Día", "Moroso", "Estrella", "Terminado", "Abandonado", "Sin Expediente" };
-            _db.EstadosCliente.AddRange(estados.Select((n, i) => new EstadoCliente { Codigo = "EC-" + (i + 1), Nombre = n }));
+            // Ids fijos porque el código los usa; los que se agreguen en Configuración siguen después.
+            _db.EstadosCliente.AddRange(
+                new EstadoCliente { Id = EstadoCliente.Activo, Codigo = "EC-1", Nombre = "Activo" },
+                new EstadoCliente { Id = EstadoCliente.Terminado, Codigo = "EC-4", Nombre = "Terminado" },
+                new EstadoCliente { Id = EstadoCliente.Abandonado, Codigo = "EC-5", Nombre = "Abandonado" },
+                new EstadoCliente { Id = EstadoCliente.SinExpediente, Codigo = "EC-6", Nombre = "Sin Expediente" });
+            await _db.SaveChangesAsync();
+            if (_db.Database.IsNpgsql())
+                await _db.Database.ExecuteSqlRawAsync(
+                    """SELECT setval(pg_get_serial_sequence('"EstadosCliente"', 'Id'), (SELECT MAX("Id") FROM "EstadosCliente"))""");
+        }
+        if (!await _db.EstadosClienteCalculado.AnyAsync())
+        {
+            _db.EstadosClienteCalculado.AddRange(
+                new EstadoClienteCalculado { Id = EstadoClienteCalculado.AlDia, Codigo = "ECC-1", Nombre = "Al Día" },
+                new EstadoClienteCalculado { Id = EstadoClienteCalculado.Moroso, Codigo = "ECC-2", Nombre = "Moroso" },
+                new EstadoClienteCalculado { Id = EstadoClienteCalculado.Estrella, Codigo = "ECC-3", Nombre = "Estrella" });
         }
         if (!await _db.Paises.AnyAsync())
         {
@@ -306,13 +321,13 @@ public class DbSeeder
             if (s.Expediente != null)
             {
                 clientes++;
-                var estado = clientes is 6 or 7 ? EstadoCliente.Moroso : new[] { 1, 1, 2, 3, 1, 4 }[i % 6];
+                var calculado = clientes is 6 or 7 ? EstadoClienteCalculado.Moroso : new[] { 1, 1, 2, 3, 1, 1 }[i % 6];
                 persona.Cliente = new Cliente
                 {
                     Notas = s.Notas, OrigenClienteId = (i % 14) + 1,
-                    // El calculado se corrige con el plan de pago al leer (ActualizadorCobros).
-                    EstadoCalculadoId = EstadoCliente.EsAutomatico(estado) ? estado : EstadoCliente.AlDia,
-                    EstadoManualId = EstadoCliente.EsAutomatico(estado) ? null : estado,
+                    EstadoClienteId = i % 6 == 5 ? EstadoCliente.Terminado : EstadoCliente.Activo,
+                    // Se corrige con el plan de pago al leer (ActualizadorCobros).
+                    EstadoClienteCalculadoId = calculado,
                 };
             }
 

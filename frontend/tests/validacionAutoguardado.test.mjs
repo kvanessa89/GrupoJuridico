@@ -71,16 +71,21 @@ test('el aviso de pendientes une etiqueta y mensaje en minúscula sin tocar el m
   assert.equal(avisoPendiente('fechaIngreso','Ingrese una fecha válida.'),'Fecha de ingreso, ingrese una fecha válida.')
   assert.equal(erroresVenta(formVacio()).procedenciaVentaId,'Campo requerido.')
 })
-test('el estado del cliente se envía como manual o 0 para volver al automático', async () => {
-  const { formDesde, esEstadoAutomatico } = await import('../src/pages/persona/formulario.ts')
+test('el estado del cliente se envía tal cual y Activo muestra el calculado', async () => {
+  const { formDesde } = await import('../src/pages/persona/formulario.ts')
+  const { estadoMostrado, opcionesFiltroEstado, ESTADO_ACTIVO } = await import('../src/utils/estadoCliente.ts')
   const f=valido()
-  assert.equal(payloadDatos(f,true).estadoClienteId,0)
-  assert.equal(payloadDatos(f,false).estadoClienteId,null)
+  assert.equal(payloadDatos(f,true).estadoClienteId,null)
   f.datos.estadoClienteId='5'
   assert.equal(payloadDatos(f,true).estadoClienteId,5)
-  // La ficha muestra el estado manual en el selector; sin manual queda en "Automático".
+  assert.equal(payloadDatos(f,false).estadoClienteId,null)
   const base={nombres:'Ana',apellidos:'Vargas',cedula:'',finca:'',expediente:'',fechaIngreso:'2026-10-13',vendedorId:null,telefonoPrincipal:'',whatsappPrincipal:'',correoPrincipal:'',numeros:[],correos:[],familiares:[]}
-  assert.equal(formDesde({...base,cliente:{id:1,origenClienteId:1,estadoClienteId:2,notas:'',estadoManualId:null,estadoCalculadoId:2}}).datos.estadoClienteId,'')
-  assert.equal(formDesde({...base,cliente:{id:1,origenClienteId:1,estadoClienteId:4,notas:'',estadoManualId:4,estadoCalculadoId:2}}).datos.estadoClienteId,'4')
-  assert.deepEqual([1,2,3,4,5,6,7].map(esEstadoAutomatico),[true,true,true,false,false,false,false])
+  assert.equal(formDesde({...base,cliente:{id:1,origenClienteId:1,estadoClienteId:4,estadoClienteCalculadoId:2,notas:''}}).datos.estadoClienteId,'4')
+
+  const cats={estadosCliente:[{id:1,nombre:'Activo'},{id:4,nombre:'Terminado'}],estadosClienteCalculado:[{id:1,nombre:'Al Día'},{id:2,nombre:'Moroso'}]}
+  assert.deepEqual(estadoMostrado(cats,ESTADO_ACTIVO,2),{clave:2,nombre:'Moroso'})
+  assert.deepEqual(estadoMostrado(cats,4,2),{clave:4,nombre:'Terminado'})
+  assert.deepEqual(estadoMostrado(null,4,2,'Respaldo'),{clave:4,nombre:'Respaldo'})
+  // El filtro ofrece los calculados (prefijo "c") y los elegidos, sin Activo.
+  assert.deepEqual(opcionesFiltroEstado(cats).map(o=>o.v),['c1','c2','4'])
 })

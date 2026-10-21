@@ -121,16 +121,9 @@ public class PersonasService
     /// El id elegido sigue en el catálogo. Un vendedor, procedencia o método puede eliminarse
     /// mientras otra sesión tiene la ficha abierta: sin esto, el guardado violaría la FK (500).
     /// </summary>
-    /// <summary>
-    /// Estado manual elegido en la ficha: 0 o nulo = automático. Al Día, Moroso y Estrella no se eligen a mano:
-    /// los asigna el sistema según el plan de pago.
-    /// </summary>
-    private async Task<int?> EstadoManualAsync(int? estadoId, CancellationToken ct)
+    /// <summary>Estado elegido en la ficha o al convertir en cliente; debe seguir en el catálogo.</summary>
+    private async Task<int> EstadoClienteAsync(int estadoId, CancellationToken ct)
     {
-        if (estadoId is null or 0) return null;
-        if (EstadoCliente.EsAutomatico(estadoId.Value))
-            throw new ValidacionException("estadoClienteId",
-                "Al Día, Moroso y Estrella los asigna el sistema según el plan de pago. Elija «Automático» o un estado manual.");
         if (!await _db.EstadosCliente.AnyAsync(e => e.Id == estadoId, ct))
             throw new ValidacionException("estadoClienteId", "El estado seleccionado ya no existe. Recargue la página y elija otro.");
         return estadoId;
@@ -235,8 +228,8 @@ public class PersonasService
             p.CorreoPrincipal?.Correo ?? "",
             v == null ? null : new VentaDto(v.Id, v.ProcedenciaVentaId, v.MetodoVentaId, v.Monto, v.Notas),
             pr == null ? null : new PrimaDto(pr.Id, pr.Monto, pr.MontoCancelado, pr.SaldoPendiente, pr.FechaEstimadaPago, pr.FechaPago, pr.EstadoPrimaId),
-            p.Cliente == null ? null : new ClienteDto(p.Cliente.Id, p.Cliente.OrigenClienteId, p.Cliente.EstadoId, p.Cliente.Notas,
-                p.Cliente.EstadoManualId, p.Cliente.EstadoCalculadoId),
+            p.Cliente == null ? null : new ClienteDto(p.Cliente.Id, p.Cliente.OrigenClienteId, p.Cliente.EstadoClienteId,
+                p.Cliente.EstadoClienteCalculadoId, p.Cliente.Notas),
             p.Numeros.OrderBy(n => n.Id).Select(NumeroDe).ToList(),
             p.Correos.OrderBy(c => c.Id).Select(c => new CorreoDto(c.Id, c.Correo, c.Principal)).ToList(),
             p.Familiares.OrderBy(f => f.Id).Select(FamiliarDe).ToList(),
@@ -373,7 +366,7 @@ public class PersonasService
 
         if (p.Cliente != null)
         {
-            if (r.EstadoClienteId != null) p.Cliente.EstadoManualId = await EstadoManualAsync(r.EstadoClienteId, ct);
+            if (r.EstadoClienteId is > 0 and int estado) p.Cliente.EstadoClienteId = await EstadoClienteAsync(estado, ct);
             if (r.OrigenClienteId is > 0)
             {
                 if (!await _db.OrigenesCliente.AnyAsync(o => o.Id == r.OrigenClienteId, ct))
@@ -554,8 +547,8 @@ public class PersonasService
         p.Cliente = new Cliente
         {
             OrigenClienteId = r.OrigenClienteId!.Value,
-            EstadoCalculadoId = EstadoCliente.AlDia,
-            EstadoManualId = await EstadoManualAsync(r.EstadoClienteId, ct),
+            EstadoClienteId = r.EstadoClienteId is > 0 and int estado ? estado : EstadoCliente.Activo,
+            EstadoClienteCalculadoId = EstadoClienteCalculado.AlDia,
         };
         if (r.Expediente != null) p.Expediente = r.Expediente.Trim();
         await _db.SaveChangesAsync(ct);

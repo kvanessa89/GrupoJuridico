@@ -36,6 +36,8 @@ public record CobroFilaDto(
     string? Telefono,
     string? Whatsapp,
     int EstadoClienteId,
+    int EstadoClienteCalculadoId,
+    /// <summary>Nombre del estado que se muestra: el calculado si el cliente está Activo; si no, el elegido.</summary>
     string EstadoCliente,
     bool TienePlan,
     int CantidadCuotas,
@@ -117,6 +119,7 @@ public record PlanPersonaDto(
     string Apellidos,
     DateOnly FechaIngreso,
     int? EstadoClienteId,
+    int? EstadoClienteCalculadoId,
     decimal InteresMora,
     decimal MontoSugerido,
     bool PuedeGestionar,
