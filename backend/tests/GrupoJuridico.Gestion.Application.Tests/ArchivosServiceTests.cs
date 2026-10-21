@@ -28,7 +28,7 @@ public sealed class ArchivosServiceTests : IDisposable
         _opciones = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_conexion).Options;
         using var db = new ApplicationDbContext(_opciones);
         db.Database.EnsureCreated();
-        db.EstadosCliente.Add(new EstadoCliente { Codigo = "EC-1", Nombre = "Al Día" });
+        EstadosClientePrueba.Agregar(db);
         db.OrigenesCliente.Add(new OrigenCliente { Codigo = "P1", Nombre = "Origen" });
         db.EstadosPrima.AddRange(
             new EstadoPrima { Id = 1, Nombre = "Pendiente" }, new EstadoPrima { Id = 2, Nombre = "Incompleta" }, new EstadoPrima { Id = 3, Nombre = "Pagada" });
@@ -63,7 +63,7 @@ public sealed class ArchivosServiceTests : IDisposable
         prima.Recalcular();
         var p = new Persona { Nombres = "Ana", Apellidos = "Vargas", FechaIngreso = Hoy };
         p.Ventas.Add(new Venta { Monto = 1000m, Prima = prima });
-        if (cliente) p.Cliente = new Cliente { OrigenClienteId = 1, EstadoClienteId = 1 };
+        if (cliente) p.Cliente = new Cliente { OrigenClienteId = 1, EstadoClienteCalculadoId = 1 };
         db.Personas.Add(p);
         db.SaveChanges();
         return p.Id;

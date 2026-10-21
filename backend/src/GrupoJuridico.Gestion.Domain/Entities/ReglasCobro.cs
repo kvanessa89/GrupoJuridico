@@ -80,26 +80,20 @@ public static class ReglasCobro
     }
 
     /// <summary>
-    /// Estado del cliente según su plan: Estrella al pagar todas las cuotas, Moroso con cuotas vencidas
-    /// y Al Día al ponerse al día. No se tocan los clientes Terminado o Abandonado.
+    /// Estado que calcula el sistema con las cuotas del plan: Estrella si todas están pagadas, Moroso si alguna
+    /// está vencida y Al Día en otro caso (también sin plan de pago).
     /// </summary>
-    public static int EstadoClientePara(int estadoActual, IReadOnlyCollection<Cuota> cuotas)
+    public static int EstadoCalculado(IReadOnlyCollection<Cuota> cuotas)
     {
-        if (cuotas.Count == 0) return estadoActual;
-        var vencidas = cuotas.Any(c => c.EstadoCuotaVencimientoId == EstadoCuotaVencimiento.Vencido);
-        if (cuotas.All(c => c.EstadoCuotaPagoId == EstadoCuotaPago.Pagada))
-            return estadoActual is EstadoCliente.Estrella or EstadoCliente.Terminado or EstadoCliente.Abandonado
-                ? estadoActual : EstadoCliente.Estrella;
-        if (estadoActual == EstadoCliente.Estrella) return vencidas ? EstadoCliente.Moroso : EstadoCliente.AlDia;
-        if (vencidas && estadoActual is not (EstadoCliente.Moroso or EstadoCliente.Terminado or EstadoCliente.Abandonado))
-            return EstadoCliente.Moroso;
-        if (!vencidas && estadoActual == EstadoCliente.Moroso) return EstadoCliente.AlDia;
-        return estadoActual;
+        if (cuotas.Count == 0) return EstadoClienteCalculado.AlDia;
+        if (cuotas.All(c => c.EstadoCuotaPagoId == EstadoCuotaPago.Pagada)) return EstadoClienteCalculado.Estrella;
+        if (cuotas.Any(c => c.EstadoCuotaVencimientoId == EstadoCuotaVencimiento.Vencido)) return EstadoClienteCalculado.Moroso;
+        return EstadoClienteCalculado.AlDia;
     }
 
     /// <summary>
-    /// Recalcula cuotas, promesas y el estado del cliente de un plan (con sus pagos y promesas cargados).
-    /// Devuelve si algo cambió y si cambió el estado del cliente.
+    /// Recalcula cuotas, promesas y el estado calculado del cliente de un plan (con sus pagos y promesas cargados).
+    /// Devuelve si algo cambió y si cambió el estado calculado del cliente.
     /// </summary>
     public static (bool Cambios, bool EstadoCliente) NormalizarPlan(PlanPago plan, Cliente? cliente, decimal porcentaje, DateOnly hoy)
     {
@@ -110,9 +104,9 @@ public static class ReglasCobro
             foreach (var p in c.Promesas) cambios |= RecalcularPromesa(p, hoy);
         }
         if (cliente == null) return (cambios, false);
-        var estado = EstadoClientePara(cliente.EstadoClienteId, plan.Cuotas);
-        if (estado == cliente.EstadoClienteId) return (cambios, false);
-        cliente.EstadoClienteId = estado;
+        var estado = EstadoCalculado(plan.Cuotas);
+        if (estado == cliente.EstadoClienteCalculadoId) return (cambios, false);
+        cliente.EstadoClienteCalculadoId = estado;
         return (true, true);
     }
 

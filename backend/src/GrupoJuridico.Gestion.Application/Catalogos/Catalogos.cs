@@ -28,7 +28,9 @@ public record CatalogosDto(
     IReadOnlyList<CatalogoItemDto> EstadosCuotaPago,
     IReadOnlyList<CatalogoItemDto> EstadosCuotaVencimiento,
     IReadOnlyList<CatalogoItemDto> EstadosPromesa,
-    IReadOnlyList<CatalogoItemDto> TiposDocumento);
+    IReadOnlyList<CatalogoItemDto> TiposDocumento,
+    // Al Día, Moroso y Estrella: los asigna el sistema, no se editan.
+    IReadOnlyList<CatalogoItemDto> EstadosClienteCalculado);
 
 public record GuardarCatalogoItemRequest(string Nombre, string? Codigo, string? Apellidos);
 
@@ -84,7 +86,8 @@ public class CatalogosService
             (await _db.EstadosCuotaPago.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             (await _db.EstadosCuotaVencimiento.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
             (await _db.EstadosPromesa.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
-            (await _db.TiposDocumento.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList());
+            (await _db.TiposDocumento.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList(),
+            (await _db.EstadosClienteCalculado.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct)).Select(Map).ToList());
     }
 
     public async Task<CatalogoItemDto> CrearAsync(string tipo, GuardarCatalogoItemRequest request, CancellationToken ct = default)
@@ -202,7 +205,7 @@ public class CatalogosService
             case "estados-cliente":
             {
                 var x = await _db.EstadosCliente.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Estado del cliente", id);
-                if (id <= EstadoCliente.SinExpediente)
+                if (id is EstadoCliente.Activo or EstadoCliente.Terminado or EstadoCliente.Abandonado or EstadoCliente.SinExpediente)
                     throw new ValidacionException("id", "Este estado lo usa el sistema y no se puede eliminar.");
                 var enUso = await _db.Clientes.CountAsync(c => c.EstadoClienteId == id, ct);
                 if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} cliente(s) tienen este estado.");

@@ -273,7 +273,7 @@ public class PersonasAccesoTests
         var metodo = new MetodoVenta { Nombre = "Llamada" };
         var origen = new OrigenCliente { Codigo = "P1", Nombre = "Referido" };
         var origenEliminado = new OrigenCliente { Codigo = "P2", Nombre = "Feria" };
-        var estado = new EstadoCliente { Nombre = "Moroso" };
+        var estado = new EstadoCliente { Nombre = "Terminado" };
         db.AddRange(vendedor, procedencia, metodo, origen, origenEliminado, estado);
         await db.SaveChangesAsync();
         var ficha = await servicio.ObtenerAsync(id);
@@ -293,7 +293,7 @@ public class PersonasAccesoTests
         await Assert.ThrowsAsync<ValidacionException>(() => servicio.ActualizarVentaAsync(id,
             new ActualizarVentaRequest(null, metodo.Id, 1000m, ""), version: ficha.Versiones["venta"]));
 
-        // Convertir en cliente: un origen o un estado eliminado se rechaza (el estado ya no cae en "Al día").
+        // Convertir en cliente: un origen o un estado eliminado se rechaza (el estado ya no cae en "Activo").
         var sinOrigen = await Assert.ThrowsAsync<ValidacionException>(() => servicio.ConvertirEnClienteAsync(id,
             new ConvertirClienteRequest("", origenEliminado.Id, null), version: ficha.Versiones["datos"]));
         Assert.Contains("ya no existe", sinOrigen.Errores["origenClienteId"][0]);
@@ -1251,7 +1251,7 @@ public class PersonasAccesoTests
         Assert.Equal(numeros[0].PaisId, familiares[0].TelefonoPaisId);
         var cliente = await servicio.ConvertirEnClienteAsync(id, new ConvertirClienteRequest("", origen.Id, opcional),
             version: (await servicio.ObtenerAsync(id)).Versiones["datos"]);
-        Assert.Equal(EstadoCliente.AlDia, cliente.Cliente!.EstadoClienteId);
+        Assert.Equal(EstadoCliente.Activo, cliente.Cliente!.EstadoClienteId);
         await servicio.ActualizarDatosAsync(id, new ActualizarDatosRequest("Ana", "Vargas", "123", "12-12345", "",
             new DateOnly(2026, 10, 13), 1, null, null, null, opcional, opcional), version: cliente.Versiones["datos"]);
         var despues = await servicio.ObtenerAsync(id);
@@ -1313,6 +1313,7 @@ public class PersonasAccesoTests
         public DbSet<EstadoPrima> EstadosPrima => Set<EstadoPrima>();
         public DbSet<OrigenCliente> OrigenesCliente => Set<OrigenCliente>();
         public DbSet<EstadoCliente> EstadosCliente => Set<EstadoCliente>();
+        public DbSet<EstadoClienteCalculado> EstadosClienteCalculado => Set<EstadoClienteCalculado>();
         public DbSet<Pais> Paises => Set<Pais>();
         public DbSet<Parentesco> Parentescos => Set<Parentesco>();
         public DbSet<ConfiguracionSistema> Configuracion => Set<ConfiguracionSistema>();

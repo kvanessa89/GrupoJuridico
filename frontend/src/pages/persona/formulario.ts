@@ -20,6 +20,7 @@ export interface FormPersona {
     telefonoPrincipalPaisId: string
     whatsappPrincipalPaisId: string
     correoPrincipal: string
+    /** Estado elegido del cliente; Activo = automático (según el plan de pago). */
     estadoClienteId: string
     origenClienteId: string
   }

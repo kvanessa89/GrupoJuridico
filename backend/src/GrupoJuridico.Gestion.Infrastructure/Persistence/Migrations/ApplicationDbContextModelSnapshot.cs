@@ -85,6 +85,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("EstadoClienteCalculadoId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("EstadoClienteId")
                         .HasColumnType("integer");
 
@@ -103,6 +106,8 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EstadoClienteCalculadoId");
 
                     b.HasIndex("EstadoClienteId");
 
@@ -287,6 +292,32 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("EstadosCliente", (string)null);
+                });
+
+            modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.EstadoClienteCalculado", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ModificadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EstadosClienteCalculado", (string)null);
                 });
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.EstadoCuotaPago", b =>
@@ -1289,6 +1320,12 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Cliente", b =>
                 {
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoClienteCalculado", "EstadoClienteCalculado")
+                        .WithMany()
+                        .HasForeignKey("EstadoClienteCalculadoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCliente", "EstadoCliente")
                         .WithMany()
                         .HasForeignKey("EstadoClienteId")
@@ -1302,6 +1339,8 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("EstadoCliente");
+
+                    b.Navigation("EstadoClienteCalculado");
 
                     b.Navigation("OrigenCliente");
                 });

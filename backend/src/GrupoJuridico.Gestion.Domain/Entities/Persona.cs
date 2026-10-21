@@ -69,8 +69,23 @@ public class Cliente : BaseEntity
     public int OrigenClienteId { get; set; }
     public OrigenCliente? OrigenCliente { get; set; }
 
-    public int EstadoClienteId { get; set; }
+    /// <summary>
+    /// Estado elegido en la ficha. <see cref="EstadoCliente.Activo"/> (el de por defecto) es el automático:
+    /// se muestra <see cref="EstadoClienteCalculado"/>.
+    /// </summary>
+    public int EstadoClienteId { get; set; } = Entities.EstadoCliente.Activo;
     public EstadoCliente? EstadoCliente { get; set; }
+
+    /// <summary>
+    /// Al Día, Moroso o Estrella según el plan de pago (<see cref="ReglasCobro.EstadoCalculado"/>).
+    /// Lo mantiene el sistema, aunque el cliente no esté Activo. No se asigna a mano.
+    /// </summary>
+    public int EstadoClienteCalculadoId { get; set; } = Entities.EstadoClienteCalculado.AlDia;
+    public EstadoClienteCalculado? EstadoClienteCalculado { get; set; }
+
+    public bool EsAutomatico => EstadoClienteId == Entities.EstadoCliente.Activo;
+    /// <summary>Nombre del estado que se muestra (requiere cargar los dos catálogos).</summary>
+    public string NombreEstado => (EsAutomatico ? EstadoClienteCalculado?.Nombre : EstadoCliente?.Nombre) ?? "";
 
     public Persona? Persona { get; set; }
 }

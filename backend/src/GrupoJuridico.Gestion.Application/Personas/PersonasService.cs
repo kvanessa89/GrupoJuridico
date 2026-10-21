@@ -121,6 +121,14 @@ public class PersonasService
     /// El id elegido sigue en el catálogo. Un vendedor, procedencia o método puede eliminarse
     /// mientras otra sesión tiene la ficha abierta: sin esto, el guardado violaría la FK (500).
     /// </summary>
+    /// <summary>Estado elegido en la ficha o al convertir en cliente; debe seguir en el catálogo.</summary>
+    private async Task<int> EstadoClienteAsync(int estadoId, CancellationToken ct)
+    {
+        if (!await _db.EstadosCliente.AnyAsync(e => e.Id == estadoId, ct))
+            throw new ValidacionException("estadoClienteId", "El estado seleccionado ya no existe. Recargue la página y elija otro.");
+        return estadoId;
+    }
+
     private async Task ValidarCatalogoAsync<T>(IQueryable<T> catalogo, int? id, string campo, string mensaje, CancellationToken ct)
         where T : Catalogo
     {
@@ -220,7 +228,8 @@ public class PersonasService
             p.CorreoPrincipal?.Correo ?? "",
             v == null ? null : new VentaDto(v.Id, v.ProcedenciaVentaId, v.MetodoVentaId, v.Monto, v.Notas),
             pr == null ? null : new PrimaDto(pr.Id, pr.Monto, pr.MontoCancelado, pr.SaldoPendiente, pr.FechaEstimadaPago, pr.FechaPago, pr.EstadoPrimaId),
-            p.Cliente == null ? null : new ClienteDto(p.Cliente.Id, p.Cliente.OrigenClienteId, p.Cliente.EstadoClienteId, p.Cliente.Notas),
+            p.Cliente == null ? null : new ClienteDto(p.Cliente.Id, p.Cliente.OrigenClienteId, p.Cliente.EstadoClienteId,
+                p.Cliente.EstadoClienteCalculadoId, p.Cliente.Notas),
             p.Numeros.OrderBy(n => n.Id).Select(NumeroDe).ToList(),
             p.Correos.OrderBy(c => c.Id).Select(c => new CorreoDto(c.Id, c.Correo, c.Principal)).ToList(),
             p.Familiares.OrderBy(f => f.Id).Select(FamiliarDe).ToList(),
@@ -357,12 +366,7 @@ public class PersonasService
 
         if (p.Cliente != null)
         {
-            if (r.EstadoClienteId is > 0)
-            {
-                if (!await _db.EstadosCliente.AnyAsync(e => e.Id == r.EstadoClienteId, ct))
-                    throw new ValidacionException(nameof(r.EstadoClienteId), "El estado seleccionado ya no existe. Recargue la página y elija otro.");
-                p.Cliente.EstadoClienteId = r.EstadoClienteId.Value;
-            }
+            if (r.EstadoClienteId is > 0 and int estado) p.Cliente.EstadoClienteId = await EstadoClienteAsync(estado, ct);
             if (r.OrigenClienteId is > 0)
             {
                 if (!await _db.OrigenesCliente.AnyAsync(o => o.Id == r.OrigenClienteId, ct))
@@ -539,10 +543,13 @@ public class PersonasService
         await ValidarCatalogoAsync(_db.EstadosCliente, r.EstadoClienteId, nameof(r.EstadoClienteId), "El estado seleccionado ya no existe. Recargue la página y elija otro.", ct);
         await PrepararVersionAsync(p, "datos", version);
         if (p.EsCliente) throw new ValidacionException("id", "La persona ya es cliente oficial.");
-        // Sin estado elegido, el cliente nace al día.
-        var estado = r.EstadoClienteId is > 0 ? r.EstadoClienteId.Value : EstadoCliente.AlDia;
-
-        p.Cliente = new Cliente { OrigenClienteId = r.OrigenClienteId!.Value, EstadoClienteId = estado };
+        // El estado calculado nace Al Día porque todavía no hay plan de pago.
+        p.Cliente = new Cliente
+        {
+            OrigenClienteId = r.OrigenClienteId!.Value,
+            EstadoClienteId = r.EstadoClienteId is > 0 and int estado ? estado : EstadoCliente.Activo,
+            EstadoClienteCalculadoId = EstadoClienteCalculado.AlDia,
+        };
         if (r.Expediente != null) p.Expediente = r.Expediente.Trim();
         await _db.SaveChangesAsync(ct);
         return await ObtenerAsync(id, ct);

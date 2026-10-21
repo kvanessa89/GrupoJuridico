@@ -8,6 +8,7 @@ import { BarraFiltros, Celda, type Columna, EnlaceTelefono, type FilaDef, Pagina
 import { useListado } from '../../hooks/useListado'
 import { useFiltros } from '../../layout/Filtros'
 import { fFecha, origenEtiqueta, vendedorEtiqueta } from '../../utils/formato'
+import { estadoMostrado, opcionesFiltroEstado } from '../../utils/estadoCliente'
 
 const POR_PAGINA = 10
 
@@ -49,7 +50,8 @@ export function ClientesPage() {
       c.estadoPrima ? <ChipPrima estadoId={c.estadoPrimaId} texto={c.estadoPrima.replace(/^Prima\s+/i, '')} /> : <Celda t="—" />,
     ]
     if (!esCobros) {
-      celdas.push(<ChipEstadoCliente estadoId={c.estadoClienteId} texto={c.estadoCliente} />, <Celda t={c.origen ?? '—'} />)
+      const estado = estadoMostrado(catalogos, c.estadoClienteId, c.estadoClienteCalculadoId, c.estadoCliente)
+      celdas.push(<ChipEstadoCliente estadoId={estado.clave} texto={estado.nombre} />, <Celda t={c.origen ?? '—'} />)
     }
     return { id: c.id, celdas }
   })
@@ -97,7 +99,7 @@ export function ClientesPage() {
           {
             valor: filtros.estadoClienteId,
             onChange: (v) => set({ estadoClienteId: v }),
-            opciones: [{ v: '', l: 'Estado: Todos' }, ...(cats?.estadosCliente ?? []).map((x) => ({ v: String(x.id), l: x.nombre }))],
+            opciones: [{ v: '', l: 'Estado: Todos' }, ...opcionesFiltroEstado(cats)],
           },
           {
             valor: filtros.origenId,
