@@ -64,10 +64,13 @@ public class ReglasCobroTests
     [InlineData(100, 100, 0, EstadoPromesa.Cumplida)]
     [InlineData(100, 50, -1, EstadoPromesa.Incumplida)]
     [InlineData(100, 50, 0, EstadoPromesa.Pendiente)]
-    public void Estado_de_la_promesa(decimal prometido, decimal pagado, int dias, int esperado)
+    // Con la cuota pagada (el interés prometido no se cobró) queda cumplida, salvo si ya estaba incumplida.
+    [InlineData(100, 50, 0, EstadoPromesa.Cumplida, true)]
+    [InlineData(100, 50, -1, EstadoPromesa.Incumplida, true, EstadoPromesa.Incumplida)]
+    public void Estado_de_la_promesa(decimal prometido, decimal pagado, int dias, int esperado, bool cuotaPagada = false, int previo = EstadoPromesa.Pendiente)
     {
-        var p = new PromesaPago { MontoPrometido = prometido, MontoPagado = pagado, FechaPromesa = Hoy.AddDays(dias) };
-        ReglasCobro.RecalcularPromesa(p, Hoy);
+        var p = new PromesaPago { MontoPrometido = prometido, MontoPagado = pagado, FechaPromesa = Hoy.AddDays(dias), EstadoPromesaId = previo };
+        ReglasCobro.RecalcularPromesa(p, Hoy, cuotaPagada);
         Assert.Equal(esperado, p.EstadoPromesaId);
     }
 

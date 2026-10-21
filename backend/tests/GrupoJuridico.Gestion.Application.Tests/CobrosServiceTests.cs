@@ -145,8 +145,11 @@ public sealed class CobrosServiceTests : IDisposable
     {
         var (_, dto) = await PlanConCuotaVencidaAsync();
         using var db = Db();
+        // El cliente prometió la cuota con el interés (307 500), pero se le acepta solo la cuota.
+        await Servicio(db).CrearPromesaAsync(dto.Plan!.Cuotas[0].Id, new PromesaRequest(Hoy.AddDays(2), 307500m));
         var r = await Servicio(db).RegistrarPagoAsync(dto.Plan!.Cuotas[0].Id, new RegistrarPagoRequest(300000m, Hoy, false), Pdf());
         var cuota = r.Plan!.Cuotas[0];
+        Assert.Equal(EstadoPromesa.Cumplida, cuota.Promesas.Single().EstadoId);
         Assert.True(cuota.SinMora);
         Assert.Equal(0m, cuota.Mora);
         Assert.Equal(7500m, cuota.MoraPosible);

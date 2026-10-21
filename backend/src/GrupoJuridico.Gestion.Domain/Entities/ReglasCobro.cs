@@ -68,10 +68,13 @@ public static class ReglasCobro
         return true;
     }
 
-    /// <summary>Cumplida si se pagó lo prometido; incumplida si pasó la fecha sin completarlo.</summary>
-    public static bool RecalcularPromesa(PromesaPago p, DateOnly hoy)
+    /// <summary>
+    /// Cumplida si se pagó lo prometido o si la cuota quedó pagada (por ejemplo, al aceptar el pago sin el interés
+    /// que se había prometido), salvo que ya estuviera incumplida; incumplida si pasó la fecha sin completarlo.
+    /// </summary>
+    public static bool RecalcularPromesa(PromesaPago p, DateOnly hoy, bool cuotaPagada = false)
     {
-        var estado = p.MontoPagado >= p.MontoPrometido ? EstadoPromesa.Cumplida
+        var estado = p.MontoPagado >= p.MontoPrometido || (cuotaPagada && p.EstadoPromesaId != EstadoPromesa.Incumplida) ? EstadoPromesa.Cumplida
             : p.FechaPromesa < hoy ? EstadoPromesa.Incumplida
             : EstadoPromesa.Pendiente;
         if (p.EstadoPromesaId == estado) return false;
@@ -101,7 +104,7 @@ public static class ReglasCobro
         foreach (var c in plan.Cuotas)
         {
             cambios |= RecalcularCuota(c, porcentaje, hoy);
-            foreach (var p in c.Promesas) cambios |= RecalcularPromesa(p, hoy);
+            foreach (var p in c.Promesas) cambios |= RecalcularPromesa(p, hoy, c.EstadoCuotaPagoId == EstadoCuotaPago.Pagada);
         }
         if (cliente == null) return (cambios, false);
         var estado = EstadoCalculado(plan.Cuotas);
