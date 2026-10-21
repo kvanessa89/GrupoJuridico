@@ -73,7 +73,7 @@ test('el aviso de pendientes une etiqueta y mensaje en minúscula sin tocar el m
 })
 test('el estado del cliente se envía tal cual y Activo muestra el calculado', async () => {
   const { formDesde } = await import('../src/pages/persona/formulario.ts')
-  const { estadoMostrado, opcionesFiltroEstado, ESTADO_ACTIVO } = await import('../src/utils/estadoCliente.ts')
+  const { conPromesa, estadoMostrado, opcionesFiltroEstado, ESTADO_ACTIVO } = await import('../src/utils/estadoCliente.ts')
   const f=valido()
   assert.equal(payloadDatos(f,true).estadoClienteId,null)
   f.datos.estadoClienteId='5'
@@ -86,6 +86,13 @@ test('el estado del cliente se envía tal cual y Activo muestra el calculado', a
   assert.deepEqual(estadoMostrado(cats,ESTADO_ACTIVO,2),{clave:2,nombre:'Moroso'})
   assert.deepEqual(estadoMostrado(cats,4,2),{clave:4,nombre:'Terminado'})
   assert.deepEqual(estadoMostrado(null,4,2,'Respaldo'),{clave:4,nombre:'Respaldo'})
+  // Solo el Moroso lleva el estado de la promesa.
+  cats.estadosPromesa=[{id:1,nombre:'Pendiente'},{id:2,nombre:'Cumplida'},{id:3,nombre:'Incumplida'}]
+  assert.equal(conPromesa(cats,estadoMostrado(cats,ESTADO_ACTIVO,2),1),'Moroso con promesa pendiente')
+  assert.equal(conPromesa(cats,estadoMostrado(cats,ESTADO_ACTIVO,2),3),'Moroso con promesa incumplida')
+  assert.equal(conPromesa(cats,estadoMostrado(cats,ESTADO_ACTIVO,2),null),'Moroso sin promesa')
+  assert.equal(conPromesa(cats,estadoMostrado(cats,ESTADO_ACTIVO,1),1),'Al Día')
+  assert.equal(conPromesa(cats,estadoMostrado(cats,4,2),1),'Terminado')
   // El filtro ofrece los calculados (prefijo "c") y los elegidos, sin Activo.
   assert.deepEqual(opcionesFiltroEstado(cats).map(o=>o.v),['c1','c2','4'])
 })

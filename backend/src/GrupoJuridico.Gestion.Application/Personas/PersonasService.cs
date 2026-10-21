@@ -220,6 +220,9 @@ public class PersonasService
         var autores = await _identity.MapaAsync(p.Comentarios.Select(c => c.UsuarioId).Distinct());
         var v = p.Venta;
         var pr = p.Prima;
+        var cuotas = p.ClienteId is int clienteId
+            ? await _db.Cuotas.AsNoTracking().Include(c => c.Promesas).Where(c => c.PlanPago!.ClienteId == clienteId).ToListAsync()
+            : new List<Cuota>();
         return new PersonaDetalleDto(
             p.Id, p.EsCliente, p.Expediente, p.Nombres, p.Apellidos, p.Cedula,
             p.Finca?.Numero ?? "", p.FechaIngreso, p.VendedorId,
@@ -229,7 +232,7 @@ public class PersonasService
             v == null ? null : new VentaDto(v.Id, v.ProcedenciaVentaId, v.MetodoVentaId, v.Monto, v.Notas),
             pr == null ? null : new PrimaDto(pr.Id, pr.Monto, pr.MontoCancelado, pr.SaldoPendiente, pr.FechaEstimadaPago, pr.FechaPago, pr.EstadoPrimaId),
             p.Cliente == null ? null : new ClienteDto(p.Cliente.Id, p.Cliente.OrigenClienteId, p.Cliente.EstadoClienteId,
-                p.Cliente.EstadoClienteCalculadoId, p.Cliente.Notas),
+                p.Cliente.EstadoClienteCalculadoId, p.Cliente.Notas, ReglasCobro.PromesaVigente(cuotas)?.EstadoPromesaId),
             p.Numeros.OrderBy(n => n.Id).Select(NumeroDe).ToList(),
             p.Correos.OrderBy(c => c.Id).Select(c => new CorreoDto(c.Id, c.Correo, c.Principal)).ToList(),
             p.Familiares.OrderBy(f => f.Id).Select(FamiliarDe).ToList(),

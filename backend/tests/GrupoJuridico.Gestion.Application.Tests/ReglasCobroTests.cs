@@ -133,4 +133,20 @@ public class ReglasCobroTests
         Assert.Equal(new[] { new DateOnly(2026, 10, 16) }, ReglasCobro.FechasARecordar(new DateOnly(2026, 10, 15)));
         Assert.Equal(sabado, ReglasCobro.FechaRecordatorio(sabado.AddDays(2)));
     }
+
+    [Fact]
+    public void Promesa_vigente_es_la_pendiente_o_la_ultima_de_las_cuotas_sin_pagar()
+    {
+        static PromesaPago Promesa(int id, int estado) => new() { Id = id, EstadoPromesaId = estado };
+        var pagada = new Cuota { NumeroCuota = 1, EstadoCuotaPagoId = EstadoCuotaPago.Pagada, Promesas = { Promesa(1, EstadoPromesa.Pendiente) } };
+        var segunda = new Cuota { NumeroCuota = 2, Promesas = { Promesa(2, EstadoPromesa.Incumplida), Promesa(4, EstadoPromesa.Cumplida) } };
+        var tercera = new Cuota { NumeroCuota = 3, EstadoCuotaPagoId = EstadoCuotaPago.Parcial };
+
+        Assert.Null(ReglasCobro.PromesaVigente(new[] { pagada, tercera }));
+        Assert.Equal(4, ReglasCobro.PromesaVigente(new[] { tercera, segunda, pagada })!.Id);
+        tercera.Promesas.Add(Promesa(3, EstadoPromesa.Incumplida));
+        Assert.Equal(3, ReglasCobro.PromesaVigente(new[] { tercera, segunda })!.Id);
+        segunda.Promesas.Add(Promesa(5, EstadoPromesa.Pendiente));
+        Assert.Equal(EstadoPromesa.Pendiente, ReglasCobro.PromesaVigente(new[] { segunda, tercera })!.EstadoPromesaId);
+    }
 }

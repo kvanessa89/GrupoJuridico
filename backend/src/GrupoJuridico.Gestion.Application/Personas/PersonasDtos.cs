@@ -77,7 +77,8 @@ public record PrimaDto(int Id, decimal Monto, decimal MontoCancelado, decimal Sa
 /// <c>EstadoClienteId</c> es el elegido en la ficha (Activo = automático) y <c>EstadoClienteCalculadoId</c> el que
 /// calcula el sistema con el plan de pago (Al Día, Moroso o Estrella).
 /// </summary>
-public record ClienteDto(int Id, int OrigenClienteId, int EstadoClienteId, int EstadoClienteCalculadoId, string Notas);
+/// <summary><c>EstadoPromesaId</c>: estado de la promesa de pago vigente (ver <c>ReglasCobro.PromesaVigente</c>); null si no hay.</summary>
+public record ClienteDto(int Id, int OrigenClienteId, int EstadoClienteId, int EstadoClienteCalculadoId, string Notas, int? EstadoPromesaId);
 
 public record NumeroDto(int Id, string Numero, string Tipo, bool Principal, int PaisId);
 

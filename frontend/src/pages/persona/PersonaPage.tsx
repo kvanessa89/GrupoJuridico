@@ -15,7 +15,7 @@ import {
   correoValido, avisoPendiente, ETIQUETAS, errorExpediente, MAX_FINCA, MAX_EXPEDIENTE, MAX_NOTAS_VENTA, faltaFechaPago, erroresDatos, erroresVenta, erroresPrima, errorNumeros, errorCorreos, errorFincas, errorFamiliares, faltantesNuevo, formDesde, formVacio, idONull, MAX_CEDULA, MAX_CORREO, MAX_NOMBRE, MSG_CORREO,
   payloadCrear, payloadDatos, primaCalculada, type FormPersona,
 } from './formulario'
-import { ESTADO_ACTIVO, estadoMostrado } from '../../utils/estadoCliente'
+import { conPromesa, ESTADO_ACTIVO, estadoMostrado } from '../../utils/estadoCliente'
 import { Archivos } from './Archivos'
 import { Comentarios, Contactos, Familiares } from './Secciones'
 import { PlanPagoFicha } from '../cobros/PlanPagoFicha'
@@ -431,6 +431,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
   // Activo muestra el estado calculado con el plan de pago; los demás se muestran tal cual.
   const calculadoId = persona?.cliente?.estadoClienteCalculadoId ?? 1
   const estadoCliente = estadoMostrado(cats, Number(d.estadoClienteId), calculadoId)
+  const textoEstado = conPromesa(cats, estadoCliente, persona?.cliente?.estadoPromesaId)
   const nombreCalculado = estadoMostrado(cats, ESTADO_ACTIVO, calculadoId).nombre
   const opcionesEstado = (cats?.estadosCliente ?? []).map((x) => ({
     v: String(x.id), l: x.id === ESTADO_ACTIVO && nombreCalculado ? `${x.nombre} (${nombreCalculado})` : x.nombre,
@@ -568,7 +569,7 @@ export function PersonaPage({ seccion, nuevo = false }: { seccion: 'ventas' | 'c
             <span className="guardado"><Check /><span>Cambios guardados</span></span>
           )}
           {!nuevo && nombrePrima && <EtiquetaPrimaGrande estadoId={prima.estado} texto={nombrePrima} />}
-          {esCliente && seccion === 'clientes' && estadoCliente.nombre && <EtiquetaEstadoGrande estadoId={estadoCliente.clave} texto={estadoCliente.nombre} />}
+          {esCliente && seccion === 'clientes' && estadoCliente.nombre && <EtiquetaEstadoGrande estadoId={estadoCliente.clave} texto={textoEstado} />}
           {!nuevo && !esCliente && (
             <button className="btn-primario" style={{ padding: '11px 17px' }} onClick={() => setConv({ expediente: d.expediente, origen: '', estado: String(ESTADO_ACTIVO), error: '' })}>
               <Check tamano={15} grosor={2.2} />

@@ -120,4 +120,15 @@ public static class ReglasCobro
     /// <summary>Fechas de pago cuyo recordatorio toca hoy (el sábado incluye domingo y lunes).</summary>
     public static IReadOnlyList<DateOnly> FechasARecordar(DateOnly hoy) =>
         new[] { hoy.AddDays(1), hoy.AddDays(2) }.Where(d => FechaRecordatorio(d) == hoy).ToList();
+
+    /// <summary>
+    /// Promesa que se muestra del cliente: entre las cuotas sin pagar, la pendiente si hay; si no, la última.
+    /// Null si esas cuotas no tienen promesas.
+    /// </summary>
+    public static PromesaPago? PromesaVigente(IEnumerable<Cuota> cuotas)
+    {
+        var promesas = cuotas.Where(c => c.EstadoCuotaPagoId != EstadoCuotaPago.Pagada).OrderBy(c => c.NumeroCuota)
+            .SelectMany(c => c.Promesas.OrderBy(p => p.Id)).ToList();
+        return promesas.FirstOrDefault(p => p.EstadoPromesaId == EstadoPromesa.Pendiente) ?? promesas.LastOrDefault();
+    }
 }

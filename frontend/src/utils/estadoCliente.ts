@@ -17,6 +17,16 @@ export function estadoMostrado(cats: Catalogos | null | undefined, estadoCliente
   return { clave, nombre: lista?.find((x) => x.id === clave)?.nombre ?? respaldo }
 }
 
+/** Estado calculado "Moroso" (clave 2 de `estadoMostrado`). */
+export const CALCULADO_MOROSO = 2
+
+/** Al Moroso se le agrega el estado de su promesa de pago: "Moroso con promesa pendiente" o "Moroso sin promesa". */
+export function conPromesa(cats: Catalogos | null | undefined, estado: { clave: number; nombre: string }, estadoPromesaId: number | null | undefined) {
+  if (estado.clave !== CALCULADO_MOROSO) return estado.nombre
+  const promesa = cats?.estadosPromesa?.find((x) => x.id === estadoPromesaId)?.nombre
+  return promesa ? `${estado.nombre} con promesa ${promesa.toLowerCase()}` : `${estado.nombre} sin promesa`
+}
+
 /** Opciones del filtro por estado: los calculados (clientes Activos) y luego los demás estados elegidos. */
 export function opcionesFiltroEstado(cats: Catalogos | null | undefined) {
   return [

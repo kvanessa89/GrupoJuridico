@@ -182,8 +182,7 @@ public class CobrosService
     {
         var c = p.Cliente!;
         var proxima = r?.Pendientes.FirstOrDefault();
-        var conPromesa = r?.Pendientes.SelectMany(i => i.Cuota.Promesas).ToList() ?? new List<PromesaPago>();
-        var promesa = conPromesa.FirstOrDefault(x => x.EstadoPromesaId == EstadoPromesa.Pendiente) ?? conPromesa.LastOrDefault();
+        var promesa = r == null ? null : ReglasCobro.PromesaVigente(r.Plan.Cuotas);
         var recordar = CuotaARecordar(r, hoy);
         return new CobroFilaDto(
             p.Id, p.Expediente, p.NombreCompleto,

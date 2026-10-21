@@ -137,6 +137,8 @@ export interface ClienteDto {
   /** Al Día, Moroso o Estrella según el plan de pago. */
   estadoClienteCalculadoId: number
   notas: string
+  /** Estado de la promesa vigente (pendiente si hay; si no, la última de las cuotas sin pagar); null si no hay. */
+  estadoPromesaId: number | null
 }
 
 export type TipoNumero = 'Teléfono' | 'WhatsApp'
