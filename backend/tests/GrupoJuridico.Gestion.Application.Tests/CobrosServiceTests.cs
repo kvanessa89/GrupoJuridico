@@ -55,7 +55,7 @@ public sealed class CobrosServiceTests : IDisposable
         prima.Recalcular();
         var p = new Persona { Nombres = nombre, Apellidos = "Vargas", Expediente = "EXP-" + nombre, FechaIngreso = Hoy };
         p.Ventas.Add(new Venta { Monto = 1100m, Prima = prima });
-        if (cliente) p.Cliente = new Cliente { OrigenClienteId = 1, EstadoClienteId = EstadoCliente.AlDia };
+        if (cliente) p.Cliente = new Cliente { OrigenClienteId = 1, EstadoCalculadoId = EstadoCliente.AlDia };
         db.Personas.Add(p);
         db.SaveChanges();
         return p.Id;
@@ -276,7 +276,7 @@ public sealed class CobrosServiceTests : IDisposable
         using (var db = Db()) await Servicio(db).CrearPlanAsync(id, new CrearPlanRequest(300000m, 1, Hoy.AddDays(-10), Hoy.AddDays(-5).Day));
         using var db2 = Db();
         Assert.NotEqual(antes, db2.Set<VersionSeccion>().Single(v => v.PersonaId == id && v.Seccion == "datos").Version);
-        Assert.Equal(EstadoCliente.Moroso, db2.Clientes.Single().EstadoClienteId);
+        Assert.Equal(EstadoCliente.Moroso, db2.Clientes.Single().EstadoCalculadoId);
     }
 
     [Fact]

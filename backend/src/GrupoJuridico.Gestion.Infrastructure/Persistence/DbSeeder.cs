@@ -309,7 +309,9 @@ public class DbSeeder
                 var estado = clientes is 6 or 7 ? EstadoCliente.Moroso : new[] { 1, 1, 2, 3, 1, 4 }[i % 6];
                 persona.Cliente = new Cliente
                 {
-                    Notas = s.Notas, OrigenClienteId = (i % 14) + 1, EstadoClienteId = estado,
+                    Notas = s.Notas, OrigenClienteId = (i % 14) + 1,
+                    // El calculado se corrige con el plan de pago al leer (ActualizadorCobros).
+                    EstadoCalculadoId = EstadoCliente.EsAutomatico(estado) ? estado : EstadoCliente.AlDia,
                     EstadoManualId = EstadoCliente.EsAutomatico(estado) ? null : estado,
                 };
             }

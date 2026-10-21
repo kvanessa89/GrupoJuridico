@@ -204,7 +204,7 @@ public class CatalogosService
                 var x = await _db.EstadosCliente.FindAsync(new object[] { id }, ct) ?? throw new NoEncontradoException("Estado del cliente", id);
                 if (id <= EstadoCliente.SinExpediente)
                     throw new ValidacionException("id", "Este estado lo usa el sistema y no se puede eliminar.");
-                var enUso = await _db.Clientes.CountAsync(c => c.EstadoClienteId == id || c.EstadoManualId == id, ct);
+                var enUso = await _db.Clientes.CountAsync(c => c.EstadoCalculadoId == id || c.EstadoManualId == id, ct);
                 if (enUso > 0) throw new ValidacionException("id", $"No se puede eliminar: {enUso} cliente(s) tienen este estado.");
                 _db.EstadosCliente.Remove(x);
                 break;

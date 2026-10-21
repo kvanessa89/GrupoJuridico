@@ -73,7 +73,7 @@ public record PrimaDto(int Id, decimal Monto, decimal MontoCancelado, decimal Sa
 /// <c>EstadoClienteId</c> es el que se muestra: el manual (<c>EstadoManualId</c>) si hay uno; si no, el calculado
 /// con el plan de pago (<c>EstadoCalculadoId</c>: Al Día, Moroso o Estrella).
 /// </summary>
-public record ClienteDto(int Id, int OrigenClienteId, int EstadoClienteId, string Notas, int? EstadoManualId = null, int EstadoCalculadoId = 1);
+public record ClienteDto(int Id, int OrigenClienteId, int EstadoClienteId, string Notas, int? EstadoManualId, int EstadoCalculadoId);
 
 public record NumeroDto(int Id, string Numero, string Tipo, bool Principal, int PaisId);
 

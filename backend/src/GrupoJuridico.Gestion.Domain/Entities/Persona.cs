@@ -70,18 +70,23 @@ public class Cliente : BaseEntity
     public OrigenCliente? OrigenCliente { get; set; }
 
     /// <summary>
-    /// Estado que se muestra y por el que se filtra: el manual si hay uno; si no, el que calcula el sistema
-    /// con el plan de pago (<see cref="ReglasCobro.EstadoCalculado"/>). No se asigna a mano.
+    /// Estado que calcula el sistema con el plan de pago: Al Día, Moroso o Estrella
+    /// (<see cref="ReglasCobro.EstadoCalculado"/>). Siempre se guarda, aunque haya un estado manual. No se asigna a mano.
     /// </summary>
-    public int EstadoClienteId { get; set; }
-    public EstadoCliente? EstadoCliente { get; set; }
+    public int EstadoCalculadoId { get; set; }
+    public EstadoCliente? EstadoCalculado { get; set; }
 
     /// <summary>
     /// Estado elegido a mano (Terminado, Abandonado, Sin Expediente u otro creado en Configuración).
-    /// Nulo = automático: Al Día, Moroso o Estrella según el plan de pago.
+    /// Nulo = automático: se muestra el calculado.
     /// </summary>
     public int? EstadoManualId { get; set; }
     public EstadoCliente? EstadoManual { get; set; }
+
+    /// <summary>Estado que se muestra y por el que se filtra: el manual si hay uno; si no, el calculado. No se guarda.</summary>
+    public int EstadoId => EstadoManualId ?? EstadoCalculadoId;
+    /// <summary>Catálogo de <see cref="EstadoId"/> (requiere cargar <see cref="EstadoCalculado"/> y <see cref="EstadoManual"/>).</summary>
+    public EstadoCliente? Estado => EstadoManualId != null ? EstadoManual : EstadoCalculado;
 
     public Persona? Persona { get; set; }
 }

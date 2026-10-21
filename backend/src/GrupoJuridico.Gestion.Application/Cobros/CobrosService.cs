@@ -91,7 +91,7 @@ public class CobrosService
     }
 
     private static bool EsMoroso(Cliente cliente, Resumen? r) =>
-        (r != null && r.Vencidas.Count > 0) || cliente.EstadoClienteId == EstadoCliente.Moroso;
+        (r != null && r.Vencidas.Count > 0) || cliente.EstadoCalculadoId == EstadoCliente.Moroso;
 
     /// <summary>Moroso con todo el plan vencido (pasó la última cuota) y todavía con saldo.</summary>
     private static bool EsCobroJudicial(Cliente cliente, Resumen? r, DateOnly hoy) =>
@@ -115,7 +115,8 @@ public class CobrosService
         var resumenes = planes.ToDictionary(p => p.ClienteId, p => Resumir(p, porcentaje, hoy));
 
         var personas = await _db.Personas.AsNoTracking()
-            .Include(p => p.Cliente).ThenInclude(c => c!.EstadoCliente)
+            .Include(p => p.Cliente).ThenInclude(c => c!.EstadoCalculado)
+            .Include(p => p.Cliente).ThenInclude(c => c!.EstadoManual)
             .Include(p => p.Numeros).ThenInclude(n => n.Pais)
             .Where(p => p.ClienteId != null)
             .AsSplitQuery()
@@ -188,7 +189,7 @@ public class CobrosService
             p.Id, p.Expediente, p.NombreCompleto,
             Completo(p.NumeroPrincipal(TipoNumero.Telefono)),
             Completo(p.NumeroPrincipal(TipoNumero.WhatsApp)),
-            c.EstadoClienteId, c.EstadoCliente?.Nombre ?? "",
+            c.EstadoId, c.Estado?.Nombre ?? "",
             r != null,
             r?.Plan.CantidadCuotas ?? 0,
             r?.Vencidas.Count ?? 0,
@@ -226,7 +227,7 @@ public class CobrosService
             await _actualizador.ActualizarClienteAsync(clienteId, ct);
             plan = await PlanesCompletos().FirstOrDefaultAsync(p => p.ClienteId == clienteId, ct);
         }
-        var estadoCliente = plan?.Cliente?.EstadoClienteId ?? persona.Cliente?.EstadoClienteId;
+        var estadoCliente = plan?.Cliente?.EstadoId ?? persona.Cliente?.EstadoId;
         var venta = persona.Venta;
         var sugerido = Math.Max(0, (venta?.Monto ?? 0) - (venta?.Prima?.Monto ?? 0));
         return new PlanPersonaDto(

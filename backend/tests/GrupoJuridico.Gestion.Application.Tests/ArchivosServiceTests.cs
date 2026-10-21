@@ -63,7 +63,7 @@ public sealed class ArchivosServiceTests : IDisposable
         prima.Recalcular();
         var p = new Persona { Nombres = "Ana", Apellidos = "Vargas", FechaIngreso = Hoy };
         p.Ventas.Add(new Venta { Monto = 1000m, Prima = prima });
-        if (cliente) p.Cliente = new Cliente { OrigenClienteId = 1, EstadoClienteId = 1 };
+        if (cliente) p.Cliente = new Cliente { OrigenClienteId = 1, EstadoCalculadoId = 1 };
         db.Personas.Add(p);
         db.SaveChanges();
         return p.Id;

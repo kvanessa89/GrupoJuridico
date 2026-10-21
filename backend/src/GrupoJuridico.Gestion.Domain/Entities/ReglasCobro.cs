@@ -91,13 +91,9 @@ public static class ReglasCobro
         return EstadoCliente.AlDia;
     }
 
-    /// <summary>El estado que se muestra: el manual si el cliente tiene uno; si no, el calculado.</summary>
-    public static int EstadoEfectivo(int? estadoManualId, IReadOnlyCollection<Cuota> cuotas) =>
-        estadoManualId ?? EstadoCalculado(cuotas);
-
     /// <summary>
-    /// Recalcula cuotas, promesas y el estado del cliente de un plan (con sus pagos y promesas cargados).
-    /// Devuelve si algo cambió y si cambió el estado del cliente.
+    /// Recalcula cuotas, promesas y el estado calculado del cliente de un plan (con sus pagos y promesas cargados).
+    /// Devuelve si algo cambió y si cambió el estado calculado del cliente.
     /// </summary>
     public static (bool Cambios, bool EstadoCliente) NormalizarPlan(PlanPago plan, Cliente? cliente, decimal porcentaje, DateOnly hoy)
     {
@@ -108,9 +104,9 @@ public static class ReglasCobro
             foreach (var p in c.Promesas) cambios |= RecalcularPromesa(p, hoy);
         }
         if (cliente == null) return (cambios, false);
-        var estado = EstadoEfectivo(cliente.EstadoManualId, plan.Cuotas);
-        if (estado == cliente.EstadoClienteId) return (cambios, false);
-        cliente.EstadoClienteId = estado;
+        var estado = EstadoCalculado(plan.Cuotas);
+        if (estado == cliente.EstadoCalculadoId) return (cambios, false);
+        cliente.EstadoCalculadoId = estado;
         return (true, true);
     }
 

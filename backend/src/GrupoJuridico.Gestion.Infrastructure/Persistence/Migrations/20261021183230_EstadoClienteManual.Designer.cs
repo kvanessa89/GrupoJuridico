@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261021174243_EstadoClienteManual")]
+    [Migration("20261021183230_EstadoClienteManual")]
     partial class EstadoClienteManual
     {
         /// <inheritdoc />
@@ -88,7 +88,7 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("EstadoClienteId")
+                    b.Property<int>("EstadoCalculadoId")
                         .HasColumnType("integer");
 
                     b.Property<int?>("EstadoManualId")
@@ -110,7 +110,7 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EstadoClienteId");
+                    b.HasIndex("EstadoCalculadoId");
 
                     b.HasIndex("EstadoManualId");
 
@@ -1297,9 +1297,9 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("GrupoJuridico.Gestion.Domain.Entities.Cliente", b =>
                 {
-                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCliente", "EstadoCliente")
+                    b.HasOne("GrupoJuridico.Gestion.Domain.Entities.EstadoCliente", "EstadoCalculado")
                         .WithMany()
-                        .HasForeignKey("EstadoClienteId")
+                        .HasForeignKey("EstadoCalculadoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -1314,7 +1314,7 @@ namespace GrupoJuridico.Gestion.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("EstadoCliente");
+                    b.Navigation("EstadoCalculado");
 
                     b.Navigation("EstadoManual");
 

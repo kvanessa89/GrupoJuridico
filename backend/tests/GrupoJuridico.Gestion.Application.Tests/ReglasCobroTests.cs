@@ -90,30 +90,34 @@ public class ReglasCobroTests
     [Fact]
     public void El_estado_manual_manda_sobre_el_calculado()
     {
-        var vencido = Cuotas((EstadoCuotaPago.Pendiente, EstadoCuotaVencimiento.Vencido));
-        Assert.Equal(EstadoCliente.Moroso, ReglasCobro.EstadoEfectivo(null, vencido));
+        var moroso = new Cliente { EstadoCalculadoId = EstadoCliente.Moroso, EstadoCalculado = new EstadoCliente { Nombre = "Moroso" } };
+        Assert.Equal(EstadoCliente.Moroso, moroso.EstadoId);
+        Assert.Equal("Moroso", moroso.Estado?.Nombre);
         foreach (var manual in new[] { EstadoCliente.Terminado, EstadoCliente.Abandonado, EstadoCliente.SinExpediente, 99 })
-            Assert.Equal(manual, ReglasCobro.EstadoEfectivo(manual, vencido));
+        {
+            moroso.EstadoManualId = manual;
+            moroso.EstadoManual = new EstadoCliente { Nombre = "Manual" };
+            Assert.Equal(manual, moroso.EstadoId);
+            Assert.Equal("Manual", moroso.Estado?.Nombre);
+        }
         Assert.True(EstadoCliente.EsAutomatico(EstadoCliente.Estrella));
         Assert.False(EstadoCliente.EsAutomatico(EstadoCliente.SinExpediente));
     }
 
     [Fact]
-    public void Al_normalizar_el_plan_el_cliente_toma_el_estado_que_corresponde()
+    public void Al_normalizar_el_plan_se_actualiza_el_estado_calculado_aunque_haya_uno_manual()
     {
         var plan = new PlanPago { MontoTotal = 200m, CantidadCuotas = 2, MontoCuota = 100m, FechaInicio = Hoy.AddDays(-40), DiaPago = Hoy.AddDays(-5).Day };
         plan.Cuotas.AddRange(ReglasCobro.GenerarCuotas(plan));
-        var cliente = new Cliente { EstadoClienteId = EstadoCliente.AlDia };
+        var cliente = new Cliente { EstadoCalculadoId = EstadoCliente.AlDia, EstadoManualId = EstadoCliente.SinExpediente };
         Assert.Equal((true, true), ReglasCobro.NormalizarPlan(plan, cliente, 2.5m, Hoy));
-        Assert.Equal(EstadoCliente.Moroso, cliente.EstadoClienteId);
-
-        // Con estado manual se muestra ese, aunque tenga cuotas vencidas; al quitarlo vuelve al calculado.
-        cliente.EstadoManualId = EstadoCliente.SinExpediente;
-        ReglasCobro.NormalizarPlan(plan, cliente, 2.5m, Hoy);
-        Assert.Equal(EstadoCliente.SinExpediente, cliente.EstadoClienteId);
+        Assert.Equal(EstadoCliente.Moroso, cliente.EstadoCalculadoId);
+        // El manual no se toca: se muestra ese, y al quitarlo se ve el calculado.
+        Assert.Equal(EstadoCliente.SinExpediente, cliente.EstadoManualId);
+        Assert.Equal(EstadoCliente.SinExpediente, cliente.EstadoId);
         cliente.EstadoManualId = null;
-        ReglasCobro.NormalizarPlan(plan, cliente, 2.5m, Hoy);
-        Assert.Equal(EstadoCliente.Moroso, cliente.EstadoClienteId);
+        Assert.Equal((false, false), ReglasCobro.NormalizarPlan(plan, cliente, 2.5m, Hoy));
+        Assert.Equal(EstadoCliente.Moroso, cliente.EstadoId);
     }
 
     [Fact]

@@ -40,7 +40,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
             var cuotas = azar.Next(1, 7);
             var plan = new PlanPago { MontoTotal = 1000m * cuotas, CantidadCuotas = cuotas, MontoCuota = 1000m, FechaInicio = inicio, DiaPago = azar.Next(1, 32) };
             plan.Cuotas.AddRange(ReglasCobro.GenerarCuotas(plan));
-            plan.Cliente = new Cliente { EstadoClienteId = estados[azar.Next(estados.Length)] };
+            plan.Cliente = new Cliente { EstadoCalculadoId = estados[azar.Next(estados.Length)] };
             ReglasCobro.NormalizarPlan(plan, plan.Cliente, 2.5m, inicio);
 
             var fin = plan.Cuotas[^1].FechaVencimiento.AddDays(45);
@@ -66,14 +66,14 @@ public sealed class ActualizadorCobrosTests : IDisposable
                 }
                 else if (evento < 11)
                 {
-                    // Estado manual elegido o quitado en la ficha (la ficha guarda sin recalcular el plan).
+                    // Estado manual elegido o quitado en la ficha: no cambia el calculado ni pide recálculo.
                     var manuales = new int?[] { null, EstadoCliente.Terminado, EstadoCliente.Abandonado, EstadoCliente.SinExpediente };
                     plan.Cliente.EstadoManualId = manuales[azar.Next(manuales.Length)];
                 }
                 else if (evento < 12)
                 {
-                    // Estado visible inconsistente (por ejemplo, datos anteriores a este cambio).
-                    plan.Cliente.EstadoClienteId = estados[azar.Next(estados.Length)];
+                    // Estado calculado inconsistente (por ejemplo, datos cargados a mano).
+                    plan.Cliente.EstadoCalculadoId = estados[azar.Next(estados.Length)];
                 }
 
                 // Lectura: no todos los días alguien abre la aplicación.
@@ -141,7 +141,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
             prima.Recalcular();
             var p = new Persona { Nombres = nombre, Apellidos = "Vargas", Expediente = "EXP-" + nombre, FechaIngreso = _hoy };
             p.Ventas.Add(new Venta { Monto = 1100m, Prima = prima });
-            p.Cliente = new Cliente { OrigenClienteId = 1, EstadoClienteId = EstadoCliente.AlDia };
+            p.Cliente = new Cliente { OrigenClienteId = 1, EstadoCalculadoId = EstadoCliente.AlDia };
             foreach (var s in VersionSeccion.Secciones) p.Versiones.Add(new VersionSeccion { Seccion = s });
             db.Personas.Add(p);
             db.SaveChanges();
@@ -161,7 +161,7 @@ public sealed class ActualizadorCobrosTests : IDisposable
     private async Task<int> EstadoGuardadoAsync(int personaId)
     {
         using var db = Db();
-        return await db.Personas.Where(p => p.Id == personaId).Select(p => p.Cliente!.EstadoClienteId).SingleAsync();
+        return await db.Personas.Where(p => p.Id == personaId).Select(p => p.Cliente!.EstadoManualId ?? p.Cliente.EstadoCalculadoId).SingleAsync();
     }
 
     [Fact]
@@ -250,11 +250,11 @@ public sealed class ActualizadorCobrosTests : IDisposable
         var id = await ClienteConCuotaQueVenceMananaAsync();
         _hoy = _hoy.AddDays(2);
         using (var db = Db()) await Cobros(db).ListarAsync(new CobrosQuery());
-        // Alguien lo marca Al Día a mano aunque tiene una cuota vencida.
+        // El calculado queda Al Día por error (por ejemplo, editado en la base) aunque tiene una cuota vencida.
         using (var db = Db())
         {
             var cliente = await db.Clientes.SingleAsync();
-            cliente.EstadoClienteId = EstadoCliente.AlDia;
+            cliente.EstadoCalculadoId = EstadoCliente.AlDia;
             await db.SaveChangesAsync();
         }
         Assert.Equal(1, await PlanesQueNecesitanRecalculoAsync());
@@ -263,16 +263,17 @@ public sealed class ActualizadorCobrosTests : IDisposable
             var lista = await Listas(db).ClientesAsync(new ListaQuery());
             Assert.Equal(EstadoCliente.Moroso, Assert.Single(lista.Filas).EstadoClienteId);
         }
-        // Un estado manual (Terminado) se respeta aunque tenga cuotas vencidas.
+        // Un estado manual (Terminado) se muestra aunque tenga cuotas vencidas, sin pedir recálculo;
+        // el calculado sigue en Moroso.
         using (var db = Db())
         {
             var cliente = await db.Clientes.SingleAsync();
             cliente.EstadoManualId = EstadoCliente.Terminado;
-            cliente.EstadoClienteId = EstadoCliente.Terminado;
             await db.SaveChangesAsync();
         }
         Assert.Equal(0, await PlanesQueNecesitanRecalculoAsync());
         Assert.Equal(EstadoCliente.Terminado, await EstadoGuardadoAsync(id));
+        using (var db = Db()) Assert.Equal(EstadoCliente.Moroso, (await db.Clientes.SingleAsync()).EstadoCalculadoId);
     }
 
     [Fact]

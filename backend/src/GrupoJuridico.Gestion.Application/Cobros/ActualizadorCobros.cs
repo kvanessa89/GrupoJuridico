@@ -51,15 +51,13 @@ public class ActualizadorCobros
                           && c.EstadoCuotaVencimientoId == EstadoCuotaVencimiento.AlDia
                           && c.FechaVencimiento < hoy)
         || p.Cuotas.Any(c => c.Promesas.Any(pm => pm.EstadoPromesaId == EstadoPromesa.Pendiente && pm.FechaPromesa < hoy))
+        // El estado calculado del cliente no coincide con sus cuotas (ReglasCobro.EstadoCalculado).
         || (p.Cliente != null && p.Cuotas.Any() && (
-            // Con estado manual se muestra ese; sin él, el calculado (ReglasCobro.EstadoCalculado).
-            (p.Cliente.EstadoManualId != null && p.Cliente.EstadoClienteId != p.Cliente.EstadoManualId)
-            || (p.Cliente.EstadoManualId == null && (
-                (p.Cuotas.Any(c => c.EstadoCuotaVencimientoId == EstadoCuotaVencimiento.Vencido)
-                    ? p.Cliente.EstadoClienteId != EstadoCliente.Moroso
-                    : p.Cuotas.All(c => c.EstadoCuotaPagoId == EstadoCuotaPago.Pagada)
-                        ? p.Cliente.EstadoClienteId != EstadoCliente.Estrella
-                        : p.Cliente.EstadoClienteId != EstadoCliente.AlDia)))));
+            p.Cuotas.Any(c => c.EstadoCuotaVencimientoId == EstadoCuotaVencimiento.Vencido)
+                ? p.Cliente.EstadoCalculadoId != EstadoCliente.Moroso
+                : p.Cuotas.All(c => c.EstadoCuotaPagoId == EstadoCuotaPago.Pagada)
+                    ? p.Cliente.EstadoCalculadoId != EstadoCliente.Estrella
+                    : p.Cliente.EstadoCalculadoId != EstadoCliente.AlDia));
 
     /// <summary>Recalcula los planes que lo necesitan (antes de la tabla de Cobros o de Clientes).</summary>
     public Task ActualizarPendientesAsync(CancellationToken ct = default) => ActualizarAsync(_db.PlanesPago, ct);
