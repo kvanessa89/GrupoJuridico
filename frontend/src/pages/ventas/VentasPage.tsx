@@ -27,10 +27,10 @@ export function VentasPage() {
   const ocultaPagadas = permisos.ocultaPagadas(usuario?.rol)
 
   const columnas: Columna[] = [
-    { label: 'Expediente - Nombre', orden: 'expediente', ancho: esAdmin ? '21%' : '25%' },
+    { label: 'Expediente - Nombre', orden: 'expediente', ancho: esAdmin ? '18%' : '22%' },
     { label: 'Teléfono y WhatsApp', ancho: '10%' },
     { label: 'Procedencia y método', orden: 'procedencia', ancho: '11%' },
-    { label: 'Vendido por', orden: 'vendedor', ancho: '10%' },
+    { label: 'Vendido por', orden: 'vendedor', ancho: '13%' },
     { label: 'Monto prima', orden: 'prima', ancho: '9%' },
     { label: 'Saldo pendiente prima', orden: 'saldo', ancho: '9%' },
     { label: 'Fecha estimada de pago', orden: 'fechaEstimadaPago', ancho: '8%' },

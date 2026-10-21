@@ -62,7 +62,7 @@ export function ClientesPage() {
       <div className="cabecera-lista">
         <div style={{ minWidth: 0 }}>
           <h1>Clientes</h1>
-          <p>Personas con expediente asignado: clientes oficiales de la cartera.</p>
+          <p>Clientes oficiales</p>
         </div>
       </div>
 

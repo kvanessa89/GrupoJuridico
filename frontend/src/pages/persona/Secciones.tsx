@@ -275,7 +275,7 @@ export function Familiares({ familiares, onCambiar, mostrarErrores = false }: {
           </div>
           )
         })}
-        <span className="ayuda">Nombre requerido. Ingrese al menos un teléfono o un correo por familiar.</span>
+        {familiares.length > 0 && <span className="ayuda">Nombre requerido. Ingrese al menos un teléfono o un correo por familiar.</span>}
         <span className="ayuda">Familiares: {familiares.length}/{MAX_FAMILIARES}.</span>
         {limiteFamiliares(familiares) && <span className="msg-error">{limiteFamiliares(familiares)}</span>}
         {familiares.length === 0 && <span className="vacio">Sin familiares registrados.</span>}

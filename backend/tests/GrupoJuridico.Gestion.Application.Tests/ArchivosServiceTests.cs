@@ -32,7 +32,7 @@ public sealed class ArchivosServiceTests : IDisposable
         db.OrigenesCliente.Add(new OrigenCliente { Codigo = "P1", Nombre = "Origen" });
         db.EstadosPrima.AddRange(
             new EstadoPrima { Id = 1, Nombre = "Pendiente" }, new EstadoPrima { Id = 2, Nombre = "Incompleta" }, new EstadoPrima { Id = 3, Nombre = "Pagada" });
-        // Los mismos tipos y permisos iniciales que carga DbSeeder (diseño).
+        // Los mismos tipos y permisos iniciales que carga DbSeeder (diseño). El Administrador no lleva filas.
         const string A = Roles.Administrador, V = Roles.AsistenteVentas, C = Roles.Cobros;
         foreach (var (nombre, subir, ver) in new (string, string[], string[])[]
         {
@@ -43,7 +43,7 @@ public sealed class ArchivosServiceTests : IDisposable
         })
         {
             var t = new TipoDocumento { Nombre = nombre, Codigo = nombre == "Comprobantes de pago" ? TipoDocumento.CodigoComprobantesPago : "" };
-            foreach (var rol in Roles.Todos)
+            foreach (var rol in Roles.Todos.Where(r => r != A))
                 t.Permisos.Add(new PermisoDocumento { Rol = rol, PuedeSubir = subir.Contains(rol), PuedeVer = ver.Contains(rol) });
             db.TiposDocumento.Add(t);
             db.SaveChanges();
@@ -222,11 +222,18 @@ public sealed class ArchivosServiceTests : IDisposable
                 Servicio(db, Roles.Cobros).GuardarPermisoAsync(new(_tipo["Poderes"], Roles.Cobros, true, true)));
             await Assert.ThrowsAsync<ValidacionException>(() =>
                 Servicio(db, Roles.Administrador).GuardarPermisoAsync(new(_tipo["Poderes"], "Legal", true, false)));
+            await Assert.ThrowsAsync<ValidacionException>(() =>
+                Servicio(db, Roles.Administrador).GuardarPermisoAsync(new(_tipo["Poderes"], Roles.Administrador, false, false)));
 
             var guardado = await Servicio(db, Roles.Administrador).GuardarPermisoAsync(new(_tipo["Poderes"], Roles.Cobros, false, true));
             Assert.True(guardado.PuedeVer);
             Assert.True(guardado.PuedeSubir);
-            Assert.Equal(12, (await Servicio(db, Roles.Administrador).PermisosDocumentoAsync()).Count);
+            // La matriz no incluye al Administrador, aunque tenga filas guardadas de antes.
+            db.PermisosDocumento.Add(new PermisoDocumento { TipoDocumentoId = _tipo["Poderes"], Rol = Roles.Administrador, PuedeVer = true, PuedeSubir = true });
+            await db.SaveChangesAsync();
+            var matriz = await Servicio(db, Roles.Administrador).PermisosDocumentoAsync();
+            Assert.Equal(8, matriz.Count);
+            Assert.DoesNotContain(matriz, p => p.Rol == Roles.Administrador);
         }
         var id = CrearPersona();
         var dto = await SubirAsync(id, "Poderes", Roles.Cobros);
@@ -240,11 +247,12 @@ public sealed class ArchivosServiceTests : IDisposable
         var catalogos = new CatalogosService(db, new SinUsuarios(), new ActualizadorCobros(db, new Fecha()));
         var nuevo = await catalogos.CrearAsync("tipos-documento", new GuardarCatalogoItemRequest("Escrituras", null, null));
         Assert.StartsWith("TD-", nuevo.Codigo);
-        var permisos = await db.PermisosDocumento.Where(p => p.TipoDocumentoId == nuevo.Id).ToListAsync();
-        var admin = Assert.Single(permisos);
-        Assert.Equal(Roles.Administrador, admin.Rol);
-        Assert.True(admin.PuedeSubir);
+        // Sin filas de permisos: el Administrador lo ve y lo sube igual; los demás roles, no.
+        Assert.False(await db.PermisosDocumento.AnyAsync(p => p.TipoDocumentoId == nuevo.Id));
         Assert.Contains((await catalogos.ObtenerAsync()).TiposDocumento, t => t.Nombre == "Escrituras");
+        var cliente = CrearPersona();
+        Assert.Contains(nuevo.Id, (await Servicio(db, Roles.Administrador).ListarAsync(cliente)).TiposSubir);
+        Assert.DoesNotContain(nuevo.Id, (await Servicio(db, Roles.Cobros).ListarAsync(cliente)).TiposSubir);
 
         var id = CrearPersona();
         await SubirAsync(id, "Contrato");

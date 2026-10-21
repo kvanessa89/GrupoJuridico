@@ -45,6 +45,19 @@ function Menu() {
   )
 }
 
+/** Tiempo que se muestra el indicador de carga al entrar a una pantalla. */
+const ESPERA_PANTALLA = 200
+
+/** Al cambiar de pantalla se muestra un momento el indicador de carga y luego la pantalla nueva. */
+function PantallaConCarga() {
+  const [lista, setLista] = useState(false)
+  useEffect(() => {
+    const t = window.setTimeout(() => setLista(true), ESPERA_PANTALLA)
+    return () => window.clearTimeout(t)
+  }, [])
+  return lista ? <div className="pantalla-entrada"><Outlet /></div> : <Cargando pantalla inmediato />
+}
+
 /** Encabezado, menú lateral fijo y área de contenido de la parte privada. */
 export function AppLayout() {
   const { usuario, cargando, salir } = useSesion()
@@ -77,8 +90,8 @@ export function AppLayout() {
         <div className="cuerpo">
           <Menu />
           <main className="principal">
-            {/* La clave reinicia la animación de entrada en cada pantalla. */}
-            <div key={pathname} className="pantalla-entrada"><Outlet /></div>
+            {/* La clave reinicia la carga y la animación de entrada en cada pantalla. */}
+            <PantallaConCarga key={pathname} />
           </main>
         </div>
       </div>

@@ -38,14 +38,14 @@ function nota(vista: VistaCobros, d: CobrosLista | null): string {
 }
 
 const COLUMNAS: Columna[] = [
-  { label: 'Expediente - Nombre', orden: 'expediente', ancho: '22%' },
-  { label: 'Teléfono y WhatsApp', ancho: '12%' },
-  { label: 'Estado del cliente', orden: 'estadoCliente', ancho: '10%' },
+  { label: 'Expediente - Nombre', orden: 'expediente', ancho: '20%' },
+  { label: 'Teléfono y WhatsApp', ancho: '14%' },
   { label: 'Cuotas vencidas', orden: 'cuotasVenc', ancho: '10%' },
   { label: 'Monto vencido', orden: 'vencido', ancho: '11%' },
   { label: 'Atraso', orden: 'atraso', ancho: '9%' },
   { label: 'Próxima cuota', orden: 'proxima', ancho: '11%' },
-  { label: 'Promesa', ancho: '15%' },
+  { label: 'Estado del cliente', orden: 'estadoCliente', ancho: '12%' },
+  { label: 'Promesa', ancho: '13%' },
 ]
 
 const COLUMNAS_RECORDATORIOS: Columna[] = [
@@ -123,13 +123,13 @@ export function CobrosPage() {
       celdas: [
         nombre(f),
         <Celda t={f.telefono ? <EnlaceTelefono numero={f.telefono} /> : '—'} s={f.whatsapp ? 'WA ' + f.whatsapp : undefined} clase="c-num-suave" subClase="c-sub-min" />,
-        estado,
         <Celda t={f.tienePlan ? String(f.cuotasVencidas) : '—'} s={f.tienePlan ? 'de ' + plural(f.cantidadCuotas, 'cuota') : 'Sin plan'} clase="c-num" subClase="c-sub-min" />,
         <Celda t={f.tienePlan ? fMonto(f.montoVencido) : '—'} clase="c-num" />,
         <Celda t={f.atraso ? plural(f.atraso, 'día') : '—'} clase="c-num-suave" />,
         f.proxima
           ? <Celda t={fCorta(f.proxima.fecha)} s={fMonto(f.proxima.saldo)} clase="c-num-suave" subClase="c-sub-min" />
           : <Celda t={f.tienePlan ? 'Plan pagado' : 'Sin plan'} clase="c-num-suave" />,
+        estado,
         promesa(f),
       ],
     }

@@ -114,7 +114,9 @@ public class DbSeederEntornoTests
         await fixture.Seeder.EjecutarAsync();
         Assert.Equal(new[] { "Poderes", "Contrato", "Comprobantes de pago", "Gestión legal" },
             await fixture.Db.TiposDocumento.OrderBy(t => t.Id).Select(t => t.Nombre).ToListAsync());
-        Assert.Equal(12, await fixture.Db.PermisosDocumento.CountAsync());
+        // Solo los roles que no son Administrador (él siempre ve y sube todo).
+        Assert.Equal(8, await fixture.Db.PermisosDocumento.CountAsync());
+        Assert.False(await fixture.Db.PermisosDocumento.AnyAsync(p => p.Rol == Roles.Administrador));
 
         // Un tipo eliminado en Configuración no vuelve; el de comprobantes se recrea con sus permisos.
         fixture.Db.TiposDocumento.RemoveRange(fixture.Db.TiposDocumento.Where(t => t.Nombre == "Poderes" || t.Codigo == TipoDocumento.CodigoComprobantesPago));
@@ -122,7 +124,7 @@ public class DbSeederEntornoTests
         await fixture.Seeder.EjecutarAsync();
         Assert.False(await fixture.Db.TiposDocumento.AnyAsync(t => t.Nombre == "Poderes"));
         var comprobantes = await fixture.Db.TiposDocumento.Include(t => t.Permisos).SingleAsync(t => t.Codigo == TipoDocumento.CodigoComprobantesPago);
-        Assert.Equal(new[] { Roles.Administrador, Roles.Cobros },
+        Assert.Equal(new[] { Roles.Cobros },
             comprobantes.Permisos.Where(p => p.PuedeSubir).Select(p => p.Rol).OrderBy(r => r).ToArray());
     }
 

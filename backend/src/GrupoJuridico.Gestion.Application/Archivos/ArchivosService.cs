@@ -59,9 +59,14 @@ public class ArchivosService
         _almacen = almacen;
     }
 
-    /// <summary>Permisos del rol actual por tipo de documento (sin fila = sin permiso).</summary>
+    /// <summary>
+    /// Permisos del rol actual por tipo de documento (sin fila = sin permiso). El Administrador ve y sube
+    /// todos los tipos sin depender de la matriz.
+    /// </summary>
     private async Task<Dictionary<int, (bool Ver, bool Subir)>> PermisosAsync(CancellationToken ct)
     {
+        if (_usuario.EsAdministrador)
+            return await _db.TiposDocumento.AsNoTracking().ToDictionaryAsync(t => t.Id, _ => (true, true), ct);
         var rol = _usuario.Rol ?? "";
         return await _db.PermisosDocumento.AsNoTracking().Where(p => p.Rol == rol)
             .ToDictionaryAsync(p => p.TipoDocumentoId, p => (p.PuedeVer || p.PuedeSubir, p.PuedeSubir), ct);
@@ -191,7 +196,8 @@ public class ArchivosService
     public async Task<IReadOnlyList<PermisoDocumentoDto>> PermisosDocumentoAsync(CancellationToken ct = default)
     {
         ExigirAdministrador();
-        return await _db.PermisosDocumento.AsNoTracking().OrderBy(p => p.TipoDocumentoId).ThenBy(p => p.Rol)
+        return await _db.PermisosDocumento.AsNoTracking().Where(p => p.Rol != Roles.Administrador)
+            .OrderBy(p => p.TipoDocumentoId).ThenBy(p => p.Rol)
             .Select(p => new PermisoDocumentoDto(p.TipoDocumentoId, p.Rol, p.PuedeVer || p.PuedeSubir, p.PuedeSubir)).ToListAsync(ct);
     }
 
@@ -199,6 +205,8 @@ public class ArchivosService
     {
         ExigirAdministrador();
         if (!Roles.Todos.Contains(r.Rol)) throw new ValidacionException("rol", "El rol no existe.");
+        if (r.Rol == Roles.Administrador)
+            throw new ValidacionException("rol", "El Administrador siempre puede ver y subir todos los tipos de documento.");
         if (!await _db.TiposDocumento.AnyAsync(t => t.Id == r.TipoDocumentoId, ct))
             throw new ValidacionException("tipoDocumentoId", "El tipo de documento ya no existe. Recargue la página.");
         var permiso = await _db.PermisosDocumento.FirstOrDefaultAsync(p => p.TipoDocumentoId == r.TipoDocumentoId && p.Rol == r.Rol, ct);

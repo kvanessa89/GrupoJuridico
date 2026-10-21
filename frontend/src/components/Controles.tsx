@@ -266,12 +266,29 @@ export function TarjetaSeccion({ titulo, accion, children }: { titulo: string; a
   )
 }
 
+/**
+ * Fondo de un modal: se cierra al hacer clic afuera, pero solo si el clic también empezó afuera.
+ * Así no se cierra al seleccionar el texto de un campo y soltar el mouse fuera del modal.
+ */
+export function FondoModal({ onCerrar, children }: { onCerrar: () => void; children: ReactNode }) {
+  const desdeFondo = useRef(false)
+  return (
+    <div
+      className="modal-fondo"
+      onMouseDown={(e) => { desdeFondo.current = e.target === e.currentTarget }}
+      onClick={(e) => { if (desdeFondo.current && e.target === e.currentTarget) onCerrar() }}
+    >
+      {children}
+    </div>
+  )
+}
+
 export function Modal({
   titulo, texto, onCancelar, onConfirmar, confirmar = 'Eliminar',
 }: { titulo: string; texto: string; onCancelar: () => void; onConfirmar: () => void; confirmar?: string }) {
   return (
-    <div className="modal-fondo" onClick={onCancelar}>
-      <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+    <FondoModal onCerrar={onCancelar}>
+      <div className="modal" role="dialog" aria-modal="true">
         <div className="modal-titulo">{titulo}</div>
         <p>{texto}</p>
         <div className="modal-acciones">
@@ -279,7 +296,7 @@ export function Modal({
           <button className="btn-peligro" onClick={onConfirmar}>{confirmar}</button>
         </div>
       </div>
-    </div>
+    </FondoModal>
   )
 }
 

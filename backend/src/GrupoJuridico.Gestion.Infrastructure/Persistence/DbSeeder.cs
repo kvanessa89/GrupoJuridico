@@ -216,8 +216,9 @@ public class DbSeeder
                 _db.TiposDocumento.Add(tipo);
             }
             // Un tipo creado por una migración llega sin permisos: se le asignan los iniciales.
+            // El Administrador no lleva filas: siempre ve y sube todo.
             if (tipo.Permisos.Count == 0)
-                foreach (var rol in Roles.Todos)
+                foreach (var rol in Roles.Todos.Where(r => r != A))
                     tipo.Permisos.Add(new PermisoDocumento { Rol = rol, PuedeSubir = t.Subir.Contains(rol), PuedeVer = t.Ver.Contains(rol) });
         }
         if (!cargados) _db.Configuracion.Add(new ConfiguracionSistema { Clave = ConfiguracionSistema.TiposDocumentoIniciales, Valor = "1" });

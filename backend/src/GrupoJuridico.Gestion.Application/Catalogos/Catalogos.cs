@@ -129,10 +129,9 @@ public class CatalogosService
                 return await AgregarAsync(_db.Paises, new Pais { Codigo = Prefijo(request.Codigo), Nombre = nombre }, ct);
             case "tipos-documento":
             {
-                // Un tipo nuevo empieza solo con el Administrador; los demás roles se habilitan en la matriz de permisos.
-                var tipoDoc = new TipoDocumento { Nombre = nombre };
-                tipoDoc.Permisos.Add(new PermisoDocumento { Rol = Roles.Administrador, PuedeVer = true, PuedeSubir = true });
-                return await AgregarAsync(_db.TiposDocumento, tipoDoc, ct, "TD-");
+                // Un tipo nuevo empieza sin permisos: solo el Administrador (que ve todo) lo usa hasta habilitar
+                // a los demás roles en la matriz de permisos.
+                return await AgregarAsync(_db.TiposDocumento, new TipoDocumento { Nombre = nombre }, ct, "TD-");
             }
             case "estados-prima":
                 throw new ValidacionException("tipo", "Los estados de prima son fijos: solo se puede cambiar su nombre.");

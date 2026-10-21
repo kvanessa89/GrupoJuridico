@@ -252,7 +252,8 @@ const clavePermiso = (tipoId: number, rol: string) => tipoId + '|' + rol
 function PermisosDocumento({ abierto, onToggle }: { abierto: boolean; onToggle: () => void }) {
   const { catalogos } = useSesion()
   const tipos = (catalogos?.tiposDocumento ?? []).filter((t) => t.nombre.trim())
-  const roles = catalogos?.roles ?? []
+  // El Administrador siempre ve y sube todo: no aparece en la matriz.
+  const roles = (catalogos?.roles ?? []).filter((r) => r.nombre !== 'Administrador')
   const [permisos, setPermisos] = useState<Record<string, PermisoDocumento>>({})
   const [error, setError] = useState('')
 
@@ -293,7 +294,7 @@ function PermisosDocumento({ abierto, onToggle }: { abierto: boolean; onToggle: 
       </button>
       {abierto && (
         <div className="plegable-cuerpo" style={{ overflowX: 'auto' }}>
-          <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--ink2)', maxWidth: '70ch' }}>
+          <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--ink2)' }}>
             Marque qué rol puede subir y qué rol puede ver cada tipo de documento. Si un rol puede subir un tipo de documento, siempre puede verlo
             (y también quitar sus archivos).
           </p>

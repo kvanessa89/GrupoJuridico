@@ -5,7 +5,7 @@ import type { CuotaDto, PagoDto, PlanDetalle, PlanPersona, PromesaDto } from '..
 import { useSesion } from '../../auth/Sesion'
 import { ChipTono } from '../../components/Chips'
 import { estiloTono, TONO_PAGO, TONO_PROMESA, TONO_VENCIMIENTO } from '../../utils/colores'
-import { CampoMonto, CampoTexto } from '../../components/Controles'
+import { CampoMonto, CampoTexto, FondoModal } from '../../components/Controles'
 import { Check, Chevron, Documento, IconoPago, IconoPromesa, Lapiz, Subir } from '../../components/Iconos'
 import { guardarBlob } from '../../utils/descargas'
 import { fCorta, fFecha, fMonto, plural } from '../../utils/formato'
@@ -148,8 +148,8 @@ export function TablaCuotas({ cuotas, acciones }: { cuotas: CuotaDto[]; acciones
     <div className="sin-scroll" style={{ overflowX: 'auto' }}>
       <div style={{ minWidth: detalle ? 640 : 624 }}>
         <div className={clase + ' cuotas-cabecera'}>
-          <span>Cuota</span><span>Fecha</span><span>Monto</span><span>Saldo</span><span>Pago</span><span>Vencimiento</span><span>Promesa</span>
-          <span style={{ textAlign: 'right' }}>{detalle ? 'Acciones' : ''}</span>
+          <span style={{ textAlign: 'center' }}>Cuota</span><span>Fecha</span><span>Monto</span><span>Saldo pendiente</span><span>Pago</span><span>Vencimiento</span><span>Promesa</span>
+          <span style={{ textAlign: 'center' }}>{detalle ? 'Acciones' : ''}</span>
         </div>
         {cuotas.map((c) => {
           const esAbierta = detalle && abierta === c.id
@@ -173,7 +173,7 @@ export function TablaCuotas({ cuotas, acciones }: { cuotas: CuotaDto[]; acciones
                   }
                 }}
               >
-                <span style={{ fontWeight: 700 }}>{c.numeroCuota}</span>
+                <span style={{ fontWeight: 700, textAlign: 'center' }}>{c.numeroCuota}</span>
                 <span className="cuota-celda">
                   <span>{fFecha(c.fechaVencimiento)}</span>
                   {detalle && actividad && <span className="cuota-actividad"><Check tamano={11} />{actividad}</span>}
@@ -332,14 +332,14 @@ export function ModalCuota({
     }
   }
 
-  const sub = `Vence el ${fFecha(cuota.fechaVencimiento)} · ` + (form.modo === 'editarPago' ? `Saldo sin este pago ${fMonto(saldoBase)}` : `Saldo ${fMonto(saldoBase)}`)
+  const sub = `Vence el ${fFecha(cuota.fechaVencimiento)} · Saldo ${fMonto(saldoBase)}`
 
   return (
-    <div className="modal-fondo" onClick={onCerrar}>
-      <div className="modal modal-cuota" role="dialog" aria-modal="true" aria-labelledby="modal-cuota-titulo" onClick={(e) => e.stopPropagation()}>
+    <FondoModal onCerrar={onCerrar}>
+      <div className="modal modal-cuota" role="dialog" aria-modal="true" aria-labelledby="modal-cuota-titulo">
         <div>
           <div id="modal-cuota-titulo" className="modal-titulo" style={{ marginBottom: 4 }}>{titulo} · Cuota {cuota.numeroCuota}</div>
-          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink3)' }}>{sub}</p>
+          {form.modo === 'promesa' && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink3)' }}>{sub}</p>}
         </div>
         <div className="modal-grilla">
           {esPago ? (
@@ -389,6 +389,6 @@ export function ModalCuota({
           <button className="btn-primario" style={{ padding: '10px 16px' }} disabled={enviando} onClick={guardar}>{boton}</button>
         </div>
       </div>
-    </div>
+    </FondoModal>
   )
 }
