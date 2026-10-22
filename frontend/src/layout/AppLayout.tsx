@@ -3,6 +3,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router'
 import { permisos, useSesion } from '../auth/Sesion'
 import { Cargando } from '../components/Cargando'
 import { IconoClientes, IconoCobros, IconoConfig, IconoMenu, IconoUsuarios, IconoVentas, Maletin } from '../components/Iconos'
+import { useVersionNueva } from '../hooks/useVersionNueva'
 import { iniciales } from '../utils/formato'
 import { FiltrosProvider, useReiniciarFiltros, type SeccionLista } from './Filtros'
 
@@ -62,6 +63,7 @@ function PantallaConCarga() {
 export function AppLayout() {
   const { usuario, cargando, salir } = useSesion()
   const { pathname } = useLocation()
+  const versionNueva = useVersionNueva()
 
   // Al cambiar de pantalla el scroll vuelve arriba.
   useEffect(() => {
@@ -90,6 +92,9 @@ export function AppLayout() {
         <div className="cuerpo">
           <Menu />
           <main className="principal">
+            {versionNueva && (
+              <p className="aviso-version" role="status">Hay una versión nueva del sistema: se aplicará al cambiar de pantalla.</p>
+            )}
             {/* La clave reinicia la carga y la animación de entrada en cada pantalla. */}
             <PantallaConCarga key={pathname} />
           </main>

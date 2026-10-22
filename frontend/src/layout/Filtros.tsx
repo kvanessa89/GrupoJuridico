@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { CobrosFiltros, FiltrosLista } from '../api/tipos'
 import { mesActual } from '../utils/formato'
 
@@ -29,21 +29,48 @@ interface Ctx {
 
 const FiltrosCtx = createContext<Ctx | null>(null)
 
+/** Los filtros se guardan en la pestaña para sobrevivir a una recarga (F5 o una versión nueva). */
+const CLAVE_FILTROS = 'gj-filtros'
+
+interface Guardados { ventas: FiltrosLista; clientes: FiltrosLista; cobros: CobrosFiltros }
+
+function leerGuardados(): Partial<Guardados> {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(CLAVE_FILTROS) ?? '{}') as unknown
+    return v && typeof v === 'object' ? v as Partial<Guardados> : {}
+  } catch {
+    return {}
+  }
+}
+
+/** Al cerrar sesión, el siguiente usuario de la pestaña empieza con los filtros iniciales. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function borrarFiltrosGuardados() {
+  try { sessionStorage.removeItem(CLAVE_FILTROS) } catch { /* sin almacenamiento: no hay nada que borrar */ }
+}
+
 /** Conserva los filtros de cada tabla al entrar y volver de una ficha. */
 export function FiltrosProvider({ children }: { children: ReactNode }) {
-  const [filtros, setFiltros] = useState<Record<SeccionLista, FiltrosLista>>({
-    ventas: filtrosIniciales('ventas'),
-    clientes: filtrosIniciales('clientes'),
-  })
+  // Lo guardado se combina con los iniciales: un filtro agregado en una versión nueva toma su valor inicial.
+  const [guardados] = useState(leerGuardados)
+  const [filtros, setFiltros] = useState<Record<SeccionLista, FiltrosLista>>(() => ({
+    ventas: { ...filtrosIniciales('ventas'), ...guardados.ventas },
+    clientes: { ...filtrosIniciales('clientes'), ...guardados.clientes },
+  }))
   const cambiar = useCallback((s: SeccionLista, cambios: Partial<FiltrosLista>) => {
     setFiltros((f) => ({ ...f, [s]: { ...f[s], ...cambios } }))
   }, [])
-  const [cobros, setCobros] = useState(COBROS_INICIALES)
+  const [cobros, setCobros] = useState<CobrosFiltros>(() => ({ ...COBROS_INICIALES, ...guardados.cobros }))
   const cambiarCobros = useCallback((cambios: Partial<CobrosFiltros>) => setCobros((f) => ({ ...f, ...cambios })), [])
   const reiniciar = useCallback((s: SeccionLista | 'cobros') => {
     if (s === 'cobros') setCobros(COBROS_INICIALES)
     else setFiltros((f) => ({ ...f, [s]: filtrosIniciales(s) }))
   }, [])
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(CLAVE_FILTROS, JSON.stringify({ ...filtros, cobros }))
+    } catch { /* sin almacenamiento: los filtros solo duran mientras la página está abierta */ }
+  }, [filtros, cobros])
   const valor = useMemo(() => ({ filtros, cambiar, reiniciar, cobros, cambiarCobros }), [filtros, cambiar, reiniciar, cobros, cambiarCobros])
   return <FiltrosCtx.Provider value={valor}>{children}</FiltrosCtx.Provider>
 }

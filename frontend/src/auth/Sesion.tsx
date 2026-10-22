@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { guardarToken, leerToken, registrarExpiracion } from '../api/cliente'
 import { api } from '../api/endpoints'
 import type { Catalogos, Rol, Usuario } from '../api/tipos'
+import { borrarFiltrosGuardados } from '../layout/Filtros'
 
 interface SesionCtx {
   usuario: Usuario | null
@@ -21,6 +22,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
 
   const salir = useCallback(() => {
     guardarToken(null)
+    borrarFiltrosGuardados()
     setUsuario(null)
     setCatalogos(null)
   }, [])
