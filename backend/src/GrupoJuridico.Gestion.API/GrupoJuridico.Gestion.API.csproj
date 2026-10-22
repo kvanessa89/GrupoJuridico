@@ -17,9 +17,16 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
-  <!-- Configuración local con secretos (está en .gitignore): nunca se publica al servidor. -->
+  <!--
+    Al publicar solo va la configuración del entorno de destino:
+      dotnet publish -c Release -p:EnvironmentName=Staging   (o Production)
+    Con EnvironmentName, el web.config publicado también lleva ASPNETCORE_ENVIRONMENT.
+    Development (secretos locales, en .gitignore) y Testing nunca se publican.
+  -->
   <ItemGroup>
-    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Update="appsettings.Development.json;appsettings.Testing.json" CopyToPublishDirectory="Never" />
+    <Content Update="appsettings.Staging.json" CopyToPublishDirectory="Never" Condition="'$(EnvironmentName)' != '' And '$(EnvironmentName)' != 'Staging'" />
+    <Content Update="appsettings.Production.json" CopyToPublishDirectory="Never" Condition="'$(EnvironmentName)' != '' And '$(EnvironmentName)' != 'Production'" />
   </ItemGroup>
 
   <ItemGroup>

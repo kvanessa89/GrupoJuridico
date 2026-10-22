@@ -66,6 +66,15 @@ Jwt__Key="<clave de al menos 32 caracteres>"
 Seed__AdminContrasena="<contraseña inicial del usuario admin>"
 ```
 
+Publicar para un entorno (solo incluye `appsettings.json` y el del entorno; el `web.config` lleva
+`ASPNETCORE_ENVIRONMENT`):
+
+```bash
+dotnet publish src/GrupoJuridico.Gestion.API -c Release -p:EnvironmentName=Staging     # o Production
+```
+
+`appsettings.Development.json` y `appsettings.Testing.json` nunca se publican.
+
 Nueva migración:
 
 ```bash
