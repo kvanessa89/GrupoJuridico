@@ -92,6 +92,10 @@ npm run build:staging  # staging (.env.staging)
 
 `VITE_API_URL` define la URL de la API por entorno.
 
+En IIS, el build incluye `web.config` (desde `public/`). Con él, las direcciones de la aplicación (por ejemplo
+`/gestion/cobros`) se pueden abrir directamente o recargar, `index.html` no se guarda en caché y `/assets` sí, por
+un año. Requiere el módulo URL Rewrite de IIS.
+
 ## Archivos del expediente
 
 La ficha del cliente tiene la pestaña **Archivos**: se elige el tipo de documento y se suben uno o varios archivos (PDF, imágenes, Word o Excel; hasta 10 MB cada uno y 25 MB por envío). En **Configuración → Archivos** se administran los tipos de documento y la matriz de permisos: cada rol puede **subir** (y quitar) y/o **ver** cada tipo. Subir implica ver. Un tipo nuevo empieza habilitado solo para el Administrador.

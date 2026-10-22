@@ -17,6 +17,11 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
+  <!-- Configuración local con secretos (está en .gitignore): nunca se publica al servidor. -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\GrupoJuridico.Gestion.Application\GrupoJuridico.Gestion.Application.csproj" />
     <ProjectReference Include="..\GrupoJuridico.Gestion.Infrastructure\GrupoJuridico.Gestion.Infrastructure.csproj" />
