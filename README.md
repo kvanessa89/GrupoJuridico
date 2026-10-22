@@ -66,6 +66,15 @@ Jwt__Key="<clave de al menos 32 caracteres>"
 Seed__AdminContrasena="<contraseña inicial del usuario admin>"
 ```
 
+Publicar para un entorno (solo incluye `appsettings.json` y el del entorno; el `web.config` lleva
+`ASPNETCORE_ENVIRONMENT`):
+
+```bash
+dotnet publish src/GrupoJuridico.Gestion.API -c Release -p:EnvironmentName=Staging     # o Production
+```
+
+`appsettings.Development.json` y `appsettings.Testing.json` nunca se publican.
+
 Nueva migración:
 
 ```bash
@@ -91,6 +100,10 @@ npm run build:staging  # staging (.env.staging)
 ```
 
 `VITE_API_URL` define la URL de la API por entorno.
+
+En IIS, el build incluye `web.config` (desde `public/`). Con él, las direcciones de la aplicación (por ejemplo
+`/gestion/cobros`) se pueden abrir directamente o recargar, `index.html` no se guarda en caché y `/assets` sí, por
+un año. Requiere el módulo URL Rewrite de IIS.
 
 ## Archivos del expediente
 
